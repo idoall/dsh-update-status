@@ -72,8 +72,10 @@ Check identity and account security first:
 
 ```sh
 npm whoami
-npm profile get two-factor auth
+npm profile get
 ```
+
+Inspect the profile output and confirm that two-factor authentication is enabled for package publication.
 
 Publish the verified tarball, not a newly rebuilt directory:
 
