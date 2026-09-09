@@ -1,0 +1,34 @@
+name: Build release candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build package for manual npm verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test
+      - run: pnpm run build
+      - name: Pack and checksum
+        run: |
+          package="$(pnpm pack --pack-destination release-assets | tail -n 1)"
+          test -f "$package"
+          (cd release-assets && shasum -a 256 *.tgz > SHA256SUMS)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dsh-update-status-${{ github.sha }}
+          path: |
+            release-assets/*.tgz
+            release-assets/SHA256SUMS
+          if-no-files-found: error

@@ -1,0 +1,101 @@
+{
+  "name": "dsh-update-status",
+  "version": "0.1.0",
+  "description": "Read-only DeepSeek Harness Web plugin that shows the running DSH version, discovers latest/next/alpha releases, warns about compatibility, and generates copy-only upgrade commands.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.d.ts",
+    "lib/client.js",
+    "lib/client.js.map",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "assets/update-panel.png",
+    "docs/RELEASING.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
+    "test": "pnpm run typecheck && vitest run",
+    "test:unit": "vitest run",
+    "clean": "rm -rf lib coverage",
+    "prepack": "pnpm run build",
+    "verify": "pnpm run test && pnpm run build && pnpm pack --dry-run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idoall/dsh-update-status.git"
+  },
+  "bugs": {
+    "url": "https://github.com/idoall/dsh-update-status/issues"
+  },
+  "homepage": "https://github.com/idoall/dsh-update-status#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-general"
+      ]
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.1.2-rc.1": "compatible"
+      }
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "plugin",
+    "update",
+    "version"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.2"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-settings": "0.1.2-rc.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-settings": "0.1.2-rc.1",
+    "@deepseek-ai/schemastery": "^3.18.2",
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.31",
+    "react": "^18.3.1",
+    "tsdown": "^0.22.14",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "packageManager": "pnpm@10.33.1"
+}

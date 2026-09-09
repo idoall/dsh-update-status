@@ -1,0 +1,5 @@
+# The host half is a plain static Cordis plugin. package.json's dsh.client
+# declaration loads the built ./client browser half into the current Web GUI.
+- insert:
+    - id: dsh-update-status
+      name: dsh-update-status
