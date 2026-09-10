@@ -70,11 +70,7 @@ jobs:
         with:
           name: dsh-update-status-${{ github.sha }}
           path: release-assets
-      - name: Publish first package with the configured npm token
-        env:
-          # Bootstrap only: npm cannot authorize OIDC publishing until the
-          # package has been created and its Trusted Publisher is configured.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish through npm Trusted Publishing
         run: |
           package="$(find "$GITHUB_WORKSPACE/release-assets" -maxdepth 1 -type f -name 'dsh-update-status-*.tgz' -print -quit)"
           test -n "$package"
@@ -84,6 +80,8 @@ jobs:
             echo "dsh-update-status@$version is already published; leaving the immutable npm release unchanged."
             exit 0
           fi
+          # npm Trusted Publishing exchanges GitHub's OIDC token automatically.
+          # Do not configure NODE_AUTH_TOKEN or an NPM_TOKEN GitHub secret.
           npm publish "$package" --access public --tag latest
 
   github-release:

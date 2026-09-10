@@ -1,16 +1,10 @@
 # Releasing dsh-update-status
 
-Releases are built from immutable Git tags and published by GitHub Actions. npm packages are immutable: never reuse a version that npm has accepted.
+Releases are built from immutable Git tags and published by GitHub Actions through npm Trusted Publishing (GitHub OIDC). The repository stores **no** `NPM_TOKEN`, npm access token, or OTP. npm packages are immutable: never reuse a version that npm has accepted.
 
-## First release bootstrap
+## npm Trusted Publisher
 
-npm cannot authorize Trusted Publishing for a package until that package exists and has an npm-side Trusted Publisher configured. For the initial `0.1.0` bootstrap only, the release workflow uses the repository `NPM_TOKEN` secret through `NODE_AUTH_TOKEN`.
-
-The token must belong to the npm account or organization that owns `dsh-update-status`, have publish permission, and satisfy that account’s 2FA/automation requirements. Never put it in a source file, local `.npmrc`, issue, or workflow log. After `0.1.0` succeeds, configure OIDC as below and remove the Secret before the next version.
-
-## One-time npm Trusted Publisher configuration after first publish
-
-After the first package exists at [npmjs.com](https://www.npmjs.com/), add a **Trusted Publisher**:
+The public package at [npmjs.com/package/dsh-update-status](https://www.npmjs.com/package/dsh-update-status) is bound to this repository:
 
 | npm field | Value |
 | --- | --- |
@@ -20,7 +14,9 @@ After the first package exists at [npmjs.com](https://www.npmjs.com/), add a **T
 | Workflow filename | `release.yml` |
 | Environment | Leave blank |
 
-The workflow path must be `.github/workflows/release.yml`. After confirming the Trusted Publisher is active, change the publish step back to OIDC (remove `NODE_AUTH_TOKEN`), retain `id-token: write`, remove the repository `NPM_TOKEN` Secret, and test the next release with a new version/tag.
+The workflow path must remain `.github/workflows/release.yml`. The `publish` job receives only a short-lived GitHub OIDC token through `id-token: write`. Do not add an `NPM_TOKEN` GitHub secret.
+
+The first `0.1.0` package was bootstrapped once with a token because npm cannot attach a Trusted Publisher until the package exists. Later versions must use OIDC only.
 
 ## What a release tag does
 
@@ -29,7 +25,7 @@ Pushing a tag matching `v*` triggers [`.github/workflows/release.yml`](../.githu
 1. Require `vX.Y.Z` to exactly match `package.json`’s `X.Y.Z` version.
 2. Install dependencies with a frozen lockfile, run tests, build, and pack exactly one `.tgz` artifact.
 3. Upload that artifact and `SHA256SUMS` as a GitHub Actions artifact.
-4. Publish that same artifact to npm with the bootstrap token and the `latest` dist-tag. After the first successful publish and npm-side configuration, later releases use Trusted Publishing (GitHub OIDC).
+4. Publish that same artifact to npm with Trusted Publishing and the `latest` dist-tag.
 5. Create (or update) the GitHub Release and attach the tarball and checksum **only after** the publish job succeeds.
 
 If `dsh-update-status@X.Y.Z` already exists on npm, the immutable npm package is left unchanged and the workflow continues safely to the GitHub Release step.
@@ -58,7 +54,7 @@ shasum -a 256 .tmp/release/dsh-update-status-*.tgz
 npm pack --dry-run .tmp/release/dsh-update-status-*.tgz
 ```
 
-Before the first release, verify npm does not already own the exact version:
+Confirm npm does not already own the exact version:
 
 ```sh
 VERSION="$(node -p "require('./package.json').version")"
@@ -67,7 +63,7 @@ npm view "dsh-update-status@$VERSION" version || true
 
 ## Publish a version
 
-After npm Trusted Publishing is configured and the matching source commit is on `main`:
+After the matching source commit is on `main`:
 
 ```sh
 VERSION="$(node -p "require('./package.json').version")"
@@ -75,7 +71,7 @@ git tag -a "v$VERSION" -m "dsh-update-status v$VERSION"
 git push origin "v$VERSION"
 ```
 
-Watch the **Release** workflow in GitHub Actions. It publishes npm and creates the GitHub Release; do not run `npm publish` locally for a tag-managed release.
+Watch the **Release** workflow in GitHub Actions. It publishes npm and creates the GitHub Release; do not run `npm publish` locally for a tag-managed release. Never reuse `0.1.0`.
 
 ## Verify the public package
 
