@@ -47,9 +47,9 @@ describe('StatusStore access boundary', () => {
     await store.refresh('alpha')
 
     expect(calls).toEqual([
-      { channel: '/dsh-update-status', endpoint: 'get-status', payload: { channel: 'latest', cacheTtlMinutes: 360 } },
-      { channel: '/dsh-update-status', endpoint: 'get-status', payload: { channel: 'alpha', cacheTtlMinutes: 360 } },
-      { channel: '/dsh-update-status', endpoint: 'check-update', payload: { force: true, channel: 'alpha', cacheTtlMinutes: 360 } },
+      { channel: '/api', endpoint: 'dsh-update-status.get-status', payload: { channel: 'latest', cacheTtlMinutes: 360 } },
+      { channel: '/api', endpoint: 'dsh-update-status.get-status', payload: { channel: 'alpha', cacheTtlMinutes: 360 } },
+      { channel: '/api', endpoint: 'dsh-update-status.check-update', payload: { force: true, channel: 'alpha', cacheTtlMinutes: 360 } },
     ])
     expect(store.getSnapshot()).toMatchObject({ status: { channel: 'alpha', latestVersion: '0.1.5-alpha.2' }, loading: false, error: null })
   })

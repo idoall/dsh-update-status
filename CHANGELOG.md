@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.1 — 2026-09-10
+
+Verified DeepSeek Harness: `0.1.5-rc.1`.
+
+- Adapted the Web client half to DeepSeek Harness `0.1.5-rc.1`.
+- Dropped `@deepseek-ai/dsh-client-ui-slots` from `dsh.client.inject` (it is a frozen platform module, not a boot-graph plugin).
+- Fitted the sidebar version chip to the 24px `sidebar.brand.name` row used by the current shell.
+- Moved Host RPC onto authenticated `POST /api/dsh-update-status.*` Fetch routes so the SPA fallback no longer answers with HTTP 405.
+
 ## 0.1.0 — 2026-09-10
 
 - Added a static DeepSeek Harness Web Cordis plugin with a read-only Host update-status service.

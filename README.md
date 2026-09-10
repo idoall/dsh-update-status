@@ -21,7 +21,7 @@
 
 > DSH Update Status is a community plugin for DeepSeek Harness. It does not modify DSH core and it never installs, restarts, rolls back, downloads, or replaces DSH files.
 
-It replaces only the expanded sidebar wordmark text with `DeepSeek` plus a compact version badge while leaving the official fish mark untouched. Tap the badge to inspect npm release channels, compatibility status, and a copy-only command for the selected channel.
+It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact version chip that fits the 24px brand row, leaving the official fish mark untouched. Tap the chip to inspect npm release channels, compatibility status, and a copy-only command for the selected channel.
 
 <p align="center">
   <img src="./assets/update-panel.png" width="500" alt="DSH Update Status panel showing the current stable release, an alpha preview, compatibility labels, and a copy-only upgrade command">
@@ -44,7 +44,7 @@ Requirements:
 
 - DeepSeek Harness with the Web profile
 - Node.js 20 or newer
-- Verified DSH release: `0.1.2-rc.1`
+- Verified DSH release: `0.1.5-rc.1`
 
 With an installed `dsh` command:
 
@@ -101,11 +101,14 @@ The plugin honors npm dist-tags. It does not pick the numerically greatest versi
 
 ## Compatibility
 
+Current release: plugin **`0.1.1`** is verified against DeepSeek Harness **`0.1.5-rc.1`**.
+
 | Plugin | Verified DeepSeek Harness |
 | --- | --- |
 | `0.1.0` | `0.1.2-rc.1` |
+| `0.1.1` | `0.1.5-rc.1` |
 
-A newer DSH version is not automatically declared compatible. Verify it manually first. If the plugin is incompatible, disable or uninstall it rather than patching DSH core.
+Use `0.1.1` with DSH `0.1.5-rc.1`. Keep `0.1.0` only if you are still on DSH `0.1.2-rc.1`. A newer DSH version is not automatically declared compatible. Verify it manually first. If the plugin is incompatible, disable or uninstall it rather than patching DSH core.
 
 ## Configuration
 

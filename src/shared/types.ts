@@ -3,16 +3,17 @@
  *
  * The static package uses the authenticated Connection RPC channel because
  * `harness.handle` / `host.call` are dynamic-Cordis-only closure APIs in DSH
- * 0.1.2-rc.1. The endpoint vocabulary remains deliberately small and private
+ * 0.1.5-rc.1. The endpoint vocabulary remains deliberately small and private
  * to this plugin channel.
  */
 
 export const PLUGIN_ID = 'dsh-update-status'
 export const PACKAGE_NAME = '@deepseek-ai/dsh'
-export const UPDATE_STATUS_CHANNEL = '/dsh-update-status'
+/** Shared Connection RPC channel. Custom prefixes 405 on the SPA fallback. */
+export const UPDATE_STATUS_CHANNEL = '/api'
 export const RELEASES_URL = 'https://github.com/deepseek-ai/deepseek-harness/releases'
-/** Exact DSH release this Phase-1 bundle declares compatible in package.json. */
-export const STATIC_COMPATIBLE_VERSION = '0.1.2-rc.1'
+/** Exact DSH release this bundle declares compatible in package.json. */
+export const STATIC_COMPATIBLE_VERSION = '0.1.5-rc.1'
 export const RELEASE_CHANNELS = ['latest', 'next', 'alpha'] as const
 export const DEFAULT_CACHE_TTL_MINUTES = 360
 export const MIN_CACHE_TTL_MINUTES = 30
@@ -24,8 +25,8 @@ export function isCacheTtlMinutes(value: unknown): value is number {
 }
 
 export const UPDATE_ENDPOINTS = {
-  getStatus: 'get-status',
-  checkUpdate: 'check-update',
+  getStatus: 'dsh-update-status.get-status',
+  checkUpdate: 'dsh-update-status.check-update',
 } as const
 
 export type UpdateEndpoint = (typeof UPDATE_ENDPOINTS)[keyof typeof UPDATE_ENDPOINTS]

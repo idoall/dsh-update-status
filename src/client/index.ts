@@ -1,8 +1,9 @@
 /**
- * DSH Web client half. It replaces only `sidebar.brand.name`, leaves the
- * official fish (`sidebar.brand.mark`) untouched, and adds a collapsed-rail
- * fallback at `sidebar.footer.action`. The detail panel is an additive
- * `shell.overlay`, never a chat-area floating widget.
+ * DSH Web client half. It shadows only `sidebar.brand.name` with a compact
+ * name + version chip that fits the 24px brand row, leaves the official fish
+ * (`sidebar.brand.mark`) untouched, and adds a collapsed-rail fallback at
+ * `sidebar.footer.action`. The detail panel is an additive `shell.overlay`,
+ * never a chat-area floating widget.
  */
 
 import type { ClientContext, ConnectionClient, SettingsScopeBinder } from './contract.ts'
@@ -88,11 +89,9 @@ function apply(ctx: ClientContext): void {
     }
   })
 
-  // single slot: DeepSeek + our badge replaces the complete official wordmark
-  // (which contains HARNESS), but never touches sidebar.brand.mark.
+  // Single slot: a compact name + version chip shadows the official wordmark
+  // (priority 0). Lowest priority renders; never touch sidebar.brand.mark.
   ctx.slots.inject('sidebar.brand.name', () => ctx.slots.register(
-    // Official brand uses priority 0; the single-slot ledger requires a
-    // different, lower priority to shadow it without mutating official code.
     { name: 'sidebar.brand.name', priority: -10 },
     () => BrandName({ ui }),
   ))

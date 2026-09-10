@@ -21,7 +21,7 @@
 
 > DSH Update Status 是 DeepSeek Harness 社区插件。它不修改 DSH 核心，也绝不会安装、重启、回滚、下载或替换 DSH 文件。
 
-插件只把展开侧栏中的完整名称文字换成 `DeepSeek + 版本 Badge`，官方鱼标保持不变。点击 Badge 可查看 npm 发布通道、兼容性状态，以及与所选通道对应的“仅复制”命令。
+插件只把展开侧栏中的品牌名称换成适配 24px 品牌行的 `DeepSeek + 版本芯片`，官方鱼标保持不变。点击芯片可查看 npm 发布通道、兼容性状态，以及与所选通道对应的“仅复制”命令。
 
 <p align="center">
   <img src="./assets/update-panel.png" width="500" alt="DSH Update Status 面板：当前稳定版、alpha 预览版、兼容性标签和仅复制的升级命令">
@@ -44,7 +44,7 @@
 
 - 带 Web profile 的 DeepSeek Harness
 - Node.js 20 或更新版本
-- 已验证的 DSH 版本：`0.1.2-rc.1`
+- 已验证的 DSH 版本：`0.1.5-rc.1`
 
 已经安装 `dsh` 命令：
 
@@ -101,11 +101,14 @@ npm install -g @deepseek-ai/dsh@alpha
 
 ## 兼容性
 
+当前发布：插件 **`0.1.1`** 已针对 DeepSeek Harness **`0.1.5-rc.1`** 验证。
+
 | 插件版本 | 已验证的 DeepSeek Harness |
 | --- | --- |
 | `0.1.0` | `0.1.2-rc.1` |
+| `0.1.1` | `0.1.5-rc.1` |
 
-更高 DSH 版本不会被自动宣称为兼容，需要人工验证。不兼容时请禁用或卸载插件，不要修改 DSH 核心。
+DSH `0.1.5-rc.1` 请使用 `0.1.1`。仍在 DSH `0.1.2-rc.1` 上时继续使用 `0.1.0`。更高 DSH 版本不会被自动宣称为兼容，需要人工验证。不兼容时请禁用或卸载插件，不要修改 DSH 核心。
 
 ## 配置
 

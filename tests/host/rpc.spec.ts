@@ -22,15 +22,15 @@ describe('private update-status RPC shape', () => {
     const handler = createUpdateStatusRpcHandler(fake)
     const signal = new AbortController().signal
 
-    await expect(handler('get-status', { cacheTtlMinutes: 30 }, signal)).resolves.toEqual({ ok: true, value: status })
-    await expect(handler('check-update', { force: true, channel: 'alpha', cacheTtlMinutes: 30 }, signal)).resolves.toEqual({ ok: true, value: status })
+    await expect(handler('dsh-update-status.get-status', { cacheTtlMinutes: 30 }, signal)).resolves.toEqual({ ok: true, value: status })
+    await expect(handler('dsh-update-status.check-update', { force: true, channel: 'alpha', cacheTtlMinutes: 30 }, signal)).resolves.toEqual({ ok: true, value: status })
     expect(calls).toEqual([
       { force: false, cacheTtlMinutes: 30 },
       { force: true, channel: 'alpha', cacheTtlMinutes: 30 },
     ])
-    await expect(handler('check-update', { force: 'yes' }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
-    await expect(handler('get-status', { channel: 'nightly' }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
-    await expect(handler('get-status', { cacheTtlMinutes: 29 }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
+    await expect(handler('dsh-update-status.check-update', { force: 'yes' }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
+    await expect(handler('dsh-update-status.get-status', { channel: 'nightly' }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
+    await expect(handler('dsh-update-status.get-status', { cacheTtlMinutes: 29 }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
     await expect(handler('anything-else', {}, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/unknown-endpoint' } })
   })
 })

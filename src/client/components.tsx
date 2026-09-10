@@ -109,7 +109,7 @@ export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null
   if (!preferences.sidebarEnabled) return null
 
   const state = visualState(snapshot.status, snapshot.loading, snapshot.error)
-  const version = snapshot.status?.currentVersion ?? '…'
+  const version = snapshot.status?.currentVersion ?? '—'
   const activate = (event: ReactNS.SyntheticEvent): void => {
     // The surrounding sidebar brand is an existing New Session <button>. This
     // non-button interaction prevents a nested button and stops its click.

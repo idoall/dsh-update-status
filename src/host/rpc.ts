@@ -1,4 +1,4 @@
-/** Authenticated static-plugin RPC channel for update-status DTOs. */
+/** Authenticated static-plugin RPC on Connection's shared `/api` Fetch channel. */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { isCacheTtlMinutes, isReleaseChannel, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL } from '../shared/types.ts'
@@ -19,11 +19,22 @@ export type RpcResult = RpcSuccess | RpcFailure
 
 type ConnectionRpcHandler = (endpoint: string, payload: unknown, signal: AbortSignal) => Promise<RpcResult>
 
+type ConnectionFetchMethod = 'GET' | 'HEAD' | 'POST'
+
+interface ConnectionFetchRoute {
+  path: string
+  methods: readonly ConnectionFetchMethod[]
+  requestBody: 'buffered' | 'streaming'
+  fetch: (request: Request) => Promise<Response>
+}
+
 interface ConnectionHostFace {
-  rpc?: {
-    handle?: (channel: string, handler: ConnectionRpcHandler) => () => void | Promise<void>
+  fetch?: {
+    register?: (route: ConnectionFetchRoute) => () => void | Promise<void>
   }
 }
+
+type ConnectionOwnerContext = Context & { connection: ConnectionHostFace }
 
 function failure(code: string, message: string): RpcFailure {
   return { ok: false, error: { code, message, details: {} } }
@@ -40,6 +51,44 @@ function requestOf(value: unknown): CheckUpdateRequest | undefined {
     ...(record.force === undefined ? {} : { force: record.force }),
     ...(record.channel === undefined ? {} : { channel: record.channel }),
     ...(record.cacheTtlMinutes === undefined ? {} : { cacheTtlMinutes: record.cacheTtlMinutes }),
+  }
+}
+
+function jsonResponse(rpcId: string, result: RpcResult): Response {
+  return Response.json({
+    type: 'server-response',
+    rpcId,
+    result,
+  })
+}
+
+/** Envelope-compatible Fetch adapter for one namespaced `/api` endpoint. */
+export async function dispatchUpdateStatusFetch(
+  endpoint: string,
+  handler: ConnectionRpcHandler,
+  request: Request,
+): Promise<Response> {
+  if (request.method !== 'POST') return new Response('not found', { status: 404 })
+  if (request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/json') {
+    return new Response('content type must be application/json', { status: 415 })
+  }
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return new Response('body is not JSON', { status: 400 })
+  }
+  const record = body !== null && typeof body === 'object' && !Array.isArray(body)
+    ? body as Record<string, unknown>
+    : {}
+  const rpcId = typeof record.rpcId === 'string' ? record.rpcId : 'invalid-request'
+  if (record.type !== 'client-request' || record.method !== endpoint) {
+    return jsonResponse(rpcId, failure('gateway/bad-request', 'invalid client-request message'))
+  }
+  try {
+    return jsonResponse(rpcId, await handler(endpoint, record.payload, request.signal))
+  } catch (error) {
+    return new Response(`handler failure: ${String(error)}`, { status: 500 })
   }
 }
 
@@ -67,22 +116,30 @@ export function createUpdateStatusRpcHandler(service: UpdateStatusService): Conn
 
 /**
  * Static packages do not receive dynamic Cordis's `harness.handle` closure.
- * This registration uses DSH's existing authenticated Connection RPC transport
- * and is removed with the plugin fiber.
+ * DSH 0.1.5 serves browser unary RPC only on the shared `/api` channel; a
+ * private prefix such as `/dsh-update-status` is answered by the SPA fallback
+ * with HTTP 405. Exact Fetch routes on `/api/<endpoint>` are dispatched by
+ * Connection before the Typert interceptor and do not need a new HTTP prefix.
  */
 export function installUpdateStatusRpc(ctx: Context, service: UpdateStatusService): void {
   const handler = createUpdateStatusRpcHandler(service)
-  ctx.inject(['connection'], (connectionCtx) => {
-    const connection = connectionCtx.get('connection') as ConnectionHostFace | undefined
-    const handle = typeof connection?.rpc?.handle === 'function' ? connection.rpc.handle.bind(connection.rpc) : undefined
-    if (handle === undefined) return
-    connectionCtx.effect(() => {
-      const unregister = handle(UPDATE_STATUS_CHANNEL, handler)
-      return () => {
-        // Cordis cleanup is synchronous; the Connection registry's async
-        // disposer is intentionally detached and contained.
-        void Promise.resolve(unregister()).catch(() => {})
+  ctx.inject(['connection'], (owned) => {
+    const connection = (owned as ConnectionOwnerContext).connection
+    const register = typeof connection.fetch?.register === 'function'
+      ? connection.fetch.register.bind(connection.fetch)
+      : undefined
+    if (register === undefined) return
+    try {
+      for (const endpoint of Object.values(UPDATE_ENDPOINTS)) {
+        register({
+          path: `${UPDATE_STATUS_CHANNEL}/${endpoint}`,
+          methods: ['POST'],
+          requestBody: 'buffered',
+          fetch: (request) => dispatchUpdateStatusFetch(endpoint, handler, request),
+        })
       }
-    }, 'dsh-update-status: authenticated RPC channel')
+    } catch (error) {
+      console.error('[dsh-update-status] authenticated RPC route registration failed:', error)
+    }
   })
 }

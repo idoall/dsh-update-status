@@ -1,15 +1,15 @@
 /** Plugin-owned CSS only; no shell DOM selection or official SVG manipulation. */
 
 export const UPDATE_STATUS_CSS = `
-.dus-brand-name{align-items:center;gap:8px;min-width:0;width:100%;display:flex}
-.dus-brand-deepseek{font-size:15px;font-weight:650;letter-spacing:-.015em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dus-badge{align-items:center;gap:5px;background:var(--dsw-alias-button-floating-fill);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;color:var(--dsw-alias-label-secondary);cursor:pointer;display:inline-flex;flex:0 0 auto;font-size:11px;font-variant-numeric:tabular-nums;line-height:20px;max-width:132px;outline:none;padding:0 8px;touch-action:manipulation;user-select:none}
+.dus-brand-name{align-items:center;gap:6px;height:24px;max-width:100%;min-width:0;display:inline-flex}
+.dus-brand-deepseek{font-size:14px;font-weight:650;letter-spacing:-.015em;line-height:24px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dus-badge{align-items:center;background:var(--dsw-alias-label-primary,#111);border:0;border-radius:4px;color:var(--dsw-alias-label-primary-inverted,#fff);cursor:pointer;display:inline-flex;flex:none;font-family:var(--ds-font-family-code,var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace));font-size:10px;font-variant-numeric:tabular-nums;font-weight:600;gap:4px;height:16px;line-height:16px;max-width:140px;outline:none;padding:0 6px;touch-action:manipulation;user-select:none;white-space:nowrap}
 .dus-badge:focus-visible,.dus-footer-button:focus-visible,.dus-action:focus-visible,.dus-close:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
-.dus-badge:hover{background:var(--dsw-alias-button-floating-hover)}
-.dus-badge[data-update=true]{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}
-.dus-badge[data-error=true]{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
+.dus-badge:hover{filter:brightness(1.08)}
+.dus-badge[data-update=true]{background:var(--dsw-alias-state-warn-primary,#d97706);color:#111}
+.dus-badge[data-error=true]{background:var(--dsw-alias-state-error-primary,#dc2626);color:#fff}
 .dus-badge-version{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dus-dot{background:currentColor;border-radius:50%;display:inline-block;flex:0 0 auto;height:6px;width:6px}
+.dus-dot{background:currentColor;border-radius:50%;display:inline-block;flex:0 0 auto;height:5px;opacity:.9;width:5px}
 .dus-dot[data-update=true]{animation:dus-pulse 1.5s ease-in-out infinite;background:var(--dsw-alias-state-warn-primary)}
 .dus-dot[data-loading=true]{animation:dus-pulse .9s ease-in-out infinite}
 @keyframes dus-pulse{0%,100%{opacity:.45;transform:scale(.82)}50%{opacity:1;transform:scale(1.15)}}
@@ -71,5 +71,5 @@ export const UPDATE_STATUS_CSS = `
 .dus-channel-compat[data-compatibility=verified]{color:var(--dsw-alias-state-success-primary)}
 .dus-channel-compat[data-compatibility=incompatible]{color:var(--dsw-alias-state-error-primary)}
 .dus-settings-hint{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.45;margin:8px 0 0}
-@media (max-width:640px),(hover:none) and (pointer:coarse){.dus-panel[data-origin]{border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;bottom:0;left:0;right:0;max-height:min(78dvh,calc(100dvh - env(safe-area-inset-top)));padding:16px max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));position:fixed;top:auto;width:100vw}.dus-footer-button{height:48px;min-height:48px;min-width:48px;width:48px}.dus-badge{line-height:24px;min-height:28px}.dus-action{min-height:40px;line-height:38px}.dus-close{height:40px;min-height:40px;min-width:40px;width:40px}}
+@media (max-width:640px),(hover:none) and (pointer:coarse){.dus-panel[data-origin]{border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;bottom:0;left:0;right:0;max-height:min(78dvh,calc(100dvh - env(safe-area-inset-top)));padding:16px max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));position:fixed;top:auto;width:100vw}.dus-footer-button{height:48px;min-height:48px;min-width:48px;width:48px}.dus-action{min-height:40px;line-height:38px}.dus-close{height:40px;min-height:40px;min-width:40px;width:40px}}
 `
