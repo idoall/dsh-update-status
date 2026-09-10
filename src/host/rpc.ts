@@ -1,7 +1,7 @@
 /** Authenticated static-plugin RPC channel for update-status DTOs. */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { isReleaseChannel, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL } from '../shared/types.ts'
+import { isCacheTtlMinutes, isReleaseChannel, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL } from '../shared/types.ts'
 import type { CheckUpdateRequest, UpdateStatus } from '../shared/types.ts'
 import type { UpdateStatusService } from './update-status.ts'
 
@@ -35,9 +35,11 @@ function requestOf(value: unknown): CheckUpdateRequest | undefined {
   const record = value as Record<string, unknown>
   if (record.force !== undefined && typeof record.force !== 'boolean') return undefined
   if (record.channel !== undefined && !isReleaseChannel(record.channel)) return undefined
+  if (record.cacheTtlMinutes !== undefined && !isCacheTtlMinutes(record.cacheTtlMinutes)) return undefined
   return {
     ...(record.force === undefined ? {} : { force: record.force }),
     ...(record.channel === undefined ? {} : { channel: record.channel }),
+    ...(record.cacheTtlMinutes === undefined ? {} : { cacheTtlMinutes: record.cacheTtlMinutes }),
   }
 }
 
@@ -47,13 +49,13 @@ export function createUpdateStatusRpcHandler(service: UpdateStatusService): Conn
     try {
       if (endpoint === UPDATE_ENDPOINTS.getStatus) {
         const request = requestOf(payload)
-        if (request === undefined) return failure('dsh-update-status/bad-request', '`force` must be boolean and `channel` must be latest, next, or alpha')
-        return { ok: true, value: await service.getStatus(request.channel) }
+        if (request === undefined) return failure('dsh-update-status/bad-request', '`force` must be boolean, `channel` must be latest, next, or alpha, and `cacheTtlMinutes` must be an integer from 30 to 1440')
+        return { ok: true, value: await service.getStatus(request.channel, request.cacheTtlMinutes) }
       }
       if (endpoint === UPDATE_ENDPOINTS.checkUpdate) {
         const request = requestOf(payload)
-        if (request === undefined) return failure('dsh-update-status/bad-request', '`force` must be boolean and `channel` must be latest, next, or alpha')
-        return { ok: true, value: await service.check(request.force === true, request.channel) }
+        if (request === undefined) return failure('dsh-update-status/bad-request', '`force` must be boolean, `channel` must be latest, next, or alpha, and `cacheTtlMinutes` must be an integer from 30 to 1440')
+        return { ok: true, value: await service.check(request.force === true, request.channel, request.cacheTtlMinutes) }
       }
       return failure('dsh-update-status/unknown-endpoint', `unknown endpoint: ${endpoint}`)
     } catch (error) {

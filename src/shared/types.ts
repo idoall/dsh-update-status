@@ -1,4 +1,4 @@
-﻿/**
+/**
  * JSON-only contract shared by the Host and Web halves.
  *
  * The static package uses the authenticated Connection RPC channel because
@@ -14,6 +14,14 @@ export const RELEASES_URL = 'https://github.com/deepseek-ai/deepseek-harness/rel
 /** Exact DSH release this Phase-1 bundle declares compatible in package.json. */
 export const STATIC_COMPATIBLE_VERSION = '0.1.2-rc.1'
 export const RELEASE_CHANNELS = ['latest', 'next', 'alpha'] as const
+export const DEFAULT_CACHE_TTL_MINUTES = 360
+export const MIN_CACHE_TTL_MINUTES = 30
+export const MAX_CACHE_TTL_MINUTES = 1_440
+
+export function isCacheTtlMinutes(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value)
+    && value >= MIN_CACHE_TTL_MINUTES && value <= MAX_CACHE_TTL_MINUTES
+}
 
 export const UPDATE_ENDPOINTS = {
   getStatus: 'get-status',
@@ -40,6 +48,8 @@ export interface ChannelRelease {
 export interface CheckUpdateRequest {
   force?: boolean
   channel?: ReleaseChannel
+  /** User preference, bounded by the Host before it affects cache expiry. */
+  cacheTtlMinutes?: number
 }
 
 /**
@@ -72,4 +82,6 @@ export interface UpdateStatus {
 export interface UpdateStatusSettings {
   sidebarEnabled: boolean
   channel: ReleaseChannel
+  /** On-demand npm-registry cache duration. This never starts a browser timer. */
+  cacheTtlMinutes: number
 }

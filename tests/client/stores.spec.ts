@@ -47,9 +47,9 @@ describe('StatusStore access boundary', () => {
     await store.refresh('alpha')
 
     expect(calls).toEqual([
-      { channel: '/dsh-update-status', endpoint: 'get-status', payload: { channel: 'latest' } },
-      { channel: '/dsh-update-status', endpoint: 'get-status', payload: { channel: 'alpha' } },
-      { channel: '/dsh-update-status', endpoint: 'check-update', payload: { force: true, channel: 'alpha' } },
+      { channel: '/dsh-update-status', endpoint: 'get-status', payload: { channel: 'latest', cacheTtlMinutes: 360 } },
+      { channel: '/dsh-update-status', endpoint: 'get-status', payload: { channel: 'alpha', cacheTtlMinutes: 360 } },
+      { channel: '/dsh-update-status', endpoint: 'check-update', payload: { force: true, channel: 'alpha', cacheTtlMinutes: 360 } },
     ])
     expect(store.getSnapshot()).toMatchObject({ status: { channel: 'alpha', latestVersion: '0.1.5-alpha.2' }, loading: false, error: null })
   })
@@ -75,7 +75,10 @@ describe('StatusStore access boundary', () => {
     release()
     await Promise.all([initial, selected])
 
-    expect(calls).toEqual([{ channel: 'latest' }, { channel: 'alpha' }])
+    expect(calls).toEqual([
+      { channel: 'latest', cacheTtlMinutes: 360 },
+      { channel: 'alpha', cacheTtlMinutes: 360 },
+    ])
     expect(store.getSnapshot().status).toMatchObject({ channel: 'alpha', latestVersion: '0.1.5-alpha.2' })
   })
 
@@ -138,7 +141,7 @@ describe('StatusStore access boundary', () => {
 describe('PreferencesStore release channel', () => {
   it('persists an in-panel channel choice through the settings scope', async () => {
     const calls: Array<[string, unknown]> = []
-    let snapshot = { status: 'ready', writable: true, value: { sidebarEnabled: true, channel: 'latest' } }
+    let snapshot = { status: 'ready', writable: true, value: { sidebarEnabled: true, channel: 'latest', cacheTtlMinutes: 360 } }
     const listeners = new Set<() => void>()
     const scope = {
       getSnapshot: () => snapshot,
@@ -153,10 +156,11 @@ describe('PreferencesStore release channel', () => {
     store.attach(scope)
 
     store.setChannel('alpha')
+    store.setCacheTtlMinutes(30)
     await Promise.resolve()
 
-    expect(calls).toEqual([['channel', 'alpha']])
-    expect(store.getSnapshot()).toMatchObject({ channel: 'alpha', writable: true })
+    expect(calls).toEqual([['channel', 'alpha'], ['cacheTtlMinutes', 30]])
+    expect(store.getSnapshot()).toMatchObject({ channel: 'alpha', cacheTtlMinutes: 30, writable: true })
   })
 })
 

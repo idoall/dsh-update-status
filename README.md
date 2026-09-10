@@ -35,7 +35,7 @@ It replaces only the expanded sidebar wordmark text with `DeepSeek` plus a compa
 - **In-panel channel selection** — select a meaningful stable, candidate, or preview release directly in the panel; the preference is stored by the DSH Host.
 - **Compatibility labels** — explicitly verified versions are marked verified; unknown preview compatibility is marked unverified rather than claimed safe.
 - **Copy-only guidance** — generates an installation-kind-aware `@latest`, `@next`, or `@alpha` command but never executes it.
-- **Cache without polling** — one Host check on mount, a six-hour cache, single-flight registry access, and no frontend polling. Only the Check for updates button bypasses the cache.
+- **Cache without polling** — one Host check on mount, a configurable 30–1,440 minute cache, single-flight registry access, and no frontend polling. Only the Check for updates button bypasses the cache.
 - **Mobile-safe panel** — uses a modal browser top layer so the scrollable, safe-area-aware bottom sheet stays above the DSH drawer.
 
 ## Install
@@ -111,11 +111,11 @@ A newer DSH version is not automatically declared compatible. Verify it manually
 
 | Option | Default | Range / behavior |
 | --- | --- | --- |
-| `cacheTtlHours` | `6` | 1–24 hours |
-| `timeoutMs` | `15000` | 1,000–30,000 ms |
-| `autoCheckOnMount` | `true` | One read-only check during Host mount |
+| `cacheTtlMinutes` | `360` | 30–1,440 minutes; expires only for the next on-demand read, never a background timer |
+| `channel` | `latest` | `latest`, `next`, or `alpha` |
+| `sidebarEnabled` | `true` | Hides only this plugin's sidebar entry |
 
-**Settings → Version & updates** lets the local operator hide the plugin's sidebar entry and select a release channel. The panel also supports direct channel selection.
+**Settings → Version & updates** lets the local operator hide the plugin's sidebar entry and select a release channel. The panel also supports direct channel selection and a cache-duration input. Changing the duration does not issue a request; only a later normal read can refresh an expired cache, while **Check for updates** always performs an immediate manual refresh.
 
 ## Security boundary
 
@@ -144,6 +144,6 @@ pnpm run build
 pnpm pack --dry-run
 ```
 
-The first npm release is intentionally published and verified by a human. See [docs/RELEASING.md](docs/RELEASING.md) for the exact candidate, publication, and public-package verification procedure. Automated GitHub/npm publication is deferred until a later version has passed that first manual cycle.
+Release tags use npm Trusted Publishing with GitHub OIDC. See [docs/RELEASING.md](docs/RELEASING.md) to configure npm’s Trusted Publisher once, then push a matching `vX.Y.Z` tag; no long-lived npm token is stored in this repository.
 
 MIT. See [LICENSE](LICENSE).

@@ -52,7 +52,7 @@ function apply(ctx: ClientContext): void {
 
   ctx.effect(() => {
     const disposeStyles = installStyles()
-    if (canManage) void status.load()
+    if (canManage) void status.load(preferences.getSnapshot().cacheTtlMinutes)
     return () => {
       status.stop()
       disposeStyles()
@@ -70,14 +70,17 @@ function apply(ctx: ClientContext): void {
       ctx.effect(() => {
         const detach = preferences.attach(scope)
         let selected = status.getSnapshot().status?.channel ?? 'latest'
-        const syncChannel = () => {
-          const next = preferences.getSnapshot().channel
-          if (next === selected) return
-          selected = next
-          void status.selectChannel(next)
+        const syncPreferences = () => {
+          const next = preferences.getSnapshot()
+          if (next.channel !== selected) {
+            selected = next.channel
+            void status.selectChannel(selected, next.cacheTtlMinutes)
+          }
+          // Changing cache policy deliberately does not issue a network request.
+          // Its value is sent on the next ordinary status read or manual check.
         }
-        syncChannel()
-        const unsubscribe = preferences.subscribe(syncChannel)
+        syncPreferences()
+        const unsubscribe = preferences.subscribe(syncPreferences)
         return () => { unsubscribe(); detach() }
       }, 'dsh-update-status: sidebar and channel preferences')
     } catch {

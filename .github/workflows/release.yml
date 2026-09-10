@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Release version gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Require tag to match package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $version" >&2
+            exit 1
+          fi
+
+  package:
+    name: Build plugin package
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test
+      - run: pnpm run build
+      - name: Pack immutable release artifact
+        run: |
+          mkdir -p release-assets
+          package="$(pnpm pack --pack-destination release-assets | tail -n 1)"
+          test -f "$package"
+          (cd release-assets && shasum -a 256 *.tgz > SHA256SUMS)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dsh-update-status-${{ github.sha }}
+          path: |
+            release-assets/*.tgz
+            release-assets/SHA256SUMS
+          if-no-files-found: error
+
+  publish:
+    name: Publish npm package
+    needs: package
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: dsh-update-status-${{ github.sha }}
+          path: release-assets
+      - name: Publish through npm Trusted Publishing
+        run: |
+          package="$(find "$GITHUB_WORKSPACE/release-assets" -maxdepth 1 -type f -name 'dsh-update-status-*.tgz' -print -quit)"
+          test -n "$package"
+          version="${GITHUB_REF_NAME#v}"
+          published="$(npm view "dsh-update-status@$version" version 2>/dev/null || true)"
+          if [ "$published" = "$version" ]; then
+            echo "dsh-update-status@$version is already published; leaving the immutable npm release unchanged."
+            exit 0
+          fi
+          # npm Trusted Publishing exchanges GitHub's OIDC token automatically.
+          # Do not configure NODE_AUTH_TOKEN or an NPM_TOKEN GitHub secret.
+          npm publish "$package" --access public --tag latest
+
+  github-release:
+    name: Create GitHub release
+    needs: publish
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dsh-update-status-${{ github.sha }}
+          path: release-assets
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --generate-notes \
+              --title "$GITHUB_REF_NAME"
+          fi

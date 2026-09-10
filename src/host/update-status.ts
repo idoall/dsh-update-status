@@ -11,6 +11,8 @@ import {
   PACKAGE_NAME,
   RELEASES_URL,
   RELEASE_CHANNELS,
+  DEFAULT_CACHE_TTL_MINUTES,
+  isCacheTtlMinutes,
   STATIC_COMPATIBLE_VERSION,
   type ChannelRelease,
   type ReleaseChannel,
@@ -19,7 +21,7 @@ import {
 } from '../shared/types.ts'
 
 export const REGISTRY_URL = 'https://registry.npmjs.org/@deepseek-ai%2Fdsh'
-export const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000
+export const DEFAULT_TTL_MS = DEFAULT_CACHE_TTL_MINUTES * 60 * 1000
 export const DEFAULT_TIMEOUT_MS = 15_000
 
 export interface RegistryRelease {
@@ -140,14 +142,15 @@ export class UpdateStatusService {
     this.releaseUrl = options.releaseUrl ?? RELEASES_URL
   }
 
-  getStatus(channel: ReleaseChannel = 'latest'): Promise<UpdateStatus> {
-    return this.check(false, channel)
+  getStatus(channel: ReleaseChannel = 'latest', cacheTtlMinutes?: number): Promise<UpdateStatus> {
+    return this.check(false, channel, cacheTtlMinutes)
   }
 
   /** `force` bypasses TTL but still joins any registry check already in flight. */
-  async check(force: boolean = false, channel: ReleaseChannel = 'latest'): Promise<UpdateStatus> {
+  async check(force: boolean = false, channel: ReleaseChannel = 'latest', cacheTtlMinutes?: number): Promise<UpdateStatus> {
+    const ttlMs = isCacheTtlMinutes(cacheTtlMinutes) ? cacheTtlMinutes * 60 * 1000 : this.ttlMs
     const cached = this.cache
-    if (!force && cached !== undefined && this.now() - cached.checkedAtMs < this.ttlMs) {
+    if (!force && cached !== undefined && this.now() - cached.checkedAtMs < ttlMs) {
       return this.statusFromCache(cached, channel, true, null)
     }
     if (this.inFlight !== undefined) {

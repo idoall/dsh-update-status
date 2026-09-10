@@ -68,9 +68,9 @@ declare class UpdateStatusService {
   private cache;
   private inFlight;
   constructor(options: UpdateStatusServiceOptions);
-  getStatus(channel?: ReleaseChannel): Promise<UpdateStatus>;
+  getStatus(channel?: ReleaseChannel, cacheTtlMinutes?: number): Promise<UpdateStatus>;
   /** `force` bypasses TTL but still joins any registry check already in flight. */
-  check(force?: boolean, channel?: ReleaseChannel): Promise<UpdateStatus>;
+  check(force?: boolean, channel?: ReleaseChannel, cacheTtlMinutes?: number): Promise<UpdateStatus>;
   private refreshRelease;
   private statusAfterFailure;
   private statusFromCache;

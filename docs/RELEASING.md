@@ -1,144 +1,110 @@
 # Releasing dsh-update-status
 
-This document separates the manually verified first release from the future automated release flow. Never publish from an uncommitted working tree, and never reuse an npm version after publishing: npm versions are immutable.
+Releases are built from immutable Git tags and published by GitHub Actions through npm Trusted Publishing (GitHub OIDC). The repository deliberately stores **no** `NPM_TOKEN`, npm access token, or OTP.
 
-## Release 0.1.0 — manual verification and publication
+## One-time npm configuration
 
-The first release is intentionally manual. GitHub Actions verifies the source and can build a downloadable candidate tarball, but no workflow has npm publish permission.
+Before pushing the first release tag, create or configure the `dsh-update-status` package at [npmjs.com](https://www.npmjs.com/), then add a **Trusted Publisher**:
 
-### 1. Verify the source checkout
+| npm field | Value |
+| --- | --- |
+| Provider | GitHub Actions |
+| Owner | `idoall` |
+| Repository | `dsh-update-status` |
+| Workflow filename | `release.yml` |
+| Environment | Leave blank |
+
+The workflow path must be `.github/workflows/release.yml`. Do **not** add an `NPM_TOKEN` GitHub secret: the `publish` job receives only a short-lived GitHub OIDC token through `id-token: write`.
+
+For a first public package, npm may require the package to be created/claimed through its UI before a Trusted Publisher can be attached. Complete that npm-side step under the publishing account before pushing the tag.
+
+## What a release tag does
+
+Pushing a tag matching `v*` triggers [`.github/workflows/release.yml`](../.github/workflows/release.yml):
+
+1. Require `vX.Y.Z` to exactly match `package.json`’s `X.Y.Z` version.
+2. Install dependencies with a frozen lockfile, run tests, build, and pack exactly one `.tgz` artifact.
+3. Upload that artifact and `SHA256SUMS` as a GitHub Actions artifact.
+4. Publish that same artifact to npm with Trusted Publishing and the `latest` dist-tag.
+5. Create (or update) the GitHub Release and attach the tarball and checksum **only after** the publish job succeeds.
+
+If `dsh-update-status@X.Y.Z` already exists on npm, the immutable npm package is left unchanged and the workflow continues safely to the GitHub Release step.
+
+## Before every release
+
+Never release an uncommitted worktree or reuse a published npm version.
 
 ```sh
 git switch main
 git pull --ff-only
+git status --short
 pnpm install --frozen-lockfile
 pnpm run verify
-```
-
-Confirm that `package.json` contains the intended version and that the package name is available:
-
-```sh
 node -p "require('./package.json').version"
-npm view dsh-update-status version || true
 ```
 
-For `0.1.0`, the first command must print `0.1.0`. Before the first release, `npm view` should return `E404`.
+`git status --short` must be empty, and the printed version must be the intended unpublished version.
 
-### 2. Build one candidate from GitHub
-
-Open **Actions → Build release candidate → Run workflow** on the `main` branch. Download the `dsh-update-status-<commit>` artifact and verify its checksum:
-
-```sh
-shasum -a 256 -c SHA256SUMS
-npm pack --dry-run ./dsh-update-status-0.1.0.tgz
-```
-
-Alternatively, build the exact same candidate locally:
+For an extra local artifact check:
 
 ```sh
 rm -rf .tmp/release && mkdir -p .tmp/release
 pnpm pack --pack-destination .tmp/release
-shasum -a 256 .tmp/release/dsh-update-status-0.1.0.tgz
+shasum -a 256 .tmp/release/dsh-update-status-*.tgz
+npm pack --dry-run .tmp/release/dsh-update-status-*.tgz
 ```
 
-### 3. Install the tarball into a disposable DSH profile
-
-Do not replace a working production installation before verification. Use a disposable DSH home/profile where possible:
+Before the first release, verify npm does not already own the exact version:
 
 ```sh
-TEST_HOME="$(mktemp -d)"
-DSH_HOME="$TEST_HOME" dsh plugin --profile web add "$(pwd)/.tmp/release/dsh-update-status-0.1.0.tgz"
-DSH_HOME="$TEST_HOME" dsh web
+VERSION="$(node -p "require('./package.json').version")"
+npm view "dsh-update-status@$VERSION" version || true
 ```
 
-Open the URL printed by that command and verify:
+## Publish a version
 
-- the official fish remains unchanged;
-- expanded sidebar shows `DeepSeek` plus the version badge;
-- collapsed rail shows the fallback status action;
-- the panel opens above the mobile drawer and is scrollable;
-- `next` is hidden when it points to the same release as the running/latest version;
-- `alpha` can be selected in the panel and shows an unverified-compatibility warning;
-- generated commands end in `@latest`, `@next`, or `@alpha` as appropriate;
-- changing a channel does not install anything;
-- only **Check for updates** performs a forced refresh;
-- console contains no new `dsh-update-status` errors.
-
-Stop the disposable `dsh web` process when verification is complete.
-
-### 4. Authenticate and publish manually
-
-Check identity and account security first:
+After npm Trusted Publishing is configured and the matching source commit is on `main`:
 
 ```sh
-npm whoami
-npm profile get
+VERSION="$(node -p "require('./package.json').version")"
+git tag -a "v$VERSION" -m "dsh-update-status v$VERSION"
+git push origin "v$VERSION"
 ```
 
-Inspect the profile output and confirm that two-factor authentication is enabled for package publication.
+Watch the **Release** workflow in GitHub Actions. It publishes npm and creates the GitHub Release; do not run `npm publish` locally for a tag-managed release.
 
-Publish the verified tarball, not a newly rebuilt directory:
+## Verify the public package
 
-```sh
-npm publish .tmp/release/dsh-update-status-0.1.0.tgz --access public --tag latest
-```
-
-If npm requires OTP:
+After the workflow succeeds:
 
 ```sh
-npm publish .tmp/release/dsh-update-status-0.1.0.tgz --access public --tag latest --otp=123456
-```
-
-Never place an npm token or OTP in a repository file, command transcript, issue, or GitHub Actions log.
-
-### 5. Verify the public package
-
-```sh
-npm view dsh-update-status@0.1.0 name version dist-tags repository --json
+VERSION="$(node -p "require('./package.json').version")"
+npm view "dsh-update-status@$VERSION" name version dist-tags repository --json
 npm view dsh-update-status dist-tags --json
 
 VERIFY_DIR="$(mktemp -d)"
 cd "$VERIFY_DIR"
-npm pack dsh-update-status@0.1.0
-npm install --ignore-scripts ./dsh-update-status-0.1.0.tgz
+npm pack "dsh-update-status@$VERSION"
+npm install --ignore-scripts "./dsh-update-status-$VERSION.tgz"
 node -e "const p=require('./node_modules/dsh-update-status/package.json'); console.log(p.name,p.version,p.dsh?.client?.platform)"
 ```
 
-The last command must print `dsh-update-status 0.1.0 web`. Then install from npm in the disposable DSH profile and repeat the GUI checklist:
+The final command must print:
+
+```text
+dsh-update-status X.Y.Z web
+```
+
+Then install the package in a disposable DSH profile and manually verify the sidebar badge, panel, release-channel selection, cache-duration setting, and mobile drawer behavior:
 
 ```sh
-DSH_HOME="$TEST_HOME" dsh plugin --profile web remove dsh-update-status || true
-DSH_HOME="$TEST_HOME" dsh plugin --profile web add dsh-update-status@0.1.0
+TEST_HOME="$(mktemp -d)"
+DSH_HOME="$TEST_HOME" dsh plugin --profile web add "dsh-update-status@$VERSION"
 DSH_HOME="$TEST_HOME" dsh web
 ```
 
-Only after public-package verification succeeds, create and push the immutable source tag and GitHub Release:
+Stop the disposable DSH Web process after verification. The plugin remains advisory: it does not install, restart, roll back, download, or replace DSH files.
 
-```sh
-cd /path/to/dsh-update-status
-git tag -s v0.1.0 -m "dsh-update-status v0.1.0"
-git push origin v0.1.0
-gh release create v0.1.0 --verify-tag --generate-notes --title "v0.1.0"
-```
+## Candidate builds without publication
 
-Use `git tag -a` instead of `git tag -s` only if signing is not configured.
-
-## Release 0.1.1 — automated GitHub and npm publication
-
-After the manual `0.1.0` proves package installation and compatibility, add an automated tag workflow in a separate reviewed change. It should follow the `dsh-quick-replies` model:
-
-1. Require `v*` to equal `package.json` version.
-2. Install with a frozen lockfile, test, build, and pack exactly once.
-3. Upload the tarball and checksum as a GitHub artifact.
-4. Publish that artifact with npm Trusted Publishing (GitHub OIDC), not a long-lived `NPM_TOKEN`.
-5. Create a GitHub Release only after packaging succeeds.
-6. Make the npm step safely exit when the exact version already exists.
-
-Configure npm Trusted Publishing for:
-
-- Owner: `idoall`
-- Repository: `dsh-update-status`
-- Workflow filename: `release.yml`
-- Environment: leave empty unless the workflow explicitly uses one
-
-Do not add `release.yml` until the first release has been manually installed and verified.
+Use **Actions → Build release candidate → Run workflow** to make a downloadable package and checksum without publishing npm or creating a GitHub Release. This is useful for pre-tag DSH UI verification.

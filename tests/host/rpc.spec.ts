@@ -14,19 +14,23 @@ const status = {
 
 describe('private update-status RPC shape', () => {
   it('serves only get-status and check-update', async () => {
-    const calls: Array<{ force: boolean; channel?: string }> = []
+    const calls: Array<{ force: boolean; channel?: string; cacheTtlMinutes?: number }> = []
     const fake = {
-      getStatus: async () => status,
-      check: async (force: boolean, channel?: string) => { calls.push({ force, channel }); return status },
+      getStatus: async (_channel?: string, cacheTtlMinutes?: number) => { calls.push({ force: false, cacheTtlMinutes }); return status },
+      check: async (force: boolean, channel?: string, cacheTtlMinutes?: number) => { calls.push({ force, channel, cacheTtlMinutes }); return status },
     } as unknown as UpdateStatusService
     const handler = createUpdateStatusRpcHandler(fake)
     const signal = new AbortController().signal
 
-    await expect(handler('get-status', {}, signal)).resolves.toEqual({ ok: true, value: status })
-    await expect(handler('check-update', { force: true, channel: 'alpha' }, signal)).resolves.toEqual({ ok: true, value: status })
-    expect(calls).toEqual([{ force: true, channel: 'alpha' }])
+    await expect(handler('get-status', { cacheTtlMinutes: 30 }, signal)).resolves.toEqual({ ok: true, value: status })
+    await expect(handler('check-update', { force: true, channel: 'alpha', cacheTtlMinutes: 30 }, signal)).resolves.toEqual({ ok: true, value: status })
+    expect(calls).toEqual([
+      { force: false, cacheTtlMinutes: 30 },
+      { force: true, channel: 'alpha', cacheTtlMinutes: 30 },
+    ])
     await expect(handler('check-update', { force: 'yes' }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
     await expect(handler('get-status', { channel: 'nightly' }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
+    await expect(handler('get-status', { cacheTtlMinutes: 29 }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
     await expect(handler('anything-else', {}, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/unknown-endpoint' } })
   })
 })

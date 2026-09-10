@@ -46,6 +46,24 @@ describe('UpdateStatusService', () => {
     expect(calls).toBe(2)
   })
 
+  it('uses the user-selected cache duration for ordinary reads without creating a timer', async () => {
+    let calls = 0
+    let now = 10_000
+    const service = new UpdateStatusService({
+      installation,
+      now: () => now,
+      ttlMs: 6 * 60 * 60 * 1000,
+      fetchLatest: async () => { calls += 1; return releases() },
+    })
+    await service.getStatus('latest', 30)
+    now += 29 * 60 * 1000
+    await service.getStatus('latest', 30)
+    expect(calls).toBe(1)
+    now += 2 * 60 * 1000
+    await service.getStatus('latest', 30)
+    expect(calls).toBe(2)
+  })
+
   it('force bypasses TTL and concurrent callers share one registry request', async () => {
     let calls = 0
     let release!: () => void

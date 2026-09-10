@@ -35,7 +35,7 @@
 - **弹窗内直接选择通道**：可直接选择有价值的稳定版、候选版或预览版；偏好由 DSH Host 持久化。
 - **兼容性标识**：明确验证过的版本显示“已验证兼容”；未知预览版显示“尚未验证兼容”，不冒充安全升级。
 - **仅复制命令**：根据安装来源和通道生成 `@latest`、`@next` 或 `@alpha` 命令，但从不执行。
-- **缓存但不轮询**：Host 挂载时检查一次，默认缓存六小时并合并并发请求；前端没有轮询，只有“检查更新”按钮绕过缓存。
+- **缓存但不轮询**：Host 挂载时检查一次，缓存可设为 30–1,440 分钟并合并并发请求；前端没有轮询，只有“检查更新”按钮绕过缓存。
 - **移动端可靠**：详情使用浏览器 modal top layer；底部 sheet 可滚动、适配 safe area，并保持在 DSH 抽屉上方。
 
 ## 安装
@@ -111,11 +111,11 @@ npm install -g @deepseek-ai/dsh@alpha
 
 | 选项 | 默认值 | 范围 / 行为 |
 | --- | --- | --- |
-| `cacheTtlHours` | `6` | 1–24 小时 |
-| `timeoutMs` | `15000` | 1,000–30,000 毫秒 |
-| `autoCheckOnMount` | `true` | Host 挂载时执行一次只读检查 |
+| `cacheTtlMinutes` | `360` | 30–1,440 分钟；仅在下一次按需读取时判断是否到期，绝不启动后台定时器 |
+| `channel` | `latest` | `latest`、`next` 或 `alpha` |
+| `sidebarEnabled` | `true` | 只隐藏本插件自己的侧栏入口 |
 
-**设置 → 版本与更新** 可隐藏本插件侧栏入口和选择发布通道；详情面板中也能直接切换通道。
+**设置 → 版本与更新** 可隐藏本插件侧栏入口和选择发布通道；详情面板中也能直接切换通道和填写缓存时长。修改缓存时长不会请求网络；只在之后普通读取且缓存已到期时更新，“检查更新”始终是立即手动检查。
 
 ## 安全边界
 
@@ -144,6 +144,6 @@ pnpm run build
 pnpm pack --dry-run
 ```
 
-第一版 npm 发布特意保留人工发布与人工安装验证。准确的候选包、发布和公网包验证步骤见 [docs/RELEASING.md](docs/RELEASING.md)。只有第一轮人工验证完成后，后续版本才配置 GitHub/npm 自动发布。
+发布 tag 使用 npm Trusted Publishing 与 GitHub OIDC。请按 [docs/RELEASING.md](docs/RELEASING.md) 在 npm 网站一次性绑定 Trusted Publisher，随后推送匹配的 `vX.Y.Z` tag；仓库不保存长期 npm token。
 
 MIT，详见 [LICENSE](LICENSE)。

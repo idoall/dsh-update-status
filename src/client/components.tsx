@@ -3,7 +3,7 @@
 import type * as ReactNS from 'react'
 import { visibleChannelReleases } from '../shared/channels.ts'
 import { previewCommand } from '../shared/preview-guidance.ts'
-import type { ReleaseChannel, ReleaseCompatibility, UpdateStatus } from '../shared/types.ts'
+import { MAX_CACHE_TTL_MINUTES, MIN_CACHE_TTL_MINUTES, isCacheTtlMinutes, type ReleaseChannel, type ReleaseCompatibility, type UpdateStatus } from '../shared/types.ts'
 import type { PreferencesStore, PanelStore, StatusStore } from './stores.ts'
 import { t } from './i18n.ts'
 import { React, h } from './react.ts'
@@ -36,6 +36,47 @@ function compatibilityLabel(value: ReleaseCompatibility): string {
   if (value === 'verified') return t('panel.compatVerified')
   if (value === 'incompatible') return t('panel.compatIncompatible')
   return t('panel.compatUnverified')
+}
+
+/** Persists a cache policy only; it never schedules a browser or Host timer. */
+function CacheTtlControl({ preferences }: { preferences: PreferencesStore }): ReactNS.ReactElement {
+  const snapshot = useObservable(preferences)
+  const [draft, setDraft] = React.useState(String(snapshot.cacheTtlMinutes))
+  React.useEffect(() => { setDraft(String(snapshot.cacheTtlMinutes)) }, [snapshot.cacheTtlMinutes])
+  const save = (): void => {
+    const value = Number(draft)
+    if (isCacheTtlMinutes(value)) preferences.setCacheTtlMinutes(value)
+    else setDraft(String(snapshot.cacheTtlMinutes))
+  }
+  return (
+    <div className="dus-cache-setting">
+      <label className="dus-cache-field">
+        <span>{t('panel.cacheDuration')}</span>
+        <span className="dus-cache-input-wrap">
+          <input
+            className="dus-cache-input"
+            type="number"
+            inputMode="numeric"
+            min={MIN_CACHE_TTL_MINUTES}
+            max={MAX_CACHE_TTL_MINUTES}
+            step={1}
+            value={draft}
+            disabled={!snapshot.writable}
+            aria-describedby="dus-cache-hint"
+            onChange={(event) => { setDraft(event.currentTarget.value) }}
+            onBlur={save}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') { event.currentTarget.blur() }
+              if (event.key === 'Escape') { setDraft(String(snapshot.cacheTtlMinutes)); event.currentTarget.blur() }
+            }}
+          />
+          <span>{t('panel.minutes')}</span>
+        </span>
+      </label>
+      <p className="dus-cache-hint" id="dus-cache-hint">{t('panel.cacheHint')}</p>
+      {!snapshot.writable && <p className="dus-cache-hint">{t('panel.cacheReadonly')}</p>}
+    </div>
+  )
 }
 
 type VisualState = 'loading' | 'update' | 'current' | 'problem'
@@ -222,6 +263,7 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
           <button className="dus-close" type="button" aria-label={t('panel.close')} onClick={() => { ui.panel.close() }}>×</button>
         </div>
 
+        <CacheTtlControl preferences={ui.preferences} />
         <p className="dus-state" data-kind={summary.kind}>{summary.text}</p>
 
         <div className="dus-metadata">
@@ -264,7 +306,7 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
         {snapshot.error !== null && <p className="dus-warning">{t('panel.error')}: {snapshot.error}</p>}
 
         <div className="dus-actions">
-          <button className="dus-action" type="button" disabled={snapshot.loading} onClick={() => { void ui.status.refresh() }}>
+          <button className="dus-action" type="button" disabled={snapshot.loading} onClick={() => { void ui.status.refresh(undefined, preferences.cacheTtlMinutes) }}>
             {snapshot.loading ? t('panel.checking') : t('panel.check')}
           </button>
           {status !== null && <a className="dus-action" href={status.changelogUrl} target="_blank" rel="noreferrer">{t('panel.releaseNotes')}</a>}
@@ -324,7 +366,7 @@ export function UpdateSettings({ ui }: { ui: SharedUi }): ReactNS.ReactElement {
         {ui.canManage && <button className="dus-action" type="button" aria-expanded={showGuidance} onClick={() => { setShowGuidance(!showGuidance) }}>{t(showGuidance ? 'preview.close' : 'preview.open')}</button>}
         {ui.canManage && showGuidance && <section aria-label={t('preview.open')}>
           <p className="dus-warning">{t('preview.risk')}</p>
-          <button className="dus-action" type="button" disabled={snapshot.loading} onClick={() => { void ui.status.refresh() }}>{t(snapshot.loading ? 'panel.checking' : 'panel.check')}</button>
+          <button className="dus-action" type="button" disabled={snapshot.loading} onClick={() => { void ui.status.refresh(undefined, preferences.cacheTtlMinutes) }}>{t(snapshot.loading ? 'panel.checking' : 'panel.check')}</button>
           {snapshot.error !== null && <p role="alert">{snapshot.error}</p>}
           {previews.length === 0 && <p>{t('preview.unavailable')}</p>}
           {previews.map(release => {
