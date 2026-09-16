@@ -26,6 +26,11 @@ interface RpcCall {
   payload: unknown
 }
 
+interface SettingsWrite {
+  field: string
+  value: unknown
+}
+
 interface Mounted {
   registered: RegisteredEntry[]
   effectLabels: string[]
@@ -69,8 +74,31 @@ function connectionRpc(isLoopback: boolean, calls: RpcCall[], payload: UpdateSta
   }
 }
 
+/** A structural stand-in for the official `settingsScope` seam. */
+function settingsScope(initial: { channel: string; sidebarEnabled: boolean; cacheTtlMinutes: number }, writes: SettingsWrite[]) {
+  const listeners = new Set<() => void>()
+  const snapshot = {
+    status: 'ready' as const,
+    value: { ...initial },
+    base: undefined,
+    user: undefined,
+    revision: 1,
+    writable: true,
+    mode: 'host' as const,
+  }
+  const scope = {
+    getSnapshot: () => snapshot,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    set: async (field: string, value: unknown) => { writes.push({ field, value }) },
+  }
+  return { settingsScope: { bind: () => scope } }
+}
+
 /** Mount the real client entry against a structural Cordis client context. */
-async function mount(connection: Record<string, unknown>): Promise<Mounted> {
+async function mount(connection: Record<string, unknown>, settings?: Record<string, unknown>): Promise<Mounted> {
   const client = await import('../../src/client/index.ts') as unknown as {
     apply: (ctx: unknown) => void
   }
@@ -90,9 +118,12 @@ async function mount(connection: Record<string, unknown>): Promise<Mounted> {
         return () => {}
       },
     },
-    // No settings seam at all: the worst case for a bridged page. The status
+    // No settings seam by default: the worst case for a bridged page. The status
     // read must not depend on the settings channel being available.
-    inject: (): (() => void) => () => {},
+    inject: (names: string[], callback: (ctx: unknown) => void): (() => void) => {
+      if (names.includes('settingsScope') && settings !== undefined) callback(settings)
+      return () => {}
+    },
     effect: (setup: () => (() => void) | void, label?: string): (() => void) => {
       if (label !== undefined) effectLabels.push(label)
       const dispose = setup()
@@ -142,6 +173,37 @@ describe('client entry wiring', () => {
     // The chip keeps shadowing the official wordmark (lowest priority renders).
     expect(mounted.registered[0]?.options.priority).toBe(-10)
     mounted.teardown()
+  })
+
+  it('applies a persisted preference by reading, never by writing it back', async () => {
+    // A stored `channel: next` must reach the status read as a read only: the
+    // plugin has no business rewriting a preference on mount, on load, or after
+    // a Host read. Only a user gesture may call set().
+    const calls: RpcCall[] = []
+    const writes: SettingsWrite[] = []
+    const mounted = await mount(
+      connectionRpc(false, calls),
+      settingsScope({ channel: 'next', sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
+    )
+
+    expect(writes).toEqual([])
+    // The persisted preference wins: every read stays on the plugin's own route
+    // and the last one follows the stored channel and cache policy.
+    expect(calls.every(call => call.channel === '/api' && call.endpoint === 'dsh-update-status.get-status')).toBe(true)
+    expect(calls.at(-1)?.payload).toEqual({ channel: 'next', cacheTtlMinutes: 120 })
+    mounted.teardown()
+  })
+
+  it('performs no settings write at all when teardown runs', async () => {
+    const writes: SettingsWrite[] = []
+    const mounted = await mount(
+      connectionRpc(false, []),
+      settingsScope({ channel: 'next', sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
+    )
+
+    mounted.teardown()
+    await flush()
+    expect(writes).toEqual([])
   })
 
   it('keeps its slots registered when no usable transport exists', async () => {
