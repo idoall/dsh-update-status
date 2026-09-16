@@ -112,13 +112,14 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current release: plugin **`0.1.3`** is verified against DeepSeek Harness **`0.1.6-alpha.1`**.
+Current release: plugin **`0.1.4`** is verified against DeepSeek Harness **`0.1.6-alpha.1`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| **`0.1.3`** | `0.1.6-alpha.1`, `0.1.5-rc.1` | `latest` | Carries the `0.1.2` LAN (non-loopback) fix, re-verified on 0.1.6 and locked by tests |
+| **`0.1.4`** | `0.1.6-alpha.1`, `0.1.5-rc.1` | `latest` | Fixes the unselectable "channel you are running"; preference writes locked by tests |
+| `0.1.3` | `0.1.6-alpha.1`, `0.1.5-rc.1` | published | Carries the `0.1.2` LAN (non-loopback) fix, re-verified on 0.1.6 and locked by tests |
 | `0.1.2` | `0.1.5-rc.1` | **never published** | Removed the `connection.isLoopback` gate, so LAN pages work |
 | `0.1.1` | `0.1.5-rc.1` | published | The previous npm `latest`; the plugin is inert on LAN/non-loopback pages |
 | `0.1.0` | `0.1.2-rc.1` | published | First release |
@@ -128,7 +129,7 @@ Current release: plugin **`0.1.3`** is verified against DeepSeek Harness **`0.1.
 - Match them explicitly when it matters:
 
   ```sh
-  dsh plugin --profile web add dsh-update-status@0.1.3   # DSH 0.1.6-alpha.1 or 0.1.5-rc.1
+  dsh plugin --profile web add dsh-update-status@0.1.4   # DSH 0.1.6-alpha.1 or 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.0   # DSH 0.1.2-rc.1 only
   ```
 

@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.4 — 2026-09-16
+
+Verified DeepSeek Harness: `0.1.6-alpha.1` (also `0.1.5-rc.1`). Full bilingual release notes: [`docs/releases/v0.1.4.md`](docs/releases/v0.1.4.md).
+
+- **Channel-selection deadlock fixed.** `visibleChannelReleases` dropped every channel whose version equalled the running release. While running the release published on `alpha`, the `alpha` row therefore disappeared from both the detail panel and the settings select — the one channel an operator on that line wants to follow could only be seen by already following it. A row is now hidden only when an earlier row already shows the same version; channels that all point at the running release still collapse to one.
+- **The preference write path is now covered by tests.** A report of a stored `channel` changing without a gesture prompted a full audit: the only two write sites are the panel's per-channel button and the settings select, and no effect, timer or mount path writes. `tests/client/entry.spec.ts` mounts the real client entry with the official `settingsScope` seam present and asserts that a persisted preference is applied by *reading* and that mount plus teardown issue zero `set()` calls.
+- No change to the status read, to LAN (non-loopback) behaviour, or to the Host document shape.
+
 ## 0.1.3 — 2026-09-16
 
 Verified DeepSeek Harness: `0.1.6-alpha.1` (also `0.1.5-rc.1`). Full bilingual release notes: [`docs/releases/v0.1.3.md`](docs/releases/v0.1.3.md).

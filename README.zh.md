@@ -112,13 +112,14 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 ## 兼容性
 
-当前发布：插件 **`0.1.3`** 已针对 DeepSeek Harness **`0.1.6-alpha.1`** 验证。
+当前发布：插件 **`0.1.4`** 已针对 DeepSeek Harness **`0.1.6-alpha.1`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.1.3`** | `0.1.6-alpha.1`、`0.1.5-rc.1` | `latest` | 含 `0.1.2` 的局域网（非回环）修复，并在 0.1.6 上复验、补上回归测试 |
+| **`0.1.4`** | `0.1.6-alpha.1`、`0.1.5-rc.1` | `latest` | 修复「正在运行的通道不可选」；偏好写入路径补齐回归测试 |
+| `0.1.3` | `0.1.6-alpha.1`、`0.1.5-rc.1` | 已发布 | 含 `0.1.2` 的局域网（非回环）修复，并在 0.1.6 上复验、补上回归测试 |
 | `0.1.2` | `0.1.5-rc.1` | **未发布** | 移除 `connection.isLoopback` 门控，局域网页面可用 |
 | `0.1.1` | `0.1.5-rc.1` | 已发布 | 此前 npm 上的 `latest`；局域网/非回环页面下插件整体不可用 |
 | `0.1.0` | `0.1.2-rc.1` | 已发布 | 首个版本 |
@@ -128,7 +129,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 需要精确对应时显式指定版本：
 
   ```sh
-  dsh plugin --profile web add dsh-update-status@0.1.3   # DSH 0.1.6-alpha.1 或 0.1.5-rc.1
+  dsh plugin --profile web add dsh-update-status@0.1.4   # DSH 0.1.6-alpha.1 或 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.0   # 仅 DSH 0.1.2-rc.1
   ```
 
