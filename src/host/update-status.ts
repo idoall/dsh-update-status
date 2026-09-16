@@ -13,7 +13,7 @@ import {
   RELEASE_CHANNELS,
   DEFAULT_CACHE_TTL_MINUTES,
   isCacheTtlMinutes,
-  STATIC_COMPATIBLE_VERSION,
+  VERIFIED_DSH_VERSIONS,
   type ChannelRelease,
   type ReleaseChannel,
   type ReleaseCompatibility,
@@ -62,7 +62,7 @@ function dateOrNull(value: unknown): string | null {
 }
 
 function compatibilityOf(version: string | null): ReleaseCompatibility {
-  return version === STATIC_COMPATIBLE_VERSION ? 'verified' : 'unverified'
+  return version !== null && VERIFIED_DSH_VERSIONS.includes(version) ? 'verified' : 'unverified'
 }
 
 export function registryReleaseOf(value: unknown): RegistryRelease {

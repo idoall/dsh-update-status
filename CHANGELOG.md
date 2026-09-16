@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.3 — 2026-09-16
+
+Verified DeepSeek Harness: `0.1.6-alpha.1`.
+
+- **Re-verified on DSH `0.1.6-alpha.1`.** Host and client halves were checked against the running 0.1.6 composition: `connection.fetch.register` still serves exact `/api/dsh-update-status.*` routes ahead of the shared Typert interceptor, the browser `connection.rpc` face is unchanged, and the slot contracts the plugin uses (`sidebar.brand.name` single with lowest-priority-wins, `sidebar.footer.action` / `shell.overlay` / `settings.section` lists) still match.
+- **LAN page regression locked in tests.** `tests/client/entry.spec.ts` drives the real client entry against a structural Cordis context and asserts that the Host status read is issued from a non-loopback page, that the chip keeps shadowing the official wordmark, and that the lifecycle effect owns teardown — the exact wiring whose `connection.isLoopback === true` gate made the plugin inert on a bridge-served page.
+- **Compatibility is now a verified-release list** (`VERIFIED_DSH_VERSIONS`) instead of a single version, so `0.1.5-rc.1` and `0.1.6-alpha.1` are both labelled *verified* while every untested release stays *unverified*. `package.json`'s `dsh.compatibility.dshReleases` declares the same two releases.
+- No behavioural change on a loopback page; the LAN fix from `0.1.2` is unchanged.
+
 ## 0.1.2 — 2026-09-16
 
 Verified DeepSeek Harness: `0.1.5-rc.1`.

@@ -12,8 +12,13 @@ export const PACKAGE_NAME = '@deepseek-ai/dsh'
 /** Shared Connection RPC channel. Custom prefixes 405 on the SPA fallback. */
 export const UPDATE_STATUS_CHANNEL = '/api'
 export const RELEASES_URL = 'https://github.com/deepseek-ai/deepseek-harness/releases'
-/** Exact DSH release this bundle declares compatible in package.json. */
-export const STATIC_COMPATIBLE_VERSION = '0.1.5-rc.1'
+/**
+ * DSH releases this bundle has actually been verified against. The same list is
+ * declared in package.json's `dsh.compatibility.dshReleases`, and every other
+ * release the registry reports stays `unverified` — the plugin never claims a
+ * compatibility nobody checked.
+ */
+export const VERIFIED_DSH_VERSIONS: readonly string[] = ['0.1.5-rc.1', '0.1.6-alpha.1']
 export const RELEASE_CHANNELS = ['latest', 'next', 'alpha'] as const
 export const DEFAULT_CACHE_TTL_MINUTES = 360
 export const MIN_CACHE_TTL_MINUTES = 30
