@@ -14,6 +14,11 @@
   <a href="#features">Features</a> ·
   <a href="#install">Install</a> ·
   <a href="#usage">Usage</a> ·
+  <a href="#release-channels">Release channels</a> ·
+  <a href="#lan--non-loopback-pages">LAN pages</a> ·
+  <a href="#compatibility">Compatibility</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#troubleshooting">Troubleshooting</a> ·
   <a href="#security-boundary">Security</a> ·
   <a href="#uninstall">Uninstall</a> ·
   <a href="docs/RELEASING.md">Release guide</a>
@@ -31,7 +36,7 @@ It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact v
 
 - **Visible version status** — shows the running DSH version in the expanded sidebar and a fallback action in the collapsed rail.
 - **Stable and preview discovery** — reads npm dist-tags `latest`, `next`, and `alpha` in one registry request; `latest` is the default.
-- **Useful choices only** — hides a non-selected candidate when it equals the running version, and collapses duplicate releases in favor of `latest`.
+- **Useful choices only** — de-duplicates rows by version, keeps `latest` and the channel you follow, and never hides the channel that matches the release you are running.
 - **In-panel channel selection** — select a meaningful stable, candidate, or preview release directly in the panel; the preference is stored by the DSH Host.
 - **Compatibility labels** — explicitly verified versions are marked verified; unknown preview compatibility is marked unverified rather than claimed safe.
 - **Copy-only guidance** — generates an installation-kind-aware `@latest`, `@next`, or `@alpha` command but never executes it.
@@ -74,8 +79,8 @@ dsh plugin --profile web add "link:$(pwd)"
 
 1. Open the DSH sidebar drawer. The official fish remains in place; the name row shows `DeepSeek` plus the current version badge.
 2. Tap the badge. The update panel opens without triggering the parent New Session action.
-3. Review meaningful channels. If `next` points to the same release as the running/stable version, it is intentionally omitted.
-4. Select `alpha` or another available channel if you want to evaluate it. An unverified preview remains clearly marked.
+3. Review the offered channels. Rows are de-duplicated by version, `latest` and the channel you follow are always listed, and the channel matching the release you are running stays selectable.
+4. Select `alpha` or another channel to follow it. The choice is stored by the DSH Host and only affects future checks; an unverified preview stays clearly marked.
 5. Copy the generated command and run it yourself in a terminal on the computer hosting DSH.
 6. Restart DSH yourself after the package-manager command completes.
 
@@ -98,6 +103,16 @@ The plugin displays one command that matches the detected installation kind and 
 | `alpha` | Opt-in preview for early evaluation | Unverified unless explicitly declared otherwise |
 
 The plugin honors npm dist-tags. It does not pick the numerically greatest version from registry history.
+
+### What the panel offers
+
+The detail panel and the settings select render the same rows:
+
+- `latest` and the channel you currently follow are always present.
+- Any other channel appears only when its version differs from every row above it, so a registry that points several tags at one release still reads as one choice.
+- The channel that currently points at the release you are running stays selectable. Before `0.1.4` a row whose version equalled the running release was hidden, so an operator on an `alpha` build could not follow the `alpha` line: that row only existed once they already followed it, which left `latest` as the only other row to click.
+
+Following a channel is a statement about **future** releases — it decides which dist-tag this plugin compares against and which command it generates. It never changes what is installed and never installs anything.
 
 ## LAN / non-loopback pages
 
@@ -133,7 +148,7 @@ Current release: plugin **`0.1.4`** is verified against DeepSeek Harness **`0.1.
   dsh plugin --profile web add dsh-update-status@0.1.0   # DSH 0.1.2-rc.1 only
   ```
 
-- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English under [`docs/releases/`](https://github.com/idoall/dsh-update-status/tree/main/docs/releases) and become the GitHub Release body.
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
 
 ## Configuration
 
@@ -144,6 +159,27 @@ Current release: plugin **`0.1.4`** is verified against DeepSeek Harness **`0.1.
 | `sidebarEnabled` | `true` | Hides only this plugin's sidebar entry |
 
 **Settings → Version & updates** lets the local operator hide the plugin's sidebar entry and select a release channel. The panel also supports direct channel selection and a cache-duration input. Changing the duration does not issue a request; only a later normal read can refresh an expired cache, while **Check for updates** always performs an immediate manual refresh.
+
+A preference is written only by your own selection in the panel or in that settings section. The plugin has no automatic write path — no effect, timer, or mount-time write — and `tests/client/entry.spec.ts` mounts the real client entry to keep it that way. The values live in the `dsh-update-status` namespace of `~/.dsh/settings.yaml`; edit or remove them there to reset a preference, and DSH reloads the document on the next change.
+
+## Troubleshooting
+
+**The chip shows a version that is not what I just installed, and tapping it does nothing.**
+That is the `connection.isLoopback` gate from plugin `0.1.1` and earlier: on a non-loopback page such as a LAN bridge (`dsh-bridge`, `dsh-lan-proxy`) the whole plugin goes inert and the chip falls back to this bundle's declared compatible release. Check what is installed and upgrade:
+
+```sh
+node -p "require(process.env.HOME + '/.dsh/profiles/web/node_modules/dsh-update-status/package.json').version"   # 0.1.3 or newer
+dsh plugin --profile web add dsh-update-status@latest
+```
+
+**The channel I want is missing from the list.**
+Rows are de-duplicated by version: when two tags point at the same release only the first is rendered. Selecting `latest` first re-projects the cache and can surface a preview row that was collapsed behind it. `0.1.4` also stopped hiding the channel that matches the running release.
+
+**The version never changes.**
+The Host caches one registry response, 360 minutes by default, and only a normal read can expire it. Press **Check for updates** for an immediate refresh, or lower `cacheTtlMinutes`. A failed check keeps the last good cache and shows the warning next to the version.
+
+**Nothing reaches the npm registry.**
+The plugin reports the failure and still shows the locally detected running version. Registry access is HTTPS-only to `registry.npmjs.org`; a proxy or offline host produces that warning rather than a wrong version.
 
 ## Security boundary
 
