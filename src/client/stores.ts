@@ -1,8 +1,9 @@
 /** Small observable stores shared by the independent sidebar and overlay slots. */
 
-import { DEFAULT_CACHE_TTL_MINUTES, isCacheTtlMinutes, isReleaseChannel, PLUGIN_ID, RELEASE_CHANNELS, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL, type ReleaseChannel, type UpdateStatus } from '../shared/types.ts'
-import type { ConnectionClient, Observable, SettingsScope } from './contract.ts'
+import { DEFAULT_CACHE_TTL_MINUTES, isCacheTtlMinutes, isReleaseChannel, PLUGIN_ID, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL, type ReleaseChannel, type UpdateStatus } from '../shared/types.ts'
+import type { ConnectionClient, Observable } from './contract.ts'
 import { errorMessage, updateStatusOf } from './contract.ts'
+import type { SettingsScopeLike } from './settings/scopeFaces.ts'
 
 export interface StatusSnapshot {
   status: UpdateStatus | null
@@ -13,34 +14,12 @@ export interface StatusSnapshot {
 const INITIAL_STATUS: StatusSnapshot = { status: null, loading: true, error: null }
 
 export class StatusStore implements Observable<StatusSnapshot> {
-  private snapshot: StatusSnapshot
-  private readonly allowRequests: boolean
+  private snapshot: StatusSnapshot = INITIAL_STATUS
   private readonly listeners = new Set<() => void>()
   private inFlight: Promise<boolean> | undefined
   private stopped = false
 
-  constructor(private readonly connection: ConnectionClient, staticVersion: string | null = null) {
-    this.allowRequests = staticVersion === null
-    this.snapshot = staticVersion === null
-      ? INITIAL_STATUS
-      : { status: {
-        currentVersion: staticVersion,
-        latestVersion: null,
-        hasUpdate: false,
-        cached: true,
-        checkedAt: null,
-        warning: null,
-        installKind: 'unknown',
-        upgradeCommand: '',
-        releaseUrl: '',
-        changelogUrl: '',
-        publishedAt: null,
-        packageName: '@deepseek-ai/dsh',
-        channel: 'latest',
-        channels: RELEASE_CHANNELS.map(channel => ({ channel, version: null, publishedAt: null, compatibility: 'unverified' })),
-        canApplyInPlace: false,
-      }, loading: false, error: null }
-  }
+  constructor(private readonly connection: ConnectionClient) {}
 
   getSnapshot = (): StatusSnapshot => this.snapshot
 
@@ -51,17 +30,16 @@ export class StatusStore implements Observable<StatusSnapshot> {
 
   /** First mount reads the Host's cached status; it never starts a browser timer. */
   async load(cacheTtlMinutes: number = DEFAULT_CACHE_TTL_MINUTES): Promise<void> {
-    if (this.allowRequests) await this.request(false, this.snapshot.status?.channel ?? 'latest', cacheTtlMinutes)
+    await this.request(false, this.snapshot.status?.channel ?? 'latest', cacheTtlMinutes)
   }
 
   /** User gesture only: force the Host to bypass TTL (while retaining single-flight). */
   async refresh(channel: ReleaseChannel = this.snapshot.status?.channel ?? 'latest', cacheTtlMinutes: number = DEFAULT_CACHE_TTL_MINUTES): Promise<void> {
-    if (this.allowRequests) await this.request(true, channel, cacheTtlMinutes)
+    await this.request(true, channel, cacheTtlMinutes)
   }
 
   /** Channel selection re-projects the Host cache; it is not a forced refresh. */
   async selectChannel(channel: ReleaseChannel, cacheTtlMinutes: number = DEFAULT_CACHE_TTL_MINUTES): Promise<void> {
-    if (!this.allowRequests) return
     // A persisted preference or a newer selection can arrive while another
     // channel is in flight. Keep checking after every joined request until the
     // requested projection is actually the published snapshot.
@@ -139,7 +117,7 @@ const INITIAL_PREFERENCES: PreferencesSnapshot = {
 export class PreferencesStore implements Observable<PreferencesSnapshot> {
   private snapshot: PreferencesSnapshot = INITIAL_PREFERENCES
   private readonly listeners = new Set<() => void>()
-  private scope: SettingsScope | undefined
+  private scope: SettingsScopeLike | undefined
 
   getSnapshot = (): PreferencesSnapshot => this.snapshot
 
@@ -148,7 +126,7 @@ export class PreferencesStore implements Observable<PreferencesSnapshot> {
     return () => { this.listeners.delete(listener) }
   }
 
-  attach(scope: SettingsScope): () => void {
+  attach(scope: SettingsScopeLike): () => void {
     this.scope = scope
     const sync = () => {
       const raw = scope.getSnapshot()

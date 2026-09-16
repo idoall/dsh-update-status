@@ -99,7 +99,6 @@ export interface SharedUi {
   status: StatusStore
   preferences: PreferencesStore
   panel: PanelStore
-  canManage: boolean
 }
 
 /** Occupies ONLY sidebar.brand.name; the official fish mark stays untouched. */
@@ -119,7 +118,7 @@ export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null
     // inside it while the modal dialog is open (Chrome otherwise warns).
     const target = event.currentTarget
     if (target instanceof HTMLElement) target.blur()
-    if (ui.canManage) ui.panel.toggle('brand')
+    ui.panel.toggle('brand')
   }
   const onKeyDown = (event: ReactNS.KeyboardEvent<HTMLSpanElement>): void => {
     if (event.key !== 'Enter' && event.key !== ' ') return
@@ -134,13 +133,12 @@ export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null
         className="dus-badge"
         data-update={snapshot.status?.hasUpdate === true || undefined}
         data-error={state === 'problem' || undefined}
-        role={ui.canManage ? 'button' : undefined}
-        tabIndex={ui.canManage ? 0 : undefined}
+        role="button"
+        tabIndex={0}
         aria-label={badgeLabel(snapshot.status, snapshot.loading, snapshot.error)}
-        aria-disabled={ui.canManage ? undefined : true}
         title={badgeLabel(snapshot.status, snapshot.loading, snapshot.error)}
-        onClick={ui.canManage ? activate : undefined}
-        onKeyDown={ui.canManage ? onKeyDown : undefined}
+        onClick={activate}
+        onKeyDown={onKeyDown}
       >
         <span className="dus-badge-version">{shortVersion(version)}</span>
         <span className="dus-dot" data-update={snapshot.status?.hasUpdate === true || undefined} data-loading={snapshot.loading || undefined} aria-hidden="true" />
@@ -162,7 +160,6 @@ export function FooterAction({ wide, ui }: { wide?: unknown; ui: SharedUi }): Re
       type="button"
       aria-label={t('footer.status')}
       title={label}
-      disabled={!ui.canManage}
       onClick={() => { ui.panel.toggle('rail') }}
     >
       <span className="dus-footer-icon" aria-hidden="true">↟</span>
@@ -194,7 +191,7 @@ function selectCommand(element: HTMLElement | null): void {
   }
 }
 
-/** Full detail is only opened from a loopback/local DSH UI surface. */
+/** Full detail from whichever page the operator is on (the transport is authenticated). */
 export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null {
   const panel = useObservable(ui.panel)
   const preferences = useObservable(ui.preferences)
@@ -202,7 +199,7 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
   const commandRef = React.useRef<HTMLElement | null>(null)
   const dialogRef = React.useRef<HTMLDialogElement | null>(null)
   const [copyMessage, setCopyMessage] = React.useState<string | null>(null)
-  const visible = panel.open && preferences.sidebarEnabled && ui.canManage
+  const visible = panel.open && preferences.sidebarEnabled
 
   React.useLayoutEffect(() => {
     if (!visible) return undefined
@@ -363,8 +360,8 @@ export function UpdateSettings({ ui }: { ui: SharedUi }): ReactNS.ReactElement {
         <p className="dus-settings-hint">{t('settings.channelHint')}</p>
         <p className="dus-settings-hint">{t('panel.current')}: <code>{snapshot.status?.currentVersion ?? '…'}</code></p>
         <p className="dus-settings-hint">{t('preview.follow')}</p>
-        {ui.canManage && <button className="dus-action" type="button" aria-expanded={showGuidance} onClick={() => { setShowGuidance(!showGuidance) }}>{t(showGuidance ? 'preview.close' : 'preview.open')}</button>}
-        {ui.canManage && showGuidance && <section aria-label={t('preview.open')}>
+        <button className="dus-action" type="button" aria-expanded={showGuidance} onClick={() => { setShowGuidance(!showGuidance) }}>{t(showGuidance ? 'preview.close' : 'preview.open')}</button>
+        {showGuidance && <section aria-label={t('preview.open')}>
           <p className="dus-warning">{t('preview.risk')}</p>
           <button className="dus-action" type="button" disabled={snapshot.loading} onClick={() => { void ui.status.refresh(undefined, preferences.cacheTtlMinutes) }}>{t(snapshot.loading ? 'panel.checking' : 'panel.check')}</button>
           {snapshot.error !== null && <p role="alert">{snapshot.error}</p>}

@@ -99,16 +99,28 @@ The plugin displays one command that matches the detected installation kind and 
 
 The plugin honors npm dist-tags. It does not pick the numerically greatest version from registry history.
 
+## LAN / non-loopback pages
+
+DSH disables Host settings persistence for any page whose origin is not a loopback authority (the official `dsh-client-ui-settings` README states it plainly: *Non-loopback pages get no durable settings*). `settingsScope` then answers `unavailable` and never sends `settings.describe`, and `connection.isLoopback` reads false for the whole page.
+
+From `0.1.2` this plugin is fully usable there anyway:
+
+- The version/update **status** is fetched normally. Earlier releases gated the whole feature on `connection.isLoopback === true`, so a page reached through a LAN bridge (`dsh-bridge`, `dsh-lan-proxy`, …) never sent `POST /api/dsh-update-status.get-status`, could not open the detail panel, and showed this bundle's declared compatible release as if it were the running version. That gate is gone — the Connection RPC is authenticated and the Host route is the plugin's own.
+- **Preferences** (`sidebarEnabled`, `channel`, `cacheTtlMinutes`) keep reading and writing the ONE shared Host namespace `dsh-update-status`, through the same public Remote the official settings client speaks (`settings.describe` / `settings.mutate`). Writes stay revision-fenced, and a refused write surfaces as a conflict instead of a silent overwrite. The direct channel opens only when the official scope reports `unavailable`, so a loopback page keeps the official path and pays no extra wire read.
+
+If you want DSH's stock policy instead (a non-loopback page never persists settings), let the bridge declare itself the Host: inject `window.__DSH_TRANSPORT__ = { fetch: (input, init) => window.fetch(input, init), ownsHost: true }` into the served HTML before `__DSH_BOOT__`. DSH's `ctx.connection.isLoopback` then reads true and every settings-backed surface — including the official Settings pages — comes back. The `dsh-mobile` gateway already does this.
+
 ## Compatibility
 
-Current release: plugin **`0.1.1`** is verified against DeepSeek Harness **`0.1.5-rc.1`**.
+Current release: plugin **`0.1.2`** is verified against DeepSeek Harness **`0.1.5-rc.1`**.
 
 | Plugin | Verified DeepSeek Harness |
 | --- | --- |
 | `0.1.0` | `0.1.2-rc.1` |
 | `0.1.1` | `0.1.5-rc.1` |
+| `0.1.2` | `0.1.5-rc.1` |
 
-Use `0.1.1` with DSH `0.1.5-rc.1`. Keep `0.1.0` only if you are still on DSH `0.1.2-rc.1`. A newer DSH version is not automatically declared compatible. Verify it manually first. If the plugin is incompatible, disable or uninstall it rather than patching DSH core.
+Use `0.1.2` with DSH `0.1.5-rc.1`. Keep `0.1.0` only if you are still on DSH `0.1.2-rc.1`. A newer DSH version is not automatically declared compatible. Verify it manually first. If the plugin is incompatible, disable or uninstall it rather than patching DSH core.
 
 ## Configuration
 

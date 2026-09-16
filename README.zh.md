@@ -99,16 +99,28 @@ npm install -g @deepseek-ai/dsh@alpha
 
 插件严格遵循 npm dist-tag，不会从 registry 历史版本中自行挑选 SemVer 最大值。
 
+## 局域网（非回环页面）访问
+
+DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Host 设置持久化（官方 `dsh-client-ui-settings` README 原文：*Non-loopback pages get no durable settings*）：`settingsScope` 直接返回 `unavailable`，并且从此不发 `settings.describe`；整页的 `connection.isLoopback` 也都是 false。
+
+从 `0.1.2` 起，本插件在局域网页面同样可用：
+
+- **版本/更新状态**照常读取。早先的版本把整个功能压在 `connection.isLoopback === true` 上，于是经局域网转发（`dsh-bridge`、`dsh-lan-proxy` 等）打开的页面从不发送 `POST /api/dsh-update-status.get-status`、详情面板打不开，还会把本包声明的兼容版本当成"当前运行版本"显示。该判断已移除——Connection RPC 本身是已认证的，Host 路由也是本插件自己的路由。
+- **偏好设置**（`sidebarEnabled`、`channel`、`cacheTtlMinutes`）继续读写 Host 上共享的那一份 `dsh-update-status` 命名空间，走的是与官方 settings Client 相同的公开 Remote（`settings.describe` / `settings.mutate`）。写入仍受 revision 栅栏保护，被拒时明确提示冲突而不会静默覆盖。直连通道只在官方 scope 报 `unavailable` 时才打开，所以回环页面仍走官方路径，不会多发一次线上读取。
+
+若你希望保持 DSH 官方策略（非回环页面完全不落地设置），可以让转发侧声明宿主身份：在返回的 HTML 中、`__DSH_BOOT__` 之前注入 `window.__DSH_TRANSPORT__ = { fetch: (input, init) => window.fetch(input, init), ownsHost: true }`。DSH 的 `ctx.connection.isLoopback` 会据此为真，所有依赖设置的界面（含官方「设置」页）一并恢复；`dsh-mobile` 网关正是这么做的。
+
 ## 兼容性
 
-当前发布：插件 **`0.1.1`** 已针对 DeepSeek Harness **`0.1.5-rc.1`** 验证。
+当前发布：插件 **`0.1.2`** 已针对 DeepSeek Harness **`0.1.5-rc.1`** 验证。
 
 | 插件版本 | 已验证的 DeepSeek Harness |
 | --- | --- |
 | `0.1.0` | `0.1.2-rc.1` |
 | `0.1.1` | `0.1.5-rc.1` |
+| `0.1.2` | `0.1.5-rc.1` |
 
-DSH `0.1.5-rc.1` 请使用 `0.1.1`。仍在 DSH `0.1.2-rc.1` 上时继续使用 `0.1.0`。更高 DSH 版本不会被自动宣称为兼容，需要人工验证。不兼容时请禁用或卸载插件，不要修改 DSH 核心。
+DSH `0.1.5-rc.1` 请使用 `0.1.2`。仍在 DSH `0.1.2-rc.1` 上时继续使用 `0.1.0`。更高 DSH 版本不会被自动宣称为兼容，需要人工验证。不兼容时请禁用或卸载插件，不要修改 DSH 核心。
 
 ## 配置
 

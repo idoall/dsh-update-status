@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PanelStore, PreferencesStore, StatusStore } from '../../src/client/stores.ts'
+import type { SettingsScopeSnapshotLike } from '../../src/client/settings/scopeFaces.ts'
 
 const status = {
   currentVersion: '0.1.2-rc.1',
@@ -116,7 +117,7 @@ describe('StatusStore access boundary', () => {
     expect(store.getSnapshot()).toMatchObject({ loading: false, error: 'projection unavailable' })
   })
 
-  it('keeps a non-loopback/static client local and never calls the Host channel', async () => {
+  it('reads the Host channel from a non-loopback page too (no client-side loopback gate)', async () => {
     let calls = 0
     const store = new StatusStore({
       rpc: {
@@ -125,30 +126,42 @@ describe('StatusStore access boundary', () => {
           return { ok: true, value: status }
         },
       },
-    }, '0.1.2-rc.1')
+    })
 
+    // The LAN page a phone uses must start from an honest loading state, never a
+    // fabricated "current version".
+    expect(store.getSnapshot()).toMatchObject({ status: null, loading: true, error: null })
+    await store.load()
+    await store.refresh()
+    expect(calls).toBe(2)
     expect(store.getSnapshot()).toMatchObject({
-      status: { currentVersion: '0.1.2-rc.1', latestVersion: null, canApplyInPlace: false },
+      status: { currentVersion: '0.1.2-rc.1', channel: 'latest' },
       loading: false,
       error: null,
     })
-    await store.load()
-    await store.refresh()
-    expect(calls).toBe(0)
   })
 })
 
 describe('PreferencesStore release channel', () => {
   it('persists an in-panel channel choice through the settings scope', async () => {
     const calls: Array<[string, unknown]> = []
-    let snapshot = { status: 'ready', writable: true, value: { sidebarEnabled: true, channel: 'latest', cacheTtlMinutes: 360 } }
+    let snapshot: SettingsScopeSnapshotLike = {
+      status: 'ready',
+      value: { sidebarEnabled: true, channel: 'latest', cacheTtlMinutes: 360 },
+      base: undefined,
+      user: undefined,
+      revision: 1,
+      writable: true,
+      mode: 'host',
+    }
     const listeners = new Set<() => void>()
     const scope = {
       getSnapshot: () => snapshot,
       subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } },
       set: async (field: string, value: unknown) => {
         calls.push([field, value])
-        snapshot = { ...snapshot, value: { ...snapshot.value, [field]: value } }
+        const value0 = snapshot.value as Record<string, unknown>
+        snapshot = { ...snapshot, value: { ...value0, [field]: value } }
         for (const listener of listeners) listener()
       },
     }

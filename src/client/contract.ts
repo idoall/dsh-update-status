@@ -11,25 +11,17 @@ export interface ConnectionRpc {
   call(channel: string, endpoint: string, payload: unknown, signal?: AbortSignal): Promise<unknown>
 }
 
+/**
+ * The authenticated transport face. There is deliberately NO `isLoopback` gate
+ * here: DSH's settings Client treats a non-loopback page as process-local, but
+ * that is a settings *persistence* policy — the Connection RPC itself stays
+ * authenticated and reachable over a LAN bridge, so gating this plugin's own
+ * read-only status on it only made the panel inert on exactly the page it is
+ * used from. See settings/settingsChannel.ts for the one place a loopback
+ * distinction still matters (choosing the Host settings channel).
+ */
 export interface ConnectionClient {
-  isLoopback?: boolean
   rpc?: ConnectionRpc
-}
-
-export interface SettingsScopeSnapshot {
-  status?: unknown
-  value?: unknown
-  writable?: unknown
-}
-
-export interface SettingsScope {
-  getSnapshot(): SettingsScopeSnapshot
-  subscribe(listener: () => void): () => void
-  set(field: string, value: unknown): Promise<void>
-}
-
-export interface SettingsScopeBinder {
-  bind(spec: { namespace: string }): SettingsScope
 }
 
 export interface SlotRegistration {
@@ -53,6 +45,8 @@ export interface ClientContext {
   get(name: string): unknown
   inject(names: string[], callback: (ctx: unknown) => void): () => void
   effect(setup: () => (() => void) | void, label?: string): () => void
+  /** Optional lifecycle event seam (Cordis contexts expose it; guarded here). */
+  on?(name: string, listener: () => void): unknown
 }
 
 export function errorMessage(error: unknown): string {

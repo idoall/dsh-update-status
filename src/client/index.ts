@@ -4,12 +4,26 @@
  * (`sidebar.brand.mark`) untouched, and adds a collapsed-rail fallback at
  * `sidebar.footer.action`. The detail panel is an additive `shell.overlay`,
  * never a chat-area floating widget.
+ *
+ * The status read and the detail panel are NOT restricted to a loopback page.
+ * DSH disables Host settings *persistence* on a non-loopback page, but the
+ * Connection RPC stays authenticated and reachable there — see
+ * settings/settingsChannel.ts for the one place the loopback distinction still
+ * matters.
  */
 
-import type { ClientContext, ConnectionClient, SettingsScopeBinder } from './contract.ts'
+import type { ClientContext, ConnectionClient } from './contract.ts'
 import { BrandName, FooterAction, type SharedUi, UpdatePanel, UpdateSettings } from './components.tsx'
 import { SETTINGS_NAMESPACE, PanelStore, PreferencesStore, StatusStore } from './stores.ts'
-import { STATIC_COMPATIBLE_VERSION } from '../shared/types.ts'
+import { binderOf, scopeOf } from './settings/scopeFaces.ts'
+import {
+  createHostDirectScope,
+  settingsInvalidationsOf,
+  settingsRemoteFace,
+  settingsRemoteOf,
+  type SettingsRemoteLike,
+} from './settings/hostDirectScope.ts'
+import { createSettingsChannel } from './settings/settingsChannel.ts'
 import { t } from './i18n.ts'
 import { UPDATE_STATUS_CSS } from './styles.ts'
 
@@ -42,52 +56,132 @@ function connectionOf(ctx: ClientContext): ConnectionClient {
 
 function apply(ctx: ClientContext): void {
   const connection = connectionOf(ctx)
-  // The authenticated transport can serve a remote browser too. Restrict the
-  // metadata request and command panel to the machine running DSH; remote
-  // clients deliberately render only the release this bundle is compatible with.
-  const canManage = connection.isLoopback === true
-  const status = new StatusStore(connection, canManage ? null : STATIC_COMPATIBLE_VERSION)
+  const status = new StatusStore(connection)
   const preferences = new PreferencesStore()
   const panel = new PanelStore()
-  const ui: SharedUi = { status, preferences, panel, canManage }
+  const ui: SharedUi = { status, preferences, panel }
+
+  const disposers: Array<() => void> = []
+  let stopped = false
+  /** Own a subscription raised from an injection callback; release after teardown at once. */
+  const own = (dispose: unknown): void => {
+    if (typeof dispose !== 'function') return
+    if (stopped) {
+      try {
+        (dispose as () => void)()
+      } catch {
+        // Contained.
+      }
+      return
+    }
+    disposers.push(dispose as () => void)
+  }
+
+  // The plugin's ONE storage contract is the Host namespace `dsh-update-status`,
+  // but two client channels can serve it: the official `settingsScope` (loopback
+  // pages) and — only when that scope reports the documented non-loopback
+  // degradation — a direct Host channel over the same public Remote. A LAN page
+  // is exactly that non-loopback case; without the direct channel every
+  // preference silently falls back to its default there. See settingsChannel.ts.
+  let remoteSettings: SettingsRemoteLike | undefined
+  /** Resolve the direct channel's Remote face; `ctx.get` covers a payload we could not read. */
+  const directRemote = (): SettingsRemoteLike | undefined => {
+    if (remoteSettings !== undefined) return remoteSettings
+    try {
+      remoteSettings = settingsRemoteFace(ctx.get('remote.settings'))
+    } catch {
+      // The dotted service key is not readable on this context.
+    }
+    return remoteSettings
+  }
+  const channel = createSettingsChannel({
+    openDirect: () => {
+      const remote = directRemote()
+      return remote === undefined ? undefined : createHostDirectScope(remote, SETTINGS_NAMESPACE)
+    },
+  })
 
   ctx.effect(() => {
     const disposeStyles = installStyles()
-    if (canManage) void status.load(preferences.getSnapshot().cacheTtlMinutes)
+    const detach = preferences.attach(channel)
+    // Changing cache policy deliberately does not issue a network request. Its
+    // value is sent on the next ordinary status read or manual check.
+    let selected = status.getSnapshot().status?.channel ?? 'latest'
+    const syncPreferences = () => {
+      const next = preferences.getSnapshot()
+      if (next.channel !== selected) {
+        selected = next.channel
+        void status.selectChannel(selected, next.cacheTtlMinutes)
+      }
+    }
+    syncPreferences()
+    const unsubscribe = preferences.subscribe(syncPreferences)
+    // Every mount reads the Host's cached status, whichever page it is on; the
+    // transport is authenticated and the Host route is the plugin's own.
+    void status.load(preferences.getSnapshot().cacheTtlMinutes)
     return () => {
+      stopped = true
+      unsubscribe()
+      detach()
+      for (const dispose of disposers.splice(0)) {
+        try {
+          dispose()
+        } catch {
+          // Contained.
+        }
+      }
+      channel.dispose()
       status.stop()
       disposeStyles()
     }
-  }, 'dsh-update-status: style and first status read')
+  }, 'dsh-update-status: styles, settings channel and first status read')
 
-  // This is deliberately separate from the client module's hard injection:
-  // a missing settings provider keeps the default visible state and does not
-  // prevent the version badge or Host check from working.
-  ctx.inject(['settingsScope'], (raw) => {
-    const binder = (raw as { settingsScope?: unknown }).settingsScope
-    if (binder === null || typeof binder !== 'object' || typeof (binder as SettingsScopeBinder).bind !== 'function') return
+  // Official seam first: it stays authoritative whenever it is not `unavailable`,
+  // so a loopback page keeps the official semantics and pays no extra wire read.
+  try {
+    ctx.inject(['settingsScope'], (raw: unknown) => {
+      try {
+        const binder = binderOf(raw)
+        if (binder === undefined) return
+        channel.setOfficial(scopeOf(binder.bind({ namespace: SETTINGS_NAMESPACE })))
+      } catch {
+        // Unreadable settings seam: the preferences stay on their defaults.
+      }
+    })
+  } catch {
+    // No settingsScope seam on this host: the direct channel is the only hope.
+  }
+
+  // Direct Host channel. The Remote service can arrive before or after the
+  // official scope, so `refresh()` re-evaluates the selection either way; the
+  // document invalidation keeps this page in step with edits made elsewhere,
+  // and a reconnect retries a read that was refused.
+  //
+  // Every read here is contained: the injected payload intentionally refuses the
+  // dotted PARENT (`payload.remote` throws "cannot get property … without
+  // inject"), so one unreadable member must never abort the whole wiring.
+  try {
+    ctx.inject(['remote.settings'], (raw: unknown) => {
+      try {
+        remoteSettings = settingsRemoteOf(raw) ?? remoteSettings
+        channel.refresh()
+        const invalidations = settingsInvalidationsOf(ctx.get('remote'))
+        if (invalidations !== undefined) own(invalidations(() => channel.reload()))
+      } catch {
+        // No usable Remote seam: the direct channel stays closed and the official
+        // scope keeps its verdict.
+      }
+    })
+  } catch {
+    // No Remote seam: non-loopback pages keep the honest unavailable state.
+  }
+  if (typeof ctx.on === 'function') {
     try {
-      const scope = (binder as SettingsScopeBinder).bind({ namespace: SETTINGS_NAMESPACE })
-      ctx.effect(() => {
-        const detach = preferences.attach(scope)
-        let selected = status.getSnapshot().status?.channel ?? 'latest'
-        const syncPreferences = () => {
-          const next = preferences.getSnapshot()
-          if (next.channel !== selected) {
-            selected = next.channel
-            void status.selectChannel(selected, next.cacheTtlMinutes)
-          }
-          // Changing cache policy deliberately does not issue a network request.
-          // Its value is sent on the next ordinary status read or manual check.
-        }
-        syncPreferences()
-        const unsubscribe = preferences.subscribe(syncPreferences)
-        return () => { unsubscribe(); detach() }
-      }, 'dsh-update-status: sidebar and channel preferences')
+      own(ctx.on('connection/reset', () => channel.reload()))
     } catch {
-      // Default remains enabled when the Host settings namespace is unavailable.
+      // No lifecycle event seam on this host.
     }
-  })
+  }
 
   // Single slot: a compact name + version chip shadows the official wordmark
   // (priority 0). Lowest priority renders; never touch sidebar.brand.mark.
