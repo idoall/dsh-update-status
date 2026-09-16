@@ -114,14 +114,25 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 Current release: plugin **`0.1.3`** is verified against DeepSeek Harness **`0.1.6-alpha.1`**.
 
-| Plugin | Verified DeepSeek Harness |
-| --- | --- |
-| `0.1.0` | `0.1.2-rc.1` |
-| `0.1.1` | `0.1.5-rc.1` |
-| `0.1.2` | `0.1.5-rc.1` |
-| `0.1.3` | `0.1.5-rc.1`, `0.1.6-alpha.1` |
+### Which plugin version goes with which DeepSeek Harness version
 
-Use `0.1.3` with DSH `0.1.6-alpha.1` (or `0.1.5-rc.1`). Keep `0.1.0` only if you are still on DSH `0.1.2-rc.1`. A newer DSH version is not automatically declared compatible. Verify it manually first. If the plugin is incompatible, disable or uninstall it rather than patching DSH core.
+| Plugin | Verified DeepSeek Harness | On npm | What that version is |
+| --- | --- | --- | --- |
+| **`0.1.3`** | `0.1.6-alpha.1`, `0.1.5-rc.1` | `latest` | Carries the `0.1.2` LAN (non-loopback) fix, re-verified on 0.1.6 and locked by tests |
+| `0.1.2` | `0.1.5-rc.1` | **never published** | Removed the `connection.isLoopback` gate, so LAN pages work |
+| `0.1.1` | `0.1.5-rc.1` | published | The previous npm `latest`; the plugin is inert on LAN/non-loopback pages |
+| `0.1.0` | `0.1.2-rc.1` | published | First release |
+
+- **Verified DeepSeek Harness** is the exact DSH release that plugin build was tested against. A DSH release that is not listed is not declared compatible: verify it manually first, and if it turns out incompatible, disable or uninstall the plugin rather than patching DSH core.
+- **On npm** is what `dsh plugin --profile web add dsh-update-status@latest` actually installs. A version that exists in this repository but not on npm is a development state, not a release.
+- Match them explicitly when it matters:
+
+  ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.3   # DSH 0.1.6-alpha.1 or 0.1.5-rc.1
+  dsh plugin --profile web add dsh-update-status@0.1.0   # DSH 0.1.2-rc.1 only
+  ```
+
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English under [`docs/releases/`](https://github.com/idoall/dsh-update-status/tree/main/docs/releases) and become the GitHub Release body.
 
 ## Configuration
 

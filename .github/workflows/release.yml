@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   version:
-    name: Release version gate
+    name: Release version and notes gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -24,6 +24,23 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match package.json version $version" >&2
             exit 1
           fi
+      # Every tag must ship hand-written bilingual release notes: the GitHub
+      # Release body is this file, never generated commit titles.
+      - name: Require bilingual release notes
+        run: |
+          notes="docs/releases/${GITHUB_REF_NAME}.md"
+          test -f "$notes" || {
+            echo "Missing release notes: $notes (write them before tagging)" >&2
+            exit 1
+          }
+          grep -q "<h3 id=\"cn-${GITHUB_REF_NAME}\">" "$notes" || {
+            echo "$notes has no Chinese section anchor <h3 id=\"cn-${GITHUB_REF_NAME}\">" >&2
+            exit 1
+          }
+          grep -q "<h3 id=\"en-${GITHUB_REF_NAME}\">" "$notes" || {
+            echo "$notes has no English section anchor <h3 id=\"en-${GITHUB_REF_NAME}\">" >&2
+            exit 1
+          }
 
   package:
     name: Build plugin package
@@ -91,20 +108,27 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: dsh-update-status-${{ github.sha }}
           path: release-assets
-      - name: Create or update GitHub release
+      - name: Create or update GitHub release from the bilingual notes file
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          notes="docs/releases/${GITHUB_REF_NAME}.md"
+          test -f "$notes" || { echo "Missing release notes: $notes" >&2; exit 1; }
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$notes"
             gh release upload "$GITHUB_REF_NAME" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create "$GITHUB_REF_NAME" release-assets/* \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
-              --generate-notes \
-              --title "$GITHUB_REF_NAME"
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$notes"
           fi

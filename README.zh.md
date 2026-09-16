@@ -114,14 +114,25 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 当前发布：插件 **`0.1.3`** 已针对 DeepSeek Harness **`0.1.6-alpha.1`** 验证。
 
-| 插件版本 | 已验证的 DeepSeek Harness |
-| --- | --- |
-| `0.1.0` | `0.1.2-rc.1` |
-| `0.1.1` | `0.1.5-rc.1` |
-| `0.1.2` | `0.1.5-rc.1` |
-| `0.1.3` | `0.1.5-rc.1`、`0.1.6-alpha.1` |
+### 插件版本与 DeepSeek Harness 版本的对应关系
 
-DSH `0.1.6-alpha.1`（或 `0.1.5-rc.1`）请使用 `0.1.3`。仍在 DSH `0.1.2-rc.1` 上时继续使用 `0.1.0`。更高 DSH 版本不会被自动宣称为兼容，需要人工验证。不兼容时请禁用或卸载插件，不要修改 DSH 核心。
+| 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
+| --- | --- | --- | --- |
+| **`0.1.3`** | `0.1.6-alpha.1`、`0.1.5-rc.1` | `latest` | 含 `0.1.2` 的局域网（非回环）修复，并在 0.1.6 上复验、补上回归测试 |
+| `0.1.2` | `0.1.5-rc.1` | **未发布** | 移除 `connection.isLoopback` 门控，局域网页面可用 |
+| `0.1.1` | `0.1.5-rc.1` | 已发布 | 此前 npm 上的 `latest`；局域网/非回环页面下插件整体不可用 |
+| `0.1.0` | `0.1.2-rc.1` | 已发布 | 首个版本 |
+
+- **已验证的 DeepSeek Harness** 是该插件构建实际测试过的确切 DSH 版本。未列出的 DSH 版本不会被宣称为兼容：请先人工验证；确认不兼容时请禁用或卸载插件，不要修改 DSH 核心。
+- **npm 发布状态** 是 `dsh plugin --profile web add dsh-update-status@latest` 实际会装到的版本。只存在于本仓库、尚未发布到 npm 的版本属于开发状态，不是发布版本。
+- 需要精确对应时显式指定版本：
+
+  ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.3   # DSH 0.1.6-alpha.1 或 0.1.5-rc.1
+  dsh plugin --profile web add dsh-update-status@0.1.0   # 仅 DSH 0.1.2-rc.1
+  ```
+
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写在 [`docs/releases/`](https://github.com/idoall/dsh-update-status/tree/main/docs/releases)，并直接作为 GitHub Release 正文。
 
 ## 配置
 
