@@ -44,6 +44,7 @@ const status: UpdateStatus = {
   cached: true,
   checkedAt: '2026-09-16T13:33:37.470Z',
   warning: null,
+  warnings: [],
   installKind: 'npm-global',
   upgradeCommand: 'npm install -g @deepseek-ai/dsh@latest',
   releaseUrl: 'https://example.test/releases',

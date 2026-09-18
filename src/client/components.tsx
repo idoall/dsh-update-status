@@ -6,7 +6,7 @@ import { previewCommand } from '../shared/preview-guidance.ts'
 import { isChipProblem } from '../shared/visual-state.ts'
 import { MAX_CACHE_TTL_MINUTES, MIN_CACHE_TTL_MINUTES, isCacheTtlMinutes, type ReleaseChannel, type ReleaseCompatibility, type UpdateStatus } from '../shared/types.ts'
 import type { PreferencesStore, PanelStore, StatusStore } from './stores.ts'
-import { t } from './i18n.ts'
+import { localizedUpgradeGuidance, localizedWarning, t } from './i18n.ts'
 import { React, h } from './react.ts'
 
 function useObservable<T>(store: { subscribe(listener: () => void): () => void; getSnapshot(): T }): T {
@@ -175,7 +175,10 @@ function statusSummary(status: UpdateStatus | null, loading: boolean, error: str
   if (loading && status === null) return { kind: 'warning', text: t('brand.checking') }
   if (error !== null) return { kind: 'error', text: error }
   if (status?.hasUpdate === true) return { kind: 'update', text: t('panel.available') }
-  if (status?.warning !== null && status?.warning !== undefined) return { kind: 'warning', text: status.warning }
+  if (status !== null) {
+    const warning = localizedWarning(status)
+    if (warning !== null) return { kind: 'warning', text: warning }
+  }
   return { kind: 'ok', text: t('panel.currentState') }
 }
 
@@ -230,9 +233,10 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
 
   if (!visible) return null
   const status = snapshot.status
+  const warning = status === null ? null : localizedWarning(status)
   const summary = statusSummary(status, snapshot.loading, snapshot.error)
   const switchingChannel = status !== null && status.channel !== preferences.channel
-  const command = switchingChannel ? t('panel.switchingChannel') : status?.upgradeCommand ?? '—'
+  const command = switchingChannel ? t('panel.switchingChannel') : status === null ? '—' : localizedUpgradeGuidance(status)
 
   const copy = async (): Promise<void> => {
     setCopyMessage(null)
@@ -302,7 +306,7 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
           })}
         </div>}
 
-        {status?.warning !== null && status?.warning !== undefined && <p className="dus-warning">{t('panel.error')}: {status.warning}</p>}
+        {warning !== null && <p className="dus-warning">{t('panel.error')}: {warning}</p>}
         {snapshot.error !== null && <p className="dus-warning">{t('panel.error')}: {snapshot.error}</p>}
 
         <div className="dus-actions">

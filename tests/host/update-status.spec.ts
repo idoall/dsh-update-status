@@ -38,10 +38,13 @@ describe('UpdateStatusService', () => {
     expect(second.latestVersion).toBe('0.1.5-alpha.2')
     expect(second.channel).toBe('alpha')
     expect(second.upgradeCommand).toBe('npm install -g @deepseek-ai/dsh@alpha')
-    expect(second.warning).toContain('尚未验证')
+    expect(second.warning).toBe('alpha is a preview channel; version 0.1.5-alpha.2 has not been verified as compatible with this plugin.')
     // An unverified preview is an ADVISORY: the status is complete and usable, so the
     // chip must not be repainted for it. Regression: alpha.2 made the whole chip red.
     expect(second.warningKind).toBe('notice')
+    expect(second.warnings).toEqual([
+      { code: 'preview-unverified', channel: 'alpha', version: '0.1.5-alpha.2' },
+    ])
     expect(second.channels).toHaveLength(3)
 
     now += 101
@@ -102,8 +105,13 @@ describe('UpdateStatusService', () => {
     const status = await service.check(true, 'alpha')
     expect(status.cached).toBe(true)
     expect(status.latestVersion).toBe('0.1.5-alpha.2')
-    expect(status.warning).toContain('offline')
+    expect(status.warning).toContain('Unable to check the npm registry: offline')
+    expect(status.warning).toContain('alpha is a preview channel')
     expect(status.warningKind).toBe('failure')
+    expect(status.warnings).toEqual([
+      { code: 'registry-unavailable', detail: 'offline' },
+      { code: 'preview-unverified', channel: 'alpha', version: '0.1.5-alpha.2' },
+    ])
   })
 
   it('keeps a cold failure renderable for the selected channel', async () => {
@@ -118,8 +126,11 @@ describe('UpdateStatusService', () => {
     expect(status.upgradeCommand).toContain('@alpha')
     expect(status.hasUpdate).toBe(false)
     expect(status.canApplyInPlace).toBe(false)
-    expect(status.warning).toContain('network unavailable')
+    expect(status.warning).toBe('Unable to check the npm registry: network unavailable')
     expect(status.warningKind).toBe('failure')
+    expect(status.warnings).toEqual([
+      { code: 'registry-unavailable', detail: 'network unavailable' },
+    ])
   })
 
   it('parses supported npm dist-tags from one registry document', () => {
@@ -149,7 +160,7 @@ describe('safety and command wording', () => {
     expect(upgradeCommandFor('npm-global')).toBe('npm install -g @deepseek-ai/dsh@latest')
     expect(upgradeCommandFor('npm-global', '@deepseek-ai/dsh', 'alpha')).toBe('npm install -g @deepseek-ai/dsh@alpha')
     expect(upgradeCommandFor('pnpm-global', '@deepseek-ai/dsh', 'next')).toBe('pnpm add -g @deepseek-ai/dsh@next')
-    expect(upgradeCommandFor('source-checkout')).toContain('checkout')
-    expect(upgradeCommandFor('unknown')).toContain('不会代为执行')
+    expect(upgradeCommandFor('source-checkout')).toBe('Update the DSH source checkout, install its dependencies, and rebuild it; this plugin cannot replace it in place from the GUI')
+    expect(upgradeCommandFor('unknown')).toBe('Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you')
   })
 })

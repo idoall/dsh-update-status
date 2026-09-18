@@ -56,6 +56,13 @@ export type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible'
 export type UpdateWarningKind = 'failure' | 'notice'
 export type InstallKind = 'npm-global' | 'pnpm-global' | 'source-checkout' | 'unknown'
 
+/** Language-neutral warning facts; the browser renders them in its own locale. */
+export type UpdateWarning =
+  | { code: 'registry-unavailable'; detail: string }
+  | { code: 'channel-unavailable'; channel: ReleaseChannel }
+  | { code: 'version-incomparable'; currentVersion: string; channel: ReleaseChannel; selectedVersion: string }
+  | { code: 'preview-unverified'; channel: ReleaseChannel; version: string }
+
 export function isReleaseChannel(value: unknown): value is ReleaseChannel {
   return value === 'latest' || value === 'next' || value === 'alpha'
 }
@@ -86,9 +93,12 @@ export interface UpdateStatus {
   hasUpdate: boolean
   cached: boolean
   checkedAt: string | null
+  /** English fallback for older clients; current clients localize `warnings`. */
   warning: string | null
   /** Severity of `warning`; absent from a Host older than the field. */
   warningKind?: UpdateWarningKind | null
+  /** Structured warning facts; absent from a Host older than this field. */
+  warnings?: UpdateWarning[]
   installKind: InstallKind
   upgradeCommand: string
   releaseUrl: string

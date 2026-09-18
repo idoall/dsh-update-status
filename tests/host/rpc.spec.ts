@@ -4,7 +4,7 @@ import type { UpdateStatusService } from '../../src/host/update-status.ts'
 
 const status = {
   currentVersion: '0.1.2-rc.1', latestVersion: '0.1.2', hasUpdate: true,
-  cached: false, checkedAt: '2026-01-01T00:00:00.000Z', warning: null,
+  cached: false, checkedAt: '2026-01-01T00:00:00.000Z', warning: null, warnings: [],
   installKind: 'npm-global' as const, upgradeCommand: 'npm install -g @deepseek-ai/dsh@latest',
   releaseUrl: 'https://example.test/releases', changelogUrl: 'https://example.test/releases',
   publishedAt: null, packageName: '@deepseek-ai/dsh', channel: 'latest' as const,

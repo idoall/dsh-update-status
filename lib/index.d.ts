@@ -22,6 +22,23 @@ type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible';
  */
 type UpdateWarningKind = 'failure' | 'notice';
 type InstallKind = 'npm-global' | 'pnpm-global' | 'source-checkout' | 'unknown';
+/** Language-neutral warning facts; the browser renders them in its own locale. */
+type UpdateWarning = {
+  code: 'registry-unavailable';
+  detail: string;
+} | {
+  code: 'channel-unavailable';
+  channel: ReleaseChannel;
+} | {
+  code: 'version-incomparable';
+  currentVersion: string;
+  channel: ReleaseChannel;
+  selectedVersion: string;
+} | {
+  code: 'preview-unverified';
+  channel: ReleaseChannel;
+  version: string;
+};
 interface ChannelRelease {
   channel: ReleaseChannel;
   version: string | null;
@@ -39,9 +56,12 @@ interface UpdateStatus {
   hasUpdate: boolean;
   cached: boolean;
   checkedAt: string | null;
+  /** English fallback for older clients; current clients localize `warnings`. */
   warning: string | null;
   /** Severity of `warning`; absent from a Host older than the field. */
   warningKind?: UpdateWarningKind | null;
+  /** Structured warning facts; absent from a Host older than this field. */
+  warnings?: UpdateWarning[];
   installKind: InstallKind;
   upgradeCommand: string;
   releaseUrl: string;
@@ -119,7 +139,6 @@ export declare class UpdateStatusService {
   private refreshRelease;
   private statusAfterFailure;
   private statusFromCache;
-  /** No remote data at all: the registry read itself failed, never a notice. */
   private statusWithoutRemoteRelease;
 }
 //#endregion
