@@ -9,6 +9,7 @@ const status = {
   cached: false,
   checkedAt: '2026-01-01T00:00:00.000Z',
   warning: null,
+  warnings: [],
   installKind: 'npm-global' as const,
   upgradeCommand: 'npm install -g @deepseek-ai/dsh@latest',
   releaseUrl: 'https://example.test/releases',

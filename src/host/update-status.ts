@@ -18,6 +18,8 @@ import {
   type ReleaseChannel,
   type ReleaseCompatibility,
   type UpdateStatus,
+  type UpdateWarning,
+  type UpdateWarningKind,
 } from '../shared/types.ts'
 
 export const REGISTRY_URL = 'https://registry.npmjs.org/@deepseek-ai%2Fdsh'
@@ -49,10 +51,22 @@ function boundedMessage(error: unknown): string {
   return trimmed === '' ? 'unknown error' : trimmed.slice(0, 220)
 }
 
-function warningWith(base: string | null, addition: string | null): string | null {
-  if (base === null || base === '') return addition
-  if (addition === null || addition === '') return base
-  return `${base} ${addition}`
+function warningText(warning: UpdateWarning): string {
+  switch (warning.code) {
+    case 'registry-unavailable': return `Unable to check the npm registry: ${warning.detail}`
+    case 'channel-unavailable': return `The npm registry does not publish a ${warning.channel} channel.`
+    case 'version-incomparable': return `Unable to compare the current version ${warning.currentVersion} with ${warning.channel} channel version ${warning.selectedVersion} using SemVer.`
+    case 'preview-unverified': return `${warning.channel} is a preview channel; version ${warning.version} has not been verified as compatible with this plugin.`
+  }
+}
+
+function warningFallback(warnings: UpdateWarning[]): string | null {
+  return warnings.length === 0 ? null : warnings.map(warningText).join(' ')
+}
+
+function warningKindOf(warnings: UpdateWarning[]): UpdateWarningKind | null {
+  if (warnings.length === 0) return null
+  return warnings.every(warning => warning.code === 'preview-unverified') ? 'notice' : 'failure'
 }
 
 function dateOrNull(value: unknown): string | null {
@@ -151,11 +165,11 @@ export class UpdateStatusService {
     const ttlMs = isCacheTtlMinutes(cacheTtlMinutes) ? cacheTtlMinutes * 60 * 1000 : this.ttlMs
     const cached = this.cache
     if (!force && cached !== undefined && this.now() - cached.checkedAtMs < ttlMs) {
-      return this.statusFromCache(cached, channel, true, null)
+      return this.statusFromCache(cached, channel, true, [])
     }
     if (this.inFlight !== undefined) {
       try {
-        return this.statusFromCache(await this.inFlight, channel, false, null)
+        return this.statusFromCache(await this.inFlight, channel, false, [])
       } catch (error) {
         return this.statusAfterFailure(channel, error)
       }
@@ -164,7 +178,7 @@ export class UpdateStatusService {
     const run = this.refreshRelease()
     this.inFlight = run
     try {
-      return this.statusFromCache(await run, channel, false, null)
+      return this.statusFromCache(await run, channel, false, [])
     } catch (error) {
       return this.statusAfterFailure(channel, error)
     } finally {
@@ -179,38 +193,38 @@ export class UpdateStatusService {
   }
 
   private statusAfterFailure(channel: ReleaseChannel, error: unknown): UpdateStatus {
-    const warning = `无法检查 npm registry：${boundedMessage(error)}`
+    const warnings: UpdateWarning[] = [{ code: 'registry-unavailable', detail: boundedMessage(error) }]
     return this.cache === undefined
-      ? this.statusWithoutRemoteRelease(channel, warning)
-      : this.statusFromCache(this.cache, channel, true, warning)
+      ? this.statusWithoutRemoteRelease(channel, warnings)
+      : this.statusFromCache(this.cache, channel, true, warnings)
   }
 
-  private statusFromCache(cache: CachedRelease, channel: ReleaseChannel, cached: boolean, initialWarning: string | null): UpdateStatus {
+  private statusFromCache(cache: CachedRelease, channel: ReleaseChannel, cached: boolean, initialWarnings: UpdateWarning[]): UpdateStatus {
     const selected = cache.release.channels.find(release => release.channel === channel)
       ?? { channel, version: null, publishedAt: null, compatibility: 'unverified' as const }
     const comparison = selected.version === null ? undefined : compareSemver(this.installation.currentVersion, selected.version)
-    const missingWarning = selected.version === null ? `npm registry 未发布 ${channel} 通道。` : null
-    const comparisonWarning = selected.version !== null && comparison === undefined
-      ? `无法按 SemVer 比较当前版本 ${this.installation.currentVersion} 与 ${channel} 通道版本 ${selected.version}。`
-      : null
-    const previewWarning = channel !== 'latest' && selected.version !== null && selected.compatibility !== 'verified'
-      ? `${channel} 是预览通道，版本 ${selected.version} 尚未验证与本插件兼容。`
-      : null
-    // Nothing here produced a usable answer only when the registry read failed, the
-    // channel is unpublished, or the versions cannot be compared. An unverified
-    // preview is an advisory notice: the status itself is complete, so the chip must
-    // not repaint for it (an operator who upgrades DSH ahead of this bundle would
-    // otherwise watch the chip turn red for a plugin-side bookkeeping fact).
-    const failureWarning = warningWith(warningWith(initialWarning, missingWarning), comparisonWarning)
-    const warning = warningWith(failureWarning, previewWarning)
+    const warnings: UpdateWarning[] = [...initialWarnings]
+    if (selected.version === null) warnings.push({ code: 'channel-unavailable', channel })
+    if (selected.version !== null && comparison === undefined) {
+      warnings.push({
+        code: 'version-incomparable',
+        currentVersion: this.installation.currentVersion,
+        channel,
+        selectedVersion: selected.version,
+      })
+    }
+    if (channel !== 'latest' && selected.version !== null && selected.compatibility !== 'verified') {
+      warnings.push({ code: 'preview-unverified', channel, version: selected.version })
+    }
     return {
       currentVersion: this.installation.currentVersion,
       latestVersion: selected.version,
       hasUpdate: comparison !== undefined && comparison < 0,
       cached,
       checkedAt: new Date(cache.checkedAtMs).toISOString(),
-      warning,
-      warningKind: warning === null ? null : failureWarning === null ? 'notice' : 'failure',
+      warning: warningFallback(warnings),
+      warningKind: warningKindOf(warnings),
+      warnings,
       installKind: this.installation.installKind,
       upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, channel),
       releaseUrl: this.releaseUrl,
@@ -223,16 +237,16 @@ export class UpdateStatusService {
     }
   }
 
-  /** No remote data at all: the registry read itself failed, never a notice. */
-  private statusWithoutRemoteRelease(channel: ReleaseChannel, warning: string): UpdateStatus {
+  private statusWithoutRemoteRelease(channel: ReleaseChannel, warnings: UpdateWarning[]): UpdateStatus {
     return {
       currentVersion: this.installation.currentVersion,
       latestVersion: null,
       hasUpdate: false,
       cached: false,
       checkedAt: null,
-      warning,
-      warningKind: 'failure',
+      warning: warningFallback(warnings),
+      warningKind: warningKindOf(warnings),
+      warnings,
       installKind: this.installation.installKind,
       upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, channel),
       releaseUrl: this.releaseUrl,
