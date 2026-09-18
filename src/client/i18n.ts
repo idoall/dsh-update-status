@@ -1,5 +1,7 @@
 /** Tiny bilingual dictionary kept local to avoid changing the host locale tree. */
 
+import type { UpdateStatus, UpdateWarning } from '../shared/types.ts'
+
 export type Language = 'zh' | 'en'
 
 type Entry = { zh: string; en: string }
@@ -43,6 +45,12 @@ const DICTIONARY: Record<string, Entry> = {
   'panel.commandNote': { zh: '仅复制，不会执行。请在运行 DSH 的那台电脑的终端执行；完成后由你自行重启 DSH。', en: 'Copy only — nothing runs here. Execute it in a terminal on the computer running DSH, then restart DSH yourself.' },
   'panel.readOnly': { zh: '阶段 1 仅提示：本插件不会安装、重启、回滚或替换任何文件。', en: 'Phase 1 is advisory only: this plugin never installs, restarts, rolls back, or replaces files.' },
   'panel.error': { zh: '检查提示', en: 'Check notice' },
+  'warning.registryUnavailable': { zh: '无法检查 npm registry：{detail}', en: 'Unable to check the npm registry: {detail}' },
+  'warning.channelUnavailable': { zh: 'npm registry 未发布 {channel} 通道。', en: 'The npm registry does not publish a {channel} channel.' },
+  'warning.versionIncomparable': { zh: '无法按 SemVer 比较当前版本 {currentVersion} 与 {channel} 通道版本 {selectedVersion}。', en: 'Unable to compare the current version {currentVersion} with {channel} channel version {selectedVersion} using SemVer.' },
+  'warning.previewUnverified': { zh: '{channel} 是预览通道，版本 {version} 尚未验证与本插件兼容。', en: '{channel} is a preview channel; version {version} has not been verified as compatible with this plugin.' },
+  'guidance.sourceCheckout': { zh: '请更新 DSH 源码 checkout、安装依赖并重新构建；本插件无法从 GUI 原地替换。', en: 'Update the DSH source checkout, install its dependencies, and rebuild it; this plugin cannot replace it in place from the GUI.' },
+  'guidance.unknownInstall': { zh: '升级前请先确认 DSH 的安装方式；本插件无法代为执行升级。', en: 'Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you.' },
   'panel.static': { zh: '此连接只显示静态版本；请在运行 DSH 的本机打开侧栏查看完整更新信息。', en: 'This connection shows only the static version. Open the sidebar on the computer running DSH for full update details.' },
   'preview.open': { zh: '查看预览版升级方式', en: 'View preview upgrade instructions' },
   'preview.close': { zh: '收起升级说明', en: 'Hide upgrade instructions' },
@@ -71,8 +79,37 @@ export function languageOf(): Language {
   }
 }
 
-export function t(key: keyof typeof DICTIONARY): string {
+export function t(key: keyof typeof DICTIONARY, params: Record<string, string> = {}, language: Language = languageOf()): string {
   const entry = DICTIONARY[key]
   if (entry === undefined) return key
-  return entry[languageOf()] ?? entry.en
+  const template = entry[language] ?? entry.en
+  return template.replace(/\{([A-Za-z]+)\}/g, (match, name: string) => params[name] ?? match)
+}
+
+export function warningText(warning: UpdateWarning, language: Language = languageOf()): string {
+  switch (warning.code) {
+    case 'registry-unavailable': return t('warning.registryUnavailable', { detail: warning.detail }, language)
+    case 'channel-unavailable': return t('warning.channelUnavailable', { channel: warning.channel }, language)
+    case 'version-incomparable': return t('warning.versionIncomparable', {
+      currentVersion: warning.currentVersion,
+      channel: warning.channel,
+      selectedVersion: warning.selectedVersion,
+    }, language)
+    case 'preview-unverified': return t('warning.previewUnverified', { channel: warning.channel, version: warning.version }, language)
+  }
+}
+
+/** Prefer structured warnings, but keep the Host string for mixed-version clients. */
+export function localizedWarning(status: Pick<UpdateStatus, 'warning' | 'warnings'>, language: Language = languageOf()): string | null {
+  const warnings = status.warnings ?? []
+  return warnings.length === 0 ? status.warning : warnings.map(item => warningText(item, language)).join(' ')
+}
+
+export function localizedUpgradeGuidance(
+  status: Pick<UpdateStatus, 'installKind' | 'upgradeCommand'>,
+  language: Language = languageOf(),
+): string {
+  if (status.installKind === 'source-checkout') return t('guidance.sourceCheckout', {}, language)
+  if (status.installKind === 'unknown') return t('guidance.unknownInstall', {}, language)
+  return status.upgradeCommand
 }

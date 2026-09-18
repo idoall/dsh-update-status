@@ -1,6 +1,6 @@
 /** Minimal structural client faces — runtime services stay owned by DSH. */
 
-import { isReleaseChannel, type ChannelRelease, type UpdateStatus } from '../shared/types.ts'
+import { isReleaseChannel, type ChannelRelease, type UpdateStatus, type UpdateWarning } from '../shared/types.ts'
 
 export interface Observable<T> {
   getSnapshot(): T
@@ -58,6 +58,30 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null
 }
 
+function warningOf(value: unknown): UpdateWarning | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  if (record.code === 'registry-unavailable' && typeof record.detail === 'string') {
+    return { code: record.code, detail: record.detail }
+  }
+  if (record.code === 'channel-unavailable' && isReleaseChannel(record.channel)) {
+    return { code: record.code, channel: record.channel }
+  }
+  if (record.code === 'version-incomparable' && typeof record.currentVersion === 'string'
+    && isReleaseChannel(record.channel) && typeof record.selectedVersion === 'string') {
+    return {
+      code: record.code,
+      currentVersion: record.currentVersion,
+      channel: record.channel,
+      selectedVersion: record.selectedVersion,
+    }
+  }
+  if (record.code === 'preview-unverified' && isReleaseChannel(record.channel) && typeof record.version === 'string') {
+    return { code: record.code, channel: record.channel, version: record.version }
+  }
+  return undefined
+}
+
 /** Reject malformed RPC output before it reaches a slot component. */
 export function updateStatusOf(value: unknown): UpdateStatus | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
@@ -79,6 +103,15 @@ export function updateStatusOf(value: unknown): UpdateStatus | undefined {
   const publishedAt = record.publishedAt === null ? null : stringOrNull(record.publishedAt)
   if ((record.latestVersion !== null && latestVersion === null) || (record.checkedAt !== null && checkedAt === null)
     || (record.warning !== null && warning === null) || (record.publishedAt !== null && publishedAt === null)) return undefined
+  const warnings: UpdateWarning[] = []
+  if (record.warnings !== undefined) {
+    if (!Array.isArray(record.warnings)) return undefined
+    for (const raw of record.warnings) {
+      const parsed = warningOf(raw)
+      if (parsed === undefined) return undefined
+      warnings.push(parsed)
+    }
+  }
   const channels: ChannelRelease[] = []
   for (const raw of record.channels) {
     if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
@@ -98,6 +131,7 @@ export function updateStatusOf(value: unknown): UpdateStatus | undefined {
     checkedAt,
     warning,
     warningKind,
+    warnings,
     installKind: record.installKind as UpdateStatus['installKind'],
     upgradeCommand: record.upgradeCommand,
     releaseUrl: record.releaseUrl,

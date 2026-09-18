@@ -119,8 +119,8 @@ export function upgradeCommandFor(installKind: InstallKind, packageName: string 
   switch (installKind) {
     case 'npm-global': return `npm install -g ${specifier}`
     case 'pnpm-global': return `pnpm add -g ${specifier}`
-    case 'source-checkout': return '在 DSH checkout 中拉取代码、安装依赖并重新构建；插件不会从 GUI 原地替换'
-    default: return '请确认 dsh 安装方式后再升级；当前插件不会代为执行'
+    case 'source-checkout': return 'Update the DSH source checkout, install its dependencies, and rebuild it; this plugin cannot replace it in place from the GUI'
+    default: return 'Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you'
   }
 }
 
