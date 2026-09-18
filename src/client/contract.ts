@@ -73,6 +73,9 @@ export function updateStatusOf(value: unknown): UpdateStatus | undefined {
   const latestVersion = record.latestVersion === null ? null : stringOrNull(record.latestVersion)
   const checkedAt = record.checkedAt === null ? null : stringOrNull(record.checkedAt)
   const warning = record.warning === null ? null : stringOrNull(record.warning)
+  // Absent or unrecognised means a Host older than the field: leave it undefined and
+  // let the visual state fall back to "any warning is a failure", never to "no warning".
+  const warningKind = record.warningKind === 'failure' || record.warningKind === 'notice' ? record.warningKind : undefined
   const publishedAt = record.publishedAt === null ? null : stringOrNull(record.publishedAt)
   if ((record.latestVersion !== null && latestVersion === null) || (record.checkedAt !== null && checkedAt === null)
     || (record.warning !== null && warning === null) || (record.publishedAt !== null && publishedAt === null)) return undefined
@@ -94,6 +97,7 @@ export function updateStatusOf(value: unknown): UpdateStatus | undefined {
     cached: record.cached,
     checkedAt,
     warning,
+    warningKind,
     installKind: record.installKind as UpdateStatus['installKind'],
     upgradeCommand: record.upgradeCommand,
     releaseUrl: record.releaseUrl,

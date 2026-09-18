@@ -18,7 +18,7 @@ export const RELEASES_URL = 'https://github.com/deepseek-ai/deepseek-harness/rel
  * release the registry reports stays `unverified` — the plugin never claims a
  * compatibility nobody checked.
  */
-export const VERIFIED_DSH_VERSIONS: readonly string[] = ['0.1.5-rc.1', '0.1.6-alpha.1']
+export const VERIFIED_DSH_VERSIONS: readonly string[] = ['0.1.5-rc.1', '0.1.6-alpha.1', '0.1.6-alpha.2']
 export const RELEASE_CHANNELS = ['latest', 'next', 'alpha'] as const
 export const DEFAULT_CACHE_TTL_MINUTES = 360
 export const MIN_CACHE_TTL_MINUTES = 30
@@ -37,6 +37,23 @@ export const UPDATE_ENDPOINTS = {
 export type UpdateEndpoint = (typeof UPDATE_ENDPOINTS)[keyof typeof UPDATE_ENDPOINTS]
 export type ReleaseChannel = (typeof RELEASE_CHANNELS)[number]
 export type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible'
+/**
+ * Severity of `warning`, so a surface can tell "the plugin could not determine
+ * the update state" from "here is something worth knowing".
+ *
+ * - `failure`: no usable answer — a failed registry read, a channel the registry
+ *   does not publish, or a version SemVer cannot compare. This is what justifies
+ *   repainting the sidebar chip.
+ * - `notice`: the answer is complete and usable; the text is advisory, e.g. a
+ *   preview channel whose release this bundle has not been verified against.
+ *   The chip must NOT repaint for this — an operator upgrading DSH ahead of the
+ *   plugin would otherwise see the chip turn red for a plugin-side bookkeeping
+ *   fact.
+ *
+ * Optional on purpose: a Host older than this field leaves it `undefined`, and
+ * the client then falls back to treating any warning as a failure.
+ */
+export type UpdateWarningKind = 'failure' | 'notice'
 export type InstallKind = 'npm-global' | 'pnpm-global' | 'source-checkout' | 'unknown'
 
 export function isReleaseChannel(value: unknown): value is ReleaseChannel {
@@ -70,6 +87,8 @@ export interface UpdateStatus {
   cached: boolean
   checkedAt: string | null
   warning: string | null
+  /** Severity of `warning`; absent from a Host older than the field. */
+  warningKind?: UpdateWarningKind | null
   installKind: InstallKind
   upgradeCommand: string
   releaseUrl: string

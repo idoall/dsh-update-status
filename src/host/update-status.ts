@@ -196,13 +196,21 @@ export class UpdateStatusService {
     const previewWarning = channel !== 'latest' && selected.version !== null && selected.compatibility !== 'verified'
       ? `${channel} 是预览通道，版本 ${selected.version} 尚未验证与本插件兼容。`
       : null
+    // Nothing here produced a usable answer only when the registry read failed, the
+    // channel is unpublished, or the versions cannot be compared. An unverified
+    // preview is an advisory notice: the status itself is complete, so the chip must
+    // not repaint for it (an operator who upgrades DSH ahead of this bundle would
+    // otherwise watch the chip turn red for a plugin-side bookkeeping fact).
+    const failureWarning = warningWith(warningWith(initialWarning, missingWarning), comparisonWarning)
+    const warning = warningWith(failureWarning, previewWarning)
     return {
       currentVersion: this.installation.currentVersion,
       latestVersion: selected.version,
       hasUpdate: comparison !== undefined && comparison < 0,
       cached,
       checkedAt: new Date(cache.checkedAtMs).toISOString(),
-      warning: warningWith(warningWith(initialWarning, missingWarning), warningWith(comparisonWarning, previewWarning)),
+      warning,
+      warningKind: warning === null ? null : failureWarning === null ? 'notice' : 'failure',
       installKind: this.installation.installKind,
       upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, channel),
       releaseUrl: this.releaseUrl,
@@ -215,6 +223,7 @@ export class UpdateStatusService {
     }
   }
 
+  /** No remote data at all: the registry read itself failed, never a notice. */
   private statusWithoutRemoteRelease(channel: ReleaseChannel, warning: string): UpdateStatus {
     return {
       currentVersion: this.installation.currentVersion,
@@ -223,6 +232,7 @@ export class UpdateStatusService {
       cached: false,
       checkedAt: null,
       warning,
+      warningKind: 'failure',
       installKind: this.installation.installKind,
       upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, channel),
       releaseUrl: this.releaseUrl,

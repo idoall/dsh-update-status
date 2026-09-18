@@ -26,15 +26,19 @@
 
 > DSH Update Status is a community plugin for DeepSeek Harness. It does not modify DSH core and it never installs, restarts, rolls back, downloads, or replaces DSH files.
 
-It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact version chip that fits the 24px brand row, leaving the official fish mark untouched. Tap the chip to inspect npm release channels, compatibility status, and a copy-only command for the selected channel.
+It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact version chip that fits the 24px brand row, leaving the official fish mark untouched. A green dot next to the version means there is nothing to do, and a breathing amber dot means a newer release is available. Tap the chip to inspect npm release channels, compatibility status, and a copy-only command for the selected channel.
 
 <p align="center">
-  <img src="./assets/update-panel.png" width="500" alt="DSH Update Status panel showing the current stable release, an alpha preview, compatibility labels, and a copy-only upgrade command">
+  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status panel: cache duration, the running 0.1.6-alpha.2 on the alpha channel, a latest row that does not match the followed channel, compatibility labels, and a copy-only upgrade command">
 </p>
 
 ## Features
 
 - **Visible version status** — shows the running DSH version in the expanded sidebar and a fallback action in the collapsed rail.
+- **Quiet update signal** — a pending update never repaints the version chip. Only an amber dot with a soft halo next to the version breathes (scale + glow; the animation is disabled under `prefers-reduced-motion`), so a new release reads as one small light instead of a recoloured brand row.
+- **Three dot states, one glance** — with nothing to do the dot beside the version is a plain **green circle** (the theme's success colour, not the text colour, so a dark shell no longer paints a dot that reads as "off"). While a check is running it is the neutral grey pulse; a pending update is the amber halo. Only the update state animates or glows, and only a failed status read repaints the chip, in red.
+- **Neutral chip surface** — the chip is a grey second-level surface in both themes (`#f1f3f5` light / `#353638` dark) with the theme's normal label colour, so the dark shell gets a dark grey chip with white text rather than a white pill that hides the amber halo.
+- **Light, dark, or system — followed automatically** — every colour the plugin renders is a DSH semantic token, so the chip, the dot, its halo, the footer ring and the panel all resolve through whatever appearance DSH is using. Set DSH to light, to dark, or to system and the plugin switches with the shell: no plugin-side theme setting, no media query to keep in sync. Hover lifts the chip in both directions (darkened in light mode, lightened in dark mode) by mixing the theme's label colour into the surface.
 - **Stable and preview discovery** — reads npm dist-tags `latest`, `next`, and `alpha` in one registry request; `latest` is the default.
 - **Useful choices only** — de-duplicates rows by version, keeps `latest` and the channel you follow, and never hides the channel that matches the release you are running.
 - **In-panel channel selection** — select a meaningful stable, candidate, or preview release directly in the panel; the preference is stored by the DSH Host.
@@ -49,7 +53,7 @@ Requirements:
 
 - DeepSeek Harness with the Web profile
 - Node.js 20 or newer
-- Verified DSH release: `0.1.6-alpha.1` (also verified on `0.1.5-rc.1`)
+- Verified DSH release: `0.1.6-alpha.2` (also verified on `0.1.6-alpha.1` and `0.1.5-rc.1`)
 
 With an installed `dsh` command:
 
@@ -94,6 +98,23 @@ npm install -g @deepseek-ai/dsh@alpha
 
 The plugin displays one command that matches the detected installation kind and selected channel. It does not run these commands.
 
+### What the dot means
+
+The dot beside the version carries the whole status, and only the update state animates:
+
+| Dot | State | Meaning |
+| --- | --- | --- |
+| green circle | up to date | The followed channel points at the running release. The chip keeps its normal fill. |
+| grey pulse | checking | A status read is in flight (first mount, a channel change, or **Check for updates**). |
+| amber dot with a halo | update | The followed channel points at a newer release. Copy the command, run it yourself, restart DSH. |
+| chip turns red | failed read | The plugin could not determine the state: the registry read failed, the channel is unpublished, or the versions are not SemVer-comparable. An *unverified* release is not this case — it is an advisory shown only in the panel. |
+
+<p align="center">
+  <img src="./assets/sidebar-chip.png" width="300" alt="The version chip in a light shell (grey chip, dark text) and a dark shell (dark grey chip, white text), each showing the green up-to-date dot">
+</p>
+
+The chip itself is a neutral second-level surface — grey in both themes, with the theme's own label colour — so the amber halo always reads against it, and it never changes colour to announce an update.
+
 ## Release channels
 
 | Channel | Purpose | Compatibility treatment |
@@ -127,19 +148,22 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current release: plugin **`0.1.4`** is verified against DeepSeek Harness **`0.1.6-alpha.1`**.
+Current npm release: plugin **`0.1.4`** is verified against DeepSeek Harness **`0.1.6-alpha.1`**.
+
+The `main` branch is ahead of npm and is soaking before its release. It is verified against DeepSeek Harness **`0.1.6-alpha.2`**; see the `Unreleased` section of [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
+| `main` (unreleased) | `0.1.6-alpha.2`, `0.1.6-alpha.1`, `0.1.5-rc.1` | **not published** | Amber breathing dot instead of a repainted chip, neutral grey chip surface in both themes, green up-to-date dot, advisory notices no longer repaint the chip |
 | **`0.1.4`** | `0.1.6-alpha.1`, `0.1.5-rc.1` | `latest` | Fixes the unselectable "channel you are running"; preference writes locked by tests |
 | `0.1.3` | `0.1.6-alpha.1`, `0.1.5-rc.1` | published | Carries the `0.1.2` LAN (non-loopback) fix, re-verified on 0.1.6 and locked by tests |
 | `0.1.2` | `0.1.5-rc.1` | **never published** | Removed the `connection.isLoopback` gate, so LAN pages work |
 | `0.1.1` | `0.1.5-rc.1` | published | The previous npm `latest`; the plugin is inert on LAN/non-loopback pages |
 | `0.1.0` | `0.1.2-rc.1` | published | First release |
 
-- **Verified DeepSeek Harness** is the exact DSH release that plugin build was tested against. A DSH release that is not listed is not declared compatible: verify it manually first, and if it turns out incompatible, disable or uninstall the plugin rather than patching DSH core.
+- **Verified DeepSeek Harness** is the exact DSH release that plugin build was tested against. The list has one source of truth in two places — `VERIFIED_DSH_VERSIONS` in [`src/shared/types.ts`](src/shared/types.ts) and `dsh.compatibility.dshReleases` in [`package.json`](package.json) — and a test keeps them identical. A release that is not on the list is not declared compatible: verify it manually first, and if it turns out incompatible, disable or uninstall the plugin rather than patching DSH core. A release that is merely *not listed yet* is reported as **unverified**: that is an advisory in the panel only, and it never repaints the chip — an operator who upgrades DSH ahead of this plugin keeps a normal chip.
 - **On npm** is what `dsh plugin --profile web add dsh-update-status@latest` actually installs. A version that exists in this repository but not on npm is a development state, not a release.
 - Match them explicitly when it matters:
 
@@ -171,6 +195,9 @@ That is the `connection.isLoopback` gate from plugin `0.1.1` and earlier: on a n
 node -p "require(process.env.HOME + '/.dsh/profiles/web/node_modules/dsh-update-status/package.json').version"   # 0.1.3 or newer
 dsh plugin --profile web add dsh-update-status@latest
 ```
+
+**The chip turned red right after I upgraded DSH.**
+On `main` a red chip means one thing: the plugin could not determine the update state — the registry read failed, the channel is unpublished, or the versions are not SemVer-comparable. Up to `0.1.4` the rule was broader: the client treated **any** warning as a problem, and *"this preview has not been verified against the plugin"* is exactly the warning a DSH release newer than the plugin's list produces. Upgrading DSH ahead of the plugin therefore painted the chip red even though the read had succeeded. `main` splits the two — `failure` still repaints, an advisory stays in the panel — so install that build (the local-development link flow above, or the next npm release) if you keep DSH ahead of this plugin. Until then, following a channel whose release is on the verified list avoids the warning.
 
 **The channel I want is missing from the list.**
 Rows are de-duplicated by version: when two tags point at the same release only the first is rendered. Selecting `latest` first re-projects the cache and can surface a preview row that was collapsed behind it. `0.1.4` also stopped hiding the channel that matches the running release.

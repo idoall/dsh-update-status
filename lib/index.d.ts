@@ -4,6 +4,23 @@ import { Context } from "@deepseek-ai/cordis";
 declare const RELEASE_CHANNELS: readonly ['latest', 'next', 'alpha'];
 type ReleaseChannel = (typeof RELEASE_CHANNELS)[number];
 type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible';
+/**
+ * Severity of `warning`, so a surface can tell "the plugin could not determine
+ * the update state" from "here is something worth knowing".
+ *
+ * - `failure`: no usable answer — a failed registry read, a channel the registry
+ *   does not publish, or a version SemVer cannot compare. This is what justifies
+ *   repainting the sidebar chip.
+ * - `notice`: the answer is complete and usable; the text is advisory, e.g. a
+ *   preview channel whose release this bundle has not been verified against.
+ *   The chip must NOT repaint for this — an operator upgrading DSH ahead of the
+ *   plugin would otherwise see the chip turn red for a plugin-side bookkeeping
+ *   fact.
+ *
+ * Optional on purpose: a Host older than this field leaves it `undefined`, and
+ * the client then falls back to treating any warning as a failure.
+ */
+type UpdateWarningKind = 'failure' | 'notice';
 type InstallKind = 'npm-global' | 'pnpm-global' | 'source-checkout' | 'unknown';
 interface ChannelRelease {
   channel: ReleaseChannel;
@@ -23,6 +40,8 @@ interface UpdateStatus {
   cached: boolean;
   checkedAt: string | null;
   warning: string | null;
+  /** Severity of `warning`; absent from a Host older than the field. */
+  warningKind?: UpdateWarningKind | null;
   installKind: InstallKind;
   upgradeCommand: string;
   releaseUrl: string;
@@ -74,6 +93,7 @@ declare class UpdateStatusService {
   private refreshRelease;
   private statusAfterFailure;
   private statusFromCache;
+  /** No remote data at all: the registry read itself failed, never a notice. */
   private statusWithoutRemoteRelease;
 }
 //#endregion

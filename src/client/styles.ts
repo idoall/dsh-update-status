@@ -3,17 +3,55 @@
 export const UPDATE_STATUS_CSS = `
 .dus-brand-name{align-items:center;gap:6px;height:24px;max-width:100%;min-width:0;display:inline-flex}
 .dus-brand-deepseek{font-size:14px;font-weight:650;letter-spacing:-.015em;line-height:24px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dus-badge{align-items:center;background:var(--dsw-alias-label-primary,#111);border:0;border-radius:4px;color:var(--dsw-alias-label-primary-inverted,#fff);cursor:pointer;display:inline-flex;flex:none;font-family:var(--ds-font-family-code,var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace));font-size:10px;font-variant-numeric:tabular-nums;font-weight:600;gap:4px;height:16px;line-height:16px;max-width:140px;outline:none;padding:0 6px;touch-action:manipulation;user-select:none;white-space:nowrap}
+/* The chip is a NEUTRAL SECOND-LEVEL SURFACE, never a high-contrast pill. It used
+   to be label-primary + label-primary-inverted, which is a near-white box with dark
+   text on the dark shell — a white frame that swallows the amber halo and fights the
+   warn colour. --dsw-alias-button-floating-hover is the one palette surface that is
+   grey in BOTH themes (#f1f3f5 light / #353638 dark), matching the reference: a light
+   grey chip on the light shell, a dark grey chip with white text on the dark one. The
+   sibling button-floating-fill is pure white in light mode and changes nothing there.
+   Text stays label-primary (#0f1115 light / #f9fafb dark), so it is never low-contrast.
+   Every colour here is a theme token, so the chip follows whatever appearance DSH
+   resolves — light, dark, or system-follows-the-OS — with no plugin-side detection,
+   no media query and no per-theme branch to keep in sync. */
+.dus-badge{--dus-badge-surface:var(--dsw-alias-button-floating-hover,#f1f3f5);align-items:center;background:var(--dus-badge-surface);border:0;border-radius:4px;color:var(--dsw-alias-label-primary,#0f1115);cursor:pointer;display:inline-flex;flex:none;font-family:var(--ds-font-family-code,var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace));font-size:10px;font-variant-numeric:tabular-nums;font-weight:600;gap:4px;height:16px;line-height:16px;max-width:140px;outline:none;padding:0 6px;touch-action:manipulation;user-select:none;white-space:nowrap}
 .dus-badge:focus-visible,.dus-footer-button:focus-visible,.dus-action:focus-visible,.dus-close:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+/* Hover has to read as "raised" in BOTH themes. brightness() only ever brightens, and on
+   the light shell it turns the grey chip pure white — the chip all but disappears. Mixing
+   a little of the theme's own label colour into the surface darkens it in light mode and
+   lightens it in dark mode, so one declaration stays correct in both. The brightness
+   filter remains the fallback: an engine without color-mix drops only the second
+   declaration, never the whole hover rule. */
 .dus-badge:hover{filter:brightness(1.08)}
-.dus-badge[data-update=true]{background:var(--dsw-alias-state-warn-primary,#d97706);color:#111}
-.dus-badge[data-error=true]{background:var(--dsw-alias-state-error-primary,#dc2626);color:#fff}
+@supports (background:color-mix(in srgb,red 50%,transparent)){.dus-badge:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 8%,var(--dus-badge-surface));filter:none}}
+/* The failure state is the one deliberate repaint, and it follows the shell's own
+   badge pattern (brokenBadge): error fill with a bg-layer-3 label, which is white
+   text on the dark red of the light theme and dark text on the light red of the dark
+   theme — readable in both, unlike the fixed white text it replaces. */
+.dus-badge[data-error=true]{background:var(--dsw-alias-state-error-primary,#dc2626);color:var(--dsw-alias-bg-layer-3,#fff)}
 .dus-badge-version{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dus-dot{background:currentColor;border-radius:50%;display:inline-block;flex:0 0 auto;height:5px;opacity:.9;width:5px}
-.dus-dot[data-update=true]{animation:dus-pulse 1.5s ease-in-out infinite;background:var(--dsw-alias-state-warn-primary)}
+/* An available update repaints NOTHING: the chip keeps its normal fill and only
+   the amber dot breathes. The halo is animated with the dot so the glow grows
+   and shrinks as one light, never as a separate ripple. The update state is
+   declared AFTER the loading state, so a re-check on a known update keeps the
+   amber glow instead of falling back to the neutral loading pulse.
+   Each box-shadow is declared twice: a literal amber first for any engine
+   without color-mix, then the halo mixed from the theme's own warn colour so the
+   glow always matches the dot in both light and dark themes. */
+/* The dot carries the whole status. Three states, in precedence order:
+   up to date = a plain green circle (success token, never the text colour, so a
+   dark theme no longer paints a black dot that reads as "off"); checking = the
+   neutral grey pulse; a pending update = the amber dot below, which is the only
+   state allowed to breathe or glow.
+   The up-to-date rule is declared BEFORE loading and update: equal specificity, so
+   the later, louder states win if two ever land on the same dot. */
+.dus-dot[data-state=current]{background:var(--dsw-alias-state-success-primary,#22c55e);opacity:1}
 .dus-dot[data-loading=true]{animation:dus-pulse .9s ease-in-out infinite}
+.dus-dot[data-update=true]{--dus-update-color:var(--dsw-alias-state-warn-primary,#f59e0b);animation:dus-update-pulse 1.6s ease-in-out infinite;background:var(--dus-update-color);height:6px;opacity:1;width:6px}
 @keyframes dus-pulse{0%,100%{opacity:.45;transform:scale(.82)}50%{opacity:1;transform:scale(1.15)}}
-@media (prefers-reduced-motion:reduce){.dus-dot[data-update=true],.dus-dot[data-loading=true]{animation:none}}
+@keyframes dus-update-pulse{0%,100%{box-shadow:0 0 2px 0 rgba(245,158,11,.4);box-shadow:0 0 2px 0 color-mix(in srgb,var(--dus-update-color) 45%,transparent);transform:scale(.8)}50%{box-shadow:0 0 7px 2px rgba(245,158,11,.72);box-shadow:0 0 7px 2px color-mix(in srgb,var(--dus-update-color) 72%,transparent);transform:scale(1.15)}}
+@media (prefers-reduced-motion:reduce){.dus-dot[data-update=true],.dus-dot[data-loading=true]{animation:none}.dus-dot[data-update=true]{box-shadow:0 0 5px 1px rgba(245,158,11,.6);box-shadow:0 0 5px 1px color-mix(in srgb,var(--dus-update-color) 62%,transparent)}}
 .dus-footer-button{align-items:center;background:transparent;border:0;border-radius:10px;color:var(--dsw-alias-label-secondary);cursor:pointer;display:flex;height:44px;justify-content:center;min-height:44px;min-width:44px;padding:0;position:relative;touch-action:manipulation;width:44px}
 .dus-footer-button:hover{background:var(--dsw-alias-button-floating-hover);color:var(--dsw-alias-label-primary)}
 .dus-footer-icon{font-size:18px;line-height:1}

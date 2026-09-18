@@ -24,6 +24,7 @@
     "CHANGELOG.md",
     "LICENSE",
     "assets/update-panel.png",
+    "assets/sidebar-chip.png",
     "docs/RELEASING.md"
   ],
   "engines": {
@@ -66,7 +67,8 @@
     "compatibility": {
       "dshReleases": {
         "0.1.5-rc.1": "compatible",
-        "0.1.6-alpha.1": "compatible"
+        "0.1.6-alpha.1": "compatible",
+        "0.1.6-alpha.2": "compatible"
       }
     }
   },

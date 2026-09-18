@@ -133,7 +133,7 @@ The final command must print:
 dsh-update-status X.Y.Z web
 ```
 
-Then install the package in a disposable DSH profile and manually verify the sidebar badge, panel, release-channel selection, cache-duration setting, and mobile drawer behavior:
+Then install the package in a disposable DSH profile and manually verify the sidebar badge, its three dot states (green when up to date, grey pulse while checking, amber halo when a newer release exists — the chip fill itself must not change), the panel, release-channel selection, cache-duration setting, and mobile drawer behavior:
 
 ```sh
 TEST_HOME="$(mktemp -d)"

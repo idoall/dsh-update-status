@@ -39,6 +39,9 @@ describe('UpdateStatusService', () => {
     expect(second.channel).toBe('alpha')
     expect(second.upgradeCommand).toBe('npm install -g @deepseek-ai/dsh@alpha')
     expect(second.warning).toContain('尚未验证')
+    // An unverified preview is an ADVISORY: the status is complete and usable, so the
+    // chip must not be repainted for it. Regression: alpha.2 made the whole chip red.
+    expect(second.warningKind).toBe('notice')
     expect(second.channels).toHaveLength(3)
 
     now += 101
@@ -100,6 +103,7 @@ describe('UpdateStatusService', () => {
     expect(status.cached).toBe(true)
     expect(status.latestVersion).toBe('0.1.5-alpha.2')
     expect(status.warning).toContain('offline')
+    expect(status.warningKind).toBe('failure')
   })
 
   it('keeps a cold failure renderable for the selected channel', async () => {
@@ -115,6 +119,7 @@ describe('UpdateStatusService', () => {
     expect(status.hasUpdate).toBe(false)
     expect(status.canApplyInPlace).toBe(false)
     expect(status.warning).toContain('network unavailable')
+    expect(status.warningKind).toBe('failure')
   })
 
   it('parses supported npm dist-tags from one registry document', () => {

@@ -3,6 +3,7 @@
 import type * as ReactNS from 'react'
 import { visibleChannelReleases } from '../shared/channels.ts'
 import { previewCommand } from '../shared/preview-guidance.ts'
+import { isChipProblem } from '../shared/visual-state.ts'
 import { MAX_CACHE_TTL_MINUTES, MIN_CACHE_TTL_MINUTES, isCacheTtlMinutes, type ReleaseChannel, type ReleaseCompatibility, type UpdateStatus } from '../shared/types.ts'
 import type { PreferencesStore, PanelStore, StatusStore } from './stores.ts'
 import { t } from './i18n.ts'
@@ -83,7 +84,7 @@ type VisualState = 'loading' | 'update' | 'current' | 'problem'
 
 function visualState(status: UpdateStatus | null, loading: boolean, error: string | null): VisualState {
   if (loading) return 'loading'
-  if (error !== null || status?.warning !== null) return status?.hasUpdate === true ? 'update' : 'problem'
+  if (error !== null || isChipProblem(status)) return status?.hasUpdate === true ? 'update' : 'problem'
   return status?.hasUpdate === true ? 'update' : 'current'
 }
 
@@ -141,7 +142,9 @@ export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null
         onKeyDown={onKeyDown}
       >
         <span className="dus-badge-version">{shortVersion(version)}</span>
-        <span className="dus-dot" data-update={snapshot.status?.hasUpdate === true || undefined} data-loading={snapshot.loading || undefined} aria-hidden="true" />
+        {/* `data-state` drives the palette (green when up to date); `data-update`
+            and `data-loading` remain the louder, state-specific rules. */}
+        <span className="dus-dot" data-state={state} data-update={snapshot.status?.hasUpdate === true || undefined} data-loading={snapshot.loading || undefined} aria-hidden="true" />
       </span>
     </span>
   )
@@ -163,7 +166,7 @@ export function FooterAction({ wide, ui }: { wide?: unknown; ui: SharedUi }): Re
       onClick={() => { ui.panel.toggle('rail') }}
     >
       <span className="dus-footer-icon" aria-hidden="true">↟</span>
-      <span className="dus-dot dus-footer-dot" data-update={snapshot.status?.hasUpdate === true || undefined} data-loading={state === 'loading' || undefined} />
+      <span className="dus-dot dus-footer-dot" data-state={state} data-update={snapshot.status?.hasUpdate === true || undefined} data-loading={state === 'loading' || undefined} />
     </button>
   )
 }
