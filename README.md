@@ -148,16 +148,14 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current npm release: plugin **`0.1.4`** is verified against DeepSeek Harness **`0.1.6-alpha.1`**.
-
-The `main` branch is ahead of npm and is soaking before its release. It is verified against DeepSeek Harness **`0.1.6-alpha.2`**; see the `Unreleased` section of [`CHANGELOG.md`](CHANGELOG.md).
+Current release: plugin **`0.1.5`** is verified against DeepSeek Harness **`0.1.6-alpha.2`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| `main` (unreleased) | `0.1.6-alpha.2`, `0.1.6-alpha.1`, `0.1.5-rc.1` | **not published** | Amber breathing dot instead of a repainted chip, neutral grey chip surface in both themes, green up-to-date dot, advisory notices no longer repaint the chip |
-| **`0.1.4`** | `0.1.6-alpha.1`, `0.1.5-rc.1` | `latest` | Fixes the unselectable "channel you are running"; preference writes locked by tests |
+| **`0.1.5`** | `0.1.6-alpha.2`, `0.1.6-alpha.1`, `0.1.5-rc.1` | `latest` | One dot carries every state (green up to date, grey checking, amber breathing update), neutral grey chip surface in both themes, and advisory notices no longer repaint the chip |
+| `0.1.4` | `0.1.6-alpha.1`, `0.1.5-rc.1` | published | Fixes the unselectable "channel you are running"; preference writes locked by tests |
 | `0.1.3` | `0.1.6-alpha.1`, `0.1.5-rc.1` | published | Carries the `0.1.2` LAN (non-loopback) fix, re-verified on 0.1.6 and locked by tests |
 | `0.1.2` | `0.1.5-rc.1` | **never published** | Removed the `connection.isLoopback` gate, so LAN pages work |
 | `0.1.1` | `0.1.5-rc.1` | published | The previous npm `latest`; the plugin is inert on LAN/non-loopback pages |
@@ -168,11 +166,12 @@ The `main` branch is ahead of npm and is soaking before its release. It is verif
 - Match them explicitly when it matters:
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.5   # DSH 0.1.6-alpha.2, 0.1.6-alpha.1 or 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.4   # DSH 0.1.6-alpha.1 or 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.0   # DSH 0.1.2-rc.1 only
   ```
 
-- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
 
 ## Configuration
 
@@ -197,7 +196,13 @@ dsh plugin --profile web add dsh-update-status@latest
 ```
 
 **The chip turned red right after I upgraded DSH.**
-On `main` a red chip means one thing: the plugin could not determine the update state — the registry read failed, the channel is unpublished, or the versions are not SemVer-comparable. Up to `0.1.4` the rule was broader: the client treated **any** warning as a problem, and *"this preview has not been verified against the plugin"* is exactly the warning a DSH release newer than the plugin's list produces. Upgrading DSH ahead of the plugin therefore painted the chip red even though the read had succeeded. `main` splits the two — `failure` still repaints, an advisory stays in the panel — so install that build (the local-development link flow above, or the next npm release) if you keep DSH ahead of this plugin. Until then, following a channel whose release is on the verified list avoids the warning.
+On `0.1.5` and newer a red chip means one thing: the plugin could not determine the update state — the registry read failed, the channel is unpublished, or the versions are not SemVer-comparable. Up to `0.1.4` the rule was broader: the client treated **any** warning as a problem, and *"this preview has not been verified against the plugin"* is exactly the warning a DSH release newer than the plugin's list produces. Upgrading DSH ahead of the plugin therefore painted the chip red even though the read had succeeded. `0.1.5` splits the two — `failure` still repaints, an advisory stays in the panel — so upgrade if you keep DSH ahead of this plugin:
+
+```sh
+dsh plugin --profile web add dsh-update-status@latest
+```
+
+Until then, following a channel whose release is on the verified list avoids the warning.
 
 **The channel I want is missing from the list.**
 Rows are de-duplicated by version: when two tags point at the same release only the first is rendered. Selecting `latest` first re-projects the cache and can surface a preview row that was collapsed behind it. `0.1.4` also stopped hiding the channel that matches the running release.

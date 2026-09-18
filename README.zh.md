@@ -148,16 +148,14 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 ## 兼容性
 
-当前 npm 发布：插件 **`0.1.4`** 已针对 DeepSeek Harness **`0.1.6-alpha.1`** 验证。
-
-`main` 分支领先于 npm，正在观察期、尚未发布；它已针对 DeepSeek Harness **`0.1.6-alpha.2`** 验证，变更见 [`CHANGELOG.md`](CHANGELOG.md) 的 `Unreleased` 段。
+当前发布：插件 **`0.1.5`** 已针对 DeepSeek Harness **`0.1.6-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| `main`（未发布） | `0.1.6-alpha.2`、`0.1.6-alpha.1`、`0.1.5-rc.1` | **未发布** | 用橙色呼吸圆点取代「整条芯片换色」；两套主题都用中性灰底框；新增「已是最新」绿点；提示性告警不再重绘芯片 |
-| **`0.1.4`** | `0.1.6-alpha.1`、`0.1.5-rc.1` | `latest` | 修复「正在运行的通道不可选」；偏好写入路径补齐回归测试 |
+| **`0.1.5`** | `0.1.6-alpha.2`、`0.1.6-alpha.1`、`0.1.5-rc.1` | `latest` | 一颗圆点承载全部状态（绿=已是最新、灰=检查中、橙=有新版本）、两套主题都用中性灰底框、提示性告警不再重绘芯片 |
+| `0.1.4` | `0.1.6-alpha.1`、`0.1.5-rc.1` | 已发布 | 修复「正在运行的通道不可选」；偏好写入路径补齐回归测试 |
 | `0.1.3` | `0.1.6-alpha.1`、`0.1.5-rc.1` | 已发布 | 含 `0.1.2` 的局域网（非回环）修复，并在 0.1.6 上复验、补上回归测试 |
 | `0.1.2` | `0.1.5-rc.1` | **未发布** | 移除 `connection.isLoopback` 门控，局域网页面可用 |
 | `0.1.1` | `0.1.5-rc.1` | 已发布 | 此前 npm 上的 `latest`；局域网/非回环页面下插件整体不可用 |
@@ -168,11 +166,12 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 需要精确对应时显式指定版本：
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.5   # DSH 0.1.6-alpha.2、0.1.6-alpha.1 或 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.4   # DSH 0.1.6-alpha.1 或 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.0   # 仅 DSH 0.1.2-rc.1
   ```
 
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 
@@ -197,7 +196,13 @@ dsh plugin --profile web add dsh-update-status@latest
 ```
 
 **升级 DSH 之后芯片变红了。**
-在 `main` 上，红色只代表一件事：插件无法判定状态——registry 读取失败、该通道未发布，或两个版本无法按 SemVer 比较。`0.1.4` 及更早版本的判定更宽：客户端把**任何**警告都当成故障，而「这个预览版尚未验证与本插件兼容」正是 DSH 版本比插件清单更新时必然产生的警告。所以「DSH 先升级、插件还没跟上」就会把芯片涂红，哪怕读取其实成功了。`main` 把两者分开——`failure` 仍然重绘，提示只留在面板——因此长期让 DSH 领先的用法，请装这个构建（上面的本地开发 link 流程，或之后的 npm 版本）。在那之前，跟随一个发布版在已验证清单里的通道即可避免该警告。
+在 `0.1.5` 及更新版本上，红色只代表一件事：插件无法判定状态——registry 读取失败、该通道未发布，或两个版本无法按 SemVer 比较。`0.1.4` 及更早版本的判定更宽：客户端把**任何**警告都当成故障，而「这个预览版尚未验证与本插件兼容」正是 DSH 版本比插件清单更新时必然产生的警告。所以「DSH 先升级、插件还没跟上」就会把芯片涂红，哪怕读取其实成功了。`0.1.5` 把两者分开——`failure` 仍然重绘，提示只留在面板——因此长期让 DSH 领先的用法请升级：
+
+```sh
+dsh plugin --profile web add dsh-update-status@latest
+```
+
+在那之前，跟随一个发布版在已验证清单里的通道即可避免该警告。
 
 **想要的通道不在列表里。**
 列表按版本号去重：两个 dist-tag 指向同一版本时只渲染第一个。先选一次 `latest` 会重新投影缓存，可能让被折叠在后面的预览行出现。另外 `0.1.4` 起，与运行版本相符的那条通道不再被隐藏。
