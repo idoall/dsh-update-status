@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.7 — 2026-09-24
+
+Verified DeepSeek Harness: `0.1.7-rc.1` (the latest release candidate) and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.7.md`](docs/releases/v0.1.7.md).
+
+`0.1.6` made the plugin work on the DSH `0.1.7` line; `0.1.7` makes it speak the page's language. Contributed by [@ivkiwi](https://github.com/ivkiwi) as PR #7, rebased onto `0.1.6` and landed with the original authorship preserved (commit `362d83e`). No migration is needed from `0.1.6`.
+
+- **Runtime warnings are language-neutral now (the user-visible fix).** The Host used to compose the warning sentences itself, in Chinese (`无法检查 npm registry：…`, `npm registry 未发布 alpha 通道。`, …), and the Client displayed that string verbatim — so an English UI showed Chinese warnings. `UpdateStatus` now carries `warnings: UpdateWarning[]` with four codes (`registry-unavailable`, `channel-unavailable`, `version-incomparable`, `preview-unverified`) and their interpolation data, and the Client renders them from its own `en` / `zh` dictionary. The English `warning` string is **kept as a mixed-version fallback**, so a new client against an older Host — or an older client against a new Host — still shows a useful English sentence.
+- **The `warningKind` contract is unchanged.** All `preview-unverified` → `notice` (advisory, never repaints the chip); anything else → `failure`. The `0.1.5` rule that keeps "DSH upgraded ahead of the plugin" from painting the chip red still holds.
+- **The Client validates the structured payload at the boundary.** A new `warningOf` guard checks each code and its interpolation types, so a malformed payload is dropped rather than rendered as `[object Object]`.
+- **Non-command installation guidance is localized too**, while **real upgrade commands (`npm install -g …` / `pnpm add -g …`) pass through untouched** — a command can never be corrupted by translation.
+- **Dev toolchain bumped** (development dependencies only, not in the published artifact): tsdown `0.22.14` → `0.23.0`, vitest `4.1.11` → `5.0.1`.
+- **Tests: 98 passing** (up from 94). Four new `tests/client/i18n.spec.ts` specs cover English and Chinese rendering of structured warnings, the structured-preferred/legacy-fallback path, and installation guidance that localizes without altering real commands.
+- **Unchanged**: the `0.1.6` adaptation (volatile `Config` form, `ctx.configForms` channel, profile-patch storage), the status read, the RPC channel, the sidebar chip, the detail panel and the LAN fallback.
+
 ## 0.1.6 — 2026-09-23
 
 Verified DeepSeek Harness: `0.1.7-rc.1` (the latest release candidate) and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.6.md`](docs/releases/v0.1.6.md).
