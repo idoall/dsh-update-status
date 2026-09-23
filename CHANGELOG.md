@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 ## 0.1.6 — 2026-09-23
 
-Verified DeepSeek Harness: `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.6.md`](docs/releases/v0.1.6.md).
+Verified DeepSeek Harness: `0.1.7-rc.1` (the latest release candidate) and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.6.md`](docs/releases/v0.1.6.md).
 
 **`0.1.6` supports the DSH `0.1.7` line only.** DSH `0.1.7` removed the two APIs this plugin was built on, so `0.1.5` could not read or write a single preference there: `ctx.settings.register(ns, schema, options)` is gone (the settings service now projects the volatile `Config` fields of each active Loader entry, and a form namespace IS the entry id), and the `ctx.settingsScope` client service is gone too. On an older DSH — including `0.1.6-alpha.2` — stay on `0.1.5`.
 

@@ -53,7 +53,7 @@ Requirements:
 
 - DeepSeek Harness with the Web profile
 - Node.js 20 or newer
-- Verified DSH releases: `0.1.7-rc.1` and `0.1.7-alpha.2`
+- Verified DSH releases: `0.1.7-rc.1` (latest RC) and `0.1.7-alpha.2`
 
 With an installed `dsh` command:
 
@@ -148,7 +148,7 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current release: plugin **`0.1.6`** is verified against DeepSeek Harness **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
+Current release: plugin **`0.1.6`** is verified against DeepSeek Harness **`0.1.7-rc.1`** (the latest release candidate) and **`0.1.7-alpha.2`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 

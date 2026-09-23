@@ -53,7 +53,7 @@
 
 - 带 Web profile 的 DeepSeek Harness
 - Node.js 20 或更新版本
-- 已验证的 DSH 版本：`0.1.7-rc.1` 与 `0.1.7-alpha.2`
+- 已验证的 DSH 版本：`0.1.7-rc.1`（最新 RC）与 `0.1.7-alpha.2`
 
 已经安装 `dsh` 命令：
 
@@ -148,7 +148,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 ## 兼容性
 
-当前发布：插件 **`0.1.6`** 已针对 DeepSeek Harness **`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
+当前发布：插件 **`0.1.6`** 已针对 DeepSeek Harness **`0.1.7-rc.1`**（最新候选版本）与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
