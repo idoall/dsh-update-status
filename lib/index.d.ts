@@ -80,7 +80,7 @@ interface UpdateStatusConfig {
  * input side takes, so the inferred schema type cannot be named by the emitted
  * `.d.ts` (TS2883) without stating the input side here.
  */
-declare const Config: z<UpdateStatusConfig, Record<string, unknown>>;
+export declare const Config: z<UpdateStatusConfig, Record<string, unknown>>;
 //#endregion
 //#region src/host/installation.d.ts
 interface InstallationInfo {
@@ -104,7 +104,7 @@ interface UpdateStatusServiceOptions {
   ttlMs?: number;
   releaseUrl?: string;
 }
-declare class UpdateStatusService {
+export declare class UpdateStatusService {
   private readonly installation;
   private readonly fetchLatest;
   private readonly now;
@@ -124,10 +124,10 @@ declare class UpdateStatusService {
 }
 //#endregion
 //#region src/index.d.ts
-declare const name = "dsh-update-status";
+export declare const name = "dsh-update-status";
 /** Connection supplies the authenticated transport; settings remains optional. */
-declare const inject: string[];
-type Config = UpdateStatusConfig;
-declare function apply(ctx: Context, config?: Config): void;
+export declare const inject: string[];
+export type Config = UpdateStatusConfig;
+export declare function apply(ctx: Context, config?: Config): void;
 //#endregion
-export { Config, type InstallKind, type UpdateStatus, UpdateStatusService, apply, inject, name };
+export type { InstallKind, UpdateStatus };
