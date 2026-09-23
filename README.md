@@ -29,7 +29,7 @@
 It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact version chip that fits the 24px brand row, leaving the official fish mark untouched. A green dot next to the version means there is nothing to do, and a breathing amber dot means a newer release is available. Tap the chip to inspect npm release channels, compatibility status, and a copy-only command for the selected channel.
 
 <p align="center">
-  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status panel: cache duration, the running 0.1.6-alpha.2 on the alpha channel, a latest row that does not match the followed channel, compatibility labels, and a copy-only upgrade command">
+  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status panel: cache duration, the running 0.1.7-rc.1 on the latest channel, a next row that does not match the followed channel, compatibility labels, and a copy-only upgrade command">
 </p>
 
 ## Features
@@ -53,7 +53,7 @@ Requirements:
 
 - DeepSeek Harness with the Web profile
 - Node.js 20 or newer
-- Verified DSH release: `0.1.6-alpha.2` (also verified on `0.1.6-alpha.1` and `0.1.5-rc.1`)
+- Verified DSH releases: `0.1.7-rc.1` and `0.1.7-alpha.2`
 
 With an installed `dsh` command:
 
@@ -137,41 +137,47 @@ Following a channel is a statement about **future** releases — it decides whic
 
 ## LAN / non-loopback pages
 
-DSH disables Host settings persistence for any page whose origin is not a loopback authority (the official `dsh-client-ui-settings` README states it plainly: *Non-loopback pages get no durable settings*). `settingsScope` then answers `unavailable` and never sends `settings.describe`, and `connection.isLoopback` reads false for the whole page.
+DSH disables Host settings persistence for any page whose origin is not a loopback authority (the official `dsh-client-ui-settings` README states it plainly: *Non-loopback pages get no durable settings*). Every entry-addressed form (`ctx.configForms.get(id)`, the DSH 0.1.7 successor of the removed `settingsScope` service) is then pinned to `memory`, answers `unavailable`, and never sends `settings.describe`, and `connection.isLoopback` reads false for the whole page.
 
 From `0.1.2` this plugin is fully usable there anyway:
 
 - The version/update **status** is fetched normally. Earlier releases gated the whole feature on `connection.isLoopback === true`, so a page reached through a LAN bridge (`dsh-bridge`, `dsh-lan-proxy`, …) never sent `POST /api/dsh-update-status.get-status`, could not open the detail panel, and showed this bundle's declared compatible release as if it were the running version. That gate is gone — the Connection RPC is authenticated and the Host route is the plugin's own.
-- **Preferences** (`sidebarEnabled`, `channel`, `cacheTtlMinutes`) keep reading and writing the ONE shared Host namespace `dsh-update-status`, through the same public Remote the official settings client speaks (`settings.describe` / `settings.mutate`). Writes stay revision-fenced, and a refused write surfaces as a conflict instead of a silent overwrite. The direct channel opens only when the official scope reports `unavailable`, so a loopback page keeps the official path and pays no extra wire read.
+- **Preferences** (`sidebarEnabled`, `channel`, `cacheTtlMinutes`) keep reading and writing the ONE shared Host settings entry `dsh-update-status`, through the same public Remote the official settings form speaks (`settings.describe` / `settings.mutate`). Writes stay revision-fenced, and a refused write surfaces as a conflict instead of a silent overwrite. The direct channel opens only when the official form reports `unavailable`, so a loopback page keeps the official path and pays no extra wire read.
 
 If you want DSH's stock policy instead (a non-loopback page never persists settings), let the bridge declare itself the Host: inject `window.__DSH_TRANSPORT__ = { fetch: (input, init) => window.fetch(input, init), ownsHost: true }` into the served HTML before `__DSH_BOOT__`. DSH's `ctx.connection.isLoopback` then reads true and every settings-backed surface — including the official Settings pages — comes back. The `dsh-mobile` gateway already does this.
 
 ## Compatibility
 
-Current release: plugin **`0.1.5`** is verified against DeepSeek Harness **`0.1.6-alpha.2`**.
+Current release: plugin **`0.1.6`** is verified against DeepSeek Harness **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| **`0.1.5`** | `0.1.6-alpha.2`, `0.1.6-alpha.1`, `0.1.5-rc.1` | `latest` | One dot carries every state (green up to date, grey checking, amber breathing update), neutral grey chip surface in both themes, and advisory notices no longer repaint the chip |
+| **`0.1.6`** | `0.1.7-rc.1`, `0.1.7-alpha.2` | not published | Adapts to DSH 0.1.7: the preferences ARE the plugin entry's volatile `Config` (a form namespace is the Loader entry id), the official client channel is `ctx.configForms`, and `@deepseek-ai/schemastery` is a peer |
+| `0.1.5` | `0.1.6-alpha.2`, `0.1.6-alpha.1`, `0.1.5-rc.1` | `latest` | One dot carries every state (green up to date, grey checking, amber breathing update), neutral grey chip surface in both themes, and advisory notices no longer repaint the chip |
 | `0.1.4` | `0.1.6-alpha.1`, `0.1.5-rc.1` | published | Fixes the unselectable "channel you are running"; preference writes locked by tests |
 | `0.1.3` | `0.1.6-alpha.1`, `0.1.5-rc.1` | published | Carries the `0.1.2` LAN (non-loopback) fix, re-verified on 0.1.6 and locked by tests |
 | `0.1.2` | `0.1.5-rc.1` | **never published** | Removed the `connection.isLoopback` gate, so LAN pages work |
 | `0.1.1` | `0.1.5-rc.1` | published | The previous npm `latest`; the plugin is inert on LAN/non-loopback pages |
 | `0.1.0` | `0.1.2-rc.1` | published | First release |
 
+- **`0.1.6` supports the DSH `0.1.7` line only.** DSH `0.1.7` removed the runtime `ctx.settings.register(...)` API and the `ctx.settingsScope` client service this plugin was built on, so `0.1.6` is the only release whose preferences work there. On an older DSH — including `0.1.6-alpha.2` — stay on plugin **`0.1.5`**.
 - **Verified DeepSeek Harness** is the exact DSH release that plugin build was tested against. The list has one source of truth in two places — `VERIFIED_DSH_VERSIONS` in [`src/shared/types.ts`](src/shared/types.ts) and `dsh.compatibility.dshReleases` in [`package.json`](package.json) — and a test keeps them identical. A release that is not on the list is not declared compatible: verify it manually first, and if it turns out incompatible, disable or uninstall the plugin rather than patching DSH core. A release that is merely *not listed yet* is reported as **unverified**: that is an advisory in the panel only, and it never repaints the chip — an operator who upgrades DSH ahead of this plugin keeps a normal chip.
 - **On npm** is what `dsh plugin --profile web add dsh-update-status@latest` actually installs. A version that exists in this repository but not on npm is a development state, not a release.
 - Match them explicitly when it matters:
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.6   # DSH 0.1.7-rc.1 or 0.1.7-alpha.2 (not on npm yet)
   dsh plugin --profile web add dsh-update-status@0.1.5   # DSH 0.1.6-alpha.2, 0.1.6-alpha.1 or 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.4   # DSH 0.1.6-alpha.1 or 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.0   # DSH 0.1.2-rc.1 only
   ```
 
-- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
+- Two declarations make the `0.1.7` line load at all, and a test keeps them honest:
+  - `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` both declare `>=0.1.7-alpha.2 <0.2.0`, which admits both verified releases. The lower bound names the alpha on purpose — under node-semver's default prerelease rule a range like `>=0.1.6-0 <0.2.0` does **not** admit `0.1.7-alpha.2`. DSH `0.1.7-rc.1` also refuses an incompatible bundle at profile load, so a range that excluded the running release would silently drop the plugin.
+  - `@deepseek-ai/schemastery` is a **peer**, not a plain dependency: DSH 0.1.7 resolves only a linked plugin's peer dependencies from the running installation, so a `link:` install of this directory would otherwise fail to import the Host half.
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
 
 ## Configuration
 
@@ -183,7 +189,7 @@ Current release: plugin **`0.1.5`** is verified against DeepSeek Harness **`0.1.
 
 **Settings → Version & updates** lets the local operator hide the plugin's sidebar entry and select a release channel. The panel also supports direct channel selection and a cache-duration input. Changing the duration does not issue a request; only a later normal read can refresh an expired cache, while **Check for updates** always performs an immediate manual refresh.
 
-A preference is written only by your own selection in the panel or in that settings section. The plugin has no automatic write path — no effect, timer, or mount-time write — and `tests/client/entry.spec.ts` mounts the real client entry to keep it that way. The values live in the `dsh-update-status` namespace of `~/.dsh/settings.yaml`; edit or remove them there to reset a preference, and DSH reloads the document on the next change.
+A preference is written only by your own selection in the panel or in that settings section. The plugin has no automatic write path — no effect, timer, or mount-time write — and `tests/client/entry.spec.ts` mounts the real client entry to keep it that way. On DSH 0.1.7 the three preferences above are the **volatile** fields of this plugin entry's `Config`, so they persist as that entry's `config` in the active profile's patch (`~/.dsh/profiles/<profile>/cordis.patch.yml`); edit or remove that block to reset a preference, and DSH reloads the profile on the next change. The remaining `Config` fields are deployment-only and never appear in the form: `cacheTtlHours` (default `6`), `timeoutMs` (default `15000`) and `autoCheckOnMount` (default `true`), all set in the same profile patch.
 
 ## Troubleshooting
 
@@ -229,7 +235,7 @@ The plugin reports the failure and still shows the locally detected running vers
 dsh plugin --profile web remove dsh-update-status
 ```
 
-Restart DSH and refresh the Web GUI. If desired, remove the `dsh-update-status` settings namespace from `~/.dsh/settings.yaml` after uninstalling.
+Restart DSH and refresh the Web GUI. Uninstalling does not delete the preferences: to wipe them, remove the `dsh-update-status` entry's `config` block from the active profile's `cordis.patch.yml`.
 
 ## Development
 

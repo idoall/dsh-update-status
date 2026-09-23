@@ -1,4 +1,7 @@
-# The host half is a plain static Cordis plugin. package.json's dsh.client
+# Bundle patch layer: the row loads the package's main entry as the host half.
+# On DSH 0.1.7 that entry's exported Config IS the plugin's settings form (a
+# form namespace is the Loader entry id, so the `id` below is the storage key
+# for the user preferences and must not change). package.json's `dsh.client`
 # declaration loads the built ./client browser half into the current Web GUI.
 - insert:
     - id: dsh-update-status

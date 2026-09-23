@@ -10,12 +10,20 @@
  * Connection RPC stays authenticated and reachable there — see
  * settings/settingsChannel.ts for the one place the loopback distinction still
  * matters.
+ *
+ * Preferences live in the Host-side `dsh-update-status` settings entry — the
+ * plugin's own Loader entry, whose volatile `Config` fields DSH 0.1.7 projects
+ * as that entry's form. Two client channels can serve it: the official
+ * `ctx.configForms.get(entryId)` form (the successor of the removed
+ * `settingsScope` service) and, on the non-loopback pages where that form is
+ * deliberately inert, a direct Host channel over `remote.settings`. See
+ * settingsChannel.ts.
  */
 
 import type { ClientContext, ConnectionClient } from './contract.ts'
 import { BrandName, FooterAction, type SharedUi, UpdatePanel, UpdateSettings } from './components.tsx'
 import { SETTINGS_NAMESPACE, PanelStore, PreferencesStore, StatusStore } from './stores.ts'
-import { binderOf, scopeOf } from './settings/scopeFaces.ts'
+import { configFormScope, configFormsOf } from './settings/configFormScope.ts'
 import {
   createHostDirectScope,
   settingsInvalidationsOf,
@@ -77,12 +85,13 @@ function apply(ctx: ClientContext): void {
     disposers.push(dispose as () => void)
   }
 
-  // The plugin's ONE storage contract is the Host namespace `dsh-update-status`,
-  // but two client channels can serve it: the official `settingsScope` (loopback
-  // pages) and — only when that scope reports the documented non-loopback
-  // degradation — a direct Host channel over the same public Remote. A LAN page
-  // is exactly that non-loopback case; without the direct channel every
-  // preference silently falls back to its default there. See settingsChannel.ts.
+  // The plugin's ONE storage contract is the Host settings entry
+  // `dsh-update-status` (the plugin's own Loader entry id), but two client
+  // channels can serve it: the official `configForms` form (loopback pages) and
+  // — only when that form reports the documented non-loopback degradation — a
+  // direct Host channel over the same public Remote. A LAN page is exactly that
+  // non-loopback case; without the direct channel every preference silently
+  // falls back to its default there. See settingsChannel.ts.
   let remoteSettings: SettingsRemoteLike | undefined
   /** Resolve the direct channel's Remote face; `ctx.get` covers a payload we could not read. */
   const directRemote = (): SettingsRemoteLike | undefined => {
@@ -137,19 +146,22 @@ function apply(ctx: ClientContext): void {
   }, 'dsh-update-status: styles, settings channel and first status read')
 
   // Official seam first: it stays authoritative whenever it is not `unavailable`,
-  // so a loopback page keeps the official semantics and pays no extra wire read.
+  // so a loopback page keeps the official semantics (one shared describe mirror,
+  // the official write queue) and pays no extra wire read. DSH 0.1.7 replaced
+  // the per-namespace `settingsScope` service with these entry-addressed forms,
+  // keyed by the Loader entry id the Host Config half owns (SETTINGS_NAMESPACE).
   try {
-    ctx.inject(['settingsScope'], (raw: unknown) => {
+    ctx.inject(['configForms'], (raw: unknown) => {
       try {
-        const binder = binderOf(raw)
-        if (binder === undefined) return
-        channel.setOfficial(scopeOf(binder.bind({ namespace: SETTINGS_NAMESPACE })))
+        const forms = configFormsOf(raw)
+        if (forms === undefined) return
+        channel.setOfficial(configFormScope(forms.get<unknown>(SETTINGS_NAMESPACE)))
       } catch {
         // Unreadable settings seam: the preferences stay on their defaults.
       }
     })
   } catch {
-    // No settingsScope seam on this host: the direct channel is the only hope.
+    // No configForms seam on this host: the direct channel is the only hope.
   }
 
   // Direct Host channel. The Remote service can arrive before or after the

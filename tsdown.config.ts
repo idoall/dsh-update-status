@@ -4,7 +4,9 @@ import { defineConfig } from 'tsdown'
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 
-// DSH Web's frozen browser module table supplies these runtime identities.
+// Modules the web shell seeds into the frozen browser module table: client
+// bundles leave these to the injected `require` instead of inlining. (This
+// list mirrors the harness client build baseline for dsh 0.1.7-alpha.2.)
 const PLATFORM_MODULES = [
   'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-store', '@deepseek-ai/dsh-client-ui-slots', '@deepseek-ai/dsh-client-ui-primitives',

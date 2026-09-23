@@ -124,14 +124,14 @@ describe('UpdateStatusService', () => {
 
   it('parses supported npm dist-tags from one registry document', () => {
     const release = registryReleaseOf({
-      'dist-tags': { latest: '0.1.5-rc.1', next: '0.1.5-rc.2', alpha: '0.1.6-alpha.1', beta: '9.9.9' },
-      time: { '0.1.6-alpha.1': '2026-09-09T14:41:15.754Z' },
+      'dist-tags': { latest: '0.1.7-rc.1', next: '0.1.8-rc.1', alpha: '0.1.7-alpha.2', beta: '9.9.9' },
+      time: { '0.1.7-rc.1': '2026-09-23T14:41:15.754Z' },
     })
     expect(release.channels.map(item => [item.channel, item.version])).toEqual([
-      ['latest', '0.1.5-rc.1'], ['next', '0.1.5-rc.2'], ['alpha', '0.1.6-alpha.1'],
+      ['latest', '0.1.7-rc.1'], ['next', '0.1.8-rc.1'], ['alpha', '0.1.7-alpha.2'],
     ])
     // Only releases this bundle was actually verified against are labelled
-    // verified; an untested patch release stays unverified.
+    // verified; an untested release stays unverified.
     expect(release.channels[0]?.compatibility).toBe('verified')
     expect(release.channels[1]?.compatibility).toBe('unverified')
     expect(release.channels[2]?.compatibility).toBe('verified')

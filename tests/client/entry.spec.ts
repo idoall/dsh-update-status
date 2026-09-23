@@ -74,8 +74,17 @@ function connectionRpc(isLoopback: boolean, calls: RpcCall[], payload: UpdateSta
   }
 }
 
-/** A structural stand-in for the official `settingsScope` seam. */
-function settingsScope(initial: { channel: string; sidebarEnabled: boolean; cacheTtlMinutes: number }, writes: SettingsWrite[]) {
+/**
+ * A structural stand-in for the official `ctx.configForms` seam — the DSH
+ * 0.1.7 successor of the removed `settingsScope` service. `get(entryId)` hands
+ * back the entry's shared form, whose `set(field, value)` answers whether the
+ * Host accepted the write.
+ */
+function configForms(
+  initial: { channel: string; sidebarEnabled: boolean; cacheTtlMinutes: number },
+  writes: SettingsWrite[],
+  requestedIds: string[] = [],
+) {
   const listeners = new Set<() => void>()
   const snapshot = {
     status: 'ready' as const,
@@ -86,19 +95,29 @@ function settingsScope(initial: { channel: string; sidebarEnabled: boolean; cach
     writable: true,
     mode: 'host' as const,
   }
-  const scope = {
+  const form = {
     getSnapshot: () => snapshot,
     subscribe: (listener: () => void) => {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
     },
-    set: async (field: string, value: unknown) => { writes.push({ field, value }) },
+    set: async (field: string, value: unknown) => {
+      writes.push({ field, value })
+      return true
+    },
   }
-  return { settingsScope: { bind: () => scope } }
+  return {
+    configForms: {
+      get: (entryId: string) => {
+        requestedIds.push(entryId)
+        return form
+      },
+    },
+  }
 }
 
 /** Mount the real client entry against a structural Cordis client context. */
-async function mount(connection: Record<string, unknown>, settings?: Record<string, unknown>): Promise<Mounted> {
+async function mount(connection: Record<string, unknown>, forms?: Record<string, unknown>): Promise<Mounted> {
   const client = await import('../../src/client/index.ts') as unknown as {
     apply: (ctx: unknown) => void
   }
@@ -121,7 +140,7 @@ async function mount(connection: Record<string, unknown>, settings?: Record<stri
     // No settings seam by default: the worst case for a bridged page. The status
     // read must not depend on the settings channel being available.
     inject: (names: string[], callback: (ctx: unknown) => void): (() => void) => {
-      if (names.includes('settingsScope') && settings !== undefined) callback(settings)
+      if (names.includes('configForms') && forms !== undefined) callback(forms)
       return () => {}
     },
     effect: (setup: () => (() => void) | void, label?: string): (() => void) => {
@@ -183,7 +202,7 @@ describe('client entry wiring', () => {
     const writes: SettingsWrite[] = []
     const mounted = await mount(
       connectionRpc(false, calls),
-      settingsScope({ channel: 'next', sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
+      configForms({ channel: 'next', sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
     )
 
     expect(writes).toEqual([])
@@ -194,11 +213,26 @@ describe('client entry wiring', () => {
     mounted.teardown()
   })
 
+  it('addresses the settings form by the plugin Loader entry id', async () => {
+    // DSH 0.1.7 identifies a form by the profile entry id, so a drift between
+    // this string and cordis.patch.yml's `id` silently detaches the preferences
+    // from their storage. Lock it here.
+    const calls: RpcCall[] = []
+    const requestedIds: string[] = []
+    const mounted = await mount(
+      connectionRpc(false, calls),
+      configForms({ channel: 'latest', sidebarEnabled: true, cacheTtlMinutes: 360 }, [], requestedIds),
+    )
+
+    expect(requestedIds).toEqual(['dsh-update-status'])
+    mounted.teardown()
+  })
+
   it('performs no settings write at all when teardown runs', async () => {
     const writes: SettingsWrite[] = []
     const mounted = await mount(
       connectionRpc(false, []),
-      settingsScope({ channel: 'next', sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
+      configForms({ channel: 'next', sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
     )
 
     mounted.teardown()

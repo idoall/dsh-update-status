@@ -1,28 +1,22 @@
 /** dsh-update-status Host half: read-only version status plus authenticated RPC. */
 
 import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
 import { detectInstallation } from './host/installation.ts'
 import { installUpdateStatusRpc } from './host/rpc.ts'
-import { installSettings } from './host/settings.ts'
+import { Config, installSettings, type UpdateStatusConfig } from './host/settings.ts'
 import { createRegistryFetcher, DEFAULT_TIMEOUT_MS, UpdateStatusService } from './host/update-status.ts'
 
 export const name = 'dsh-update-status'
 /** Connection supplies the authenticated transport; settings remains optional. */
 export const inject = ['connection']
 
-export interface Config {
-  cacheTtlHours?: number
-  timeoutMs?: number
-  autoCheckOnMount?: boolean
-}
-
-/** Deployment config only controls metadata-check timing; it never authorizes upgrades. */
-export const Config: z<Config> = z.object({
-  cacheTtlHours: z.number().step(1).min(1).max(24).default(6),
-  timeoutMs: z.number().step(1).min(1_000).max(30_000).default(DEFAULT_TIMEOUT_MS),
-  autoCheckOnMount: z.boolean().default(true),
-})
+/**
+ * Deployment fields plus the volatile user preferences. DSH 0.1.7 identifies a
+ * settings form by the Loader entry id, so this schema IS the entry's form and
+ * the entry id in `cordis.patch.yml` is its storage key — see host/settings.ts.
+ */
+export { Config }
+export type Config = UpdateStatusConfig
 
 function boundedNumber(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback

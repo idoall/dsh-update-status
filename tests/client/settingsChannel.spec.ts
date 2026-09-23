@@ -1,10 +1,14 @@
 /**
  * dsh-update-status — settings channel specs.
  *
- * Locks the LAN fix: on a non-loopback page DSH's official `settingsScope` is
- * deliberately `unavailable` (documented "Non-loopback pages get no durable
- * settings"), and the plugin's preferences must still reach their ONE source of
- * truth — the Host `dsh-update-status` namespace — through the direct channel.
+ * Locks the LAN fix: on a non-loopback page DSH's official settings form
+ * (`ctx.configForms`, the DSH 0.1.7 successor of the removed `settingsScope`
+ * service) is deliberately `unavailable` (documented "Non-loopback pages get no
+ * durable settings"), and the plugin's preferences must still reach their ONE
+ * source of truth — the Host `dsh-update-status` entry — through the direct
+ * channel. The `configFormScope` specs below additionally lock the projection
+ * of that official form onto the plugin's own scope contract, including the
+ * refused-write → rejection translation.
  */
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -19,7 +23,7 @@ import {
 } from '../../src/client/settings/hostDirectScope.ts'
 import { createSettingsChannel } from '../../src/client/settings/settingsChannel.ts'
 import { PreferencesStore } from '../../src/client/stores.ts'
-import { binderOf, scopeOf } from '../../src/client/settings/scopeFaces.ts'
+import { configFormScope, configFormsOf, type ConfigFormLike } from '../../src/client/settings/configFormScope.ts'
 import type {
   SettingsPathOpLike,
   SettingsScopeLike,
@@ -100,7 +104,7 @@ function makeRemote(initial: { writable?: boolean; rows?: Row[] } = {}) {
   }
 }
 
-/** Fake official settings scope (the shape `settingsScope.bind()` answers with). */
+/** Fake official settings form (`ctx.configForms.get(entryId)` answers with it). */
 function makeOfficial(initial: Partial<SettingsScopeSnapshotLike> = {}) {
   const snap: SettingsScopeSnapshotLike = {
     status: 'loading',
@@ -126,6 +130,47 @@ function makeOfficial(initial: Partial<SettingsScopeSnapshotLike> = {}) {
     scope,
     snap,
     writes,
+    set(next: Partial<SettingsScopeSnapshotLike>) {
+      Object.assign(snap, next)
+      for (const listener of [...listeners]) listener()
+    },
+  }
+}
+
+/** A structural stand-in for the official `ConfigForm<T>` (snapshot + write queue). */
+function makeConfigForm(initial: Partial<SettingsScopeSnapshotLike> = {}, accepted = true) {
+  const snap: SettingsScopeSnapshotLike = {
+    status: 'ready',
+    value: prefs(),
+    base: prefs(),
+    user: {},
+    revision: 1,
+    writable: true,
+    mode: 'host',
+    ...initial,
+  }
+  const listeners = new Set<() => void>()
+  const sets: Array<{ field: string; value: unknown }> = []
+  let answer = accepted
+  let fault: Error | undefined
+  const form: ConfigFormLike = {
+    getSnapshot: () => ({ ...snap }),
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    async set(field, value) {
+      sets.push({ field, value })
+      if (fault !== undefined) throw fault
+      return answer
+    },
+  }
+  return {
+    form,
+    sets,
+    snap,
+    refuse() { answer = false },
+    fail(error: Error) { fault = error },
     set(next: Partial<SettingsScopeSnapshotLike>) {
       Object.assign(snap, next)
       for (const listener of [...listeners]) listener()
@@ -295,20 +340,89 @@ describe('settingsRemoteOf / settingsInvalidationsOf guards', () => {
   })
 })
 
-describe('scopeFaces guards', () => {
-  it('only accepts a binder with bind() and a scope with getSnapshot/subscribe/set', () => {
-    expect(binderOf({ settingsScope: { bind: () => undefined } })).toBeDefined()
-    expect(binderOf({ settingsScope: {} })).toBeUndefined()
-    expect(binderOf({})).toBeUndefined()
+describe('configFormsOf guard', () => {
+  it('accepts only a face exposing get() and never throws on a refusing payload', () => {
+    const face = { get: () => makeConfigForm().form }
+    expect(configFormsOf({ configForms: face })).toBe(face)
+    expect(configFormsOf({ configForms: {} })).toBeUndefined()
+    expect(configFormsOf({})).toBeUndefined()
+    expect(configFormsOf(undefined)).toBeUndefined()
+    expect(configFormsOf('configForms')).toBeUndefined()
 
-    const official = makeOfficial({ status: 'ready', writable: true, revision: 1, value: prefs() })
-    expect(scopeOf(official.scope)).toBe(official.scope)
-    expect(scopeOf({ getSnapshot: () => ({}), subscribe: () => () => {} })).toBeUndefined()
-    expect(scopeOf(undefined)).toBeUndefined()
+    // A real injected payload proxy refuses a member read; the guard contains it.
+    const refusing = {
+      get configForms(): never {
+        throw new Error('cannot get property "configForms" without inject')
+      },
+    }
+    expect(() => configFormsOf(refusing)).not.toThrow()
+    expect(configFormsOf(refusing)).toBeUndefined()
   })
 })
 
-describe('settingsChannel (official scope vs direct Host channel)', () => {
+describe('configFormScope (official form → plugin scope contract)', () => {
+  it('projects the official form snapshot field by field', () => {
+    const official = makeConfigForm({
+      status: 'ready',
+      value: prefs({ channel: 'next' }),
+      base: prefs(),
+      user: prefs({ channel: 'next' }),
+      revision: 7,
+      writable: true,
+      mode: 'host',
+    })
+    expect(configFormScope(official.form).getSnapshot()).toEqual({
+      status: 'ready',
+      value: prefs({ channel: 'next' }),
+      base: prefs(),
+      user: prefs({ channel: 'next' }),
+      revision: 7,
+      writable: true,
+      mode: 'host',
+    })
+  })
+
+  it('forwards subscribe to the form', () => {
+    const official = makeConfigForm()
+    const scope = configFormScope(official.form)
+    const listener = vi.fn()
+    const off = scope.subscribe(listener)
+    official.set({ revision: 2 })
+    expect(listener).toHaveBeenCalledTimes(1)
+    off()
+    official.set({ revision: 3 })
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('resolves a set the Host accepted and passes the field op through unchanged', async () => {
+    const official = makeConfigForm()
+    await configFormScope(official.form).set('channel', 'alpha')
+    expect(official.sets).toEqual([{ field: 'channel', value: 'alpha' }])
+  })
+
+  it('translates a refused set (false) into a conflict rejection', async () => {
+    // The settings page must surface a conflict instead of pretending the edit
+    // landed; the form has already re-read the authoritative value.
+    const official = makeConfigForm()
+    official.refuse()
+    const failure = await configFormScope(official.form).set('channel', 'alpha')
+      .then(() => undefined, (error: unknown) => error)
+    expect(failure).toBeInstanceOf(SettingsWriteFailure)
+    expect((failure as SettingsWriteFailure).code).toBe('settings/conflict')
+  })
+
+  it('translates a transport fault into an unreachable rejection', async () => {
+    const official = makeConfigForm()
+    official.fail(new Error('socket closed'))
+    const failure = await configFormScope(official.form).set('channel', 'alpha')
+      .then(() => undefined, (error: unknown) => error)
+    expect(failure).toBeInstanceOf(SettingsWriteFailure)
+    expect((failure as SettingsWriteFailure).code).toBe('settings/unreachable')
+    expect((failure as SettingsWriteFailure).message).toBe('socket closed')
+  })
+})
+
+describe('settingsChannel (official form vs direct Host channel)', () => {
   it('stays loading while no channel has answered', () => {
     const channel = createSettingsChannel({ openDirect: () => undefined })
     expect(channel.getSnapshot().status).toBe('loading')
@@ -392,6 +506,34 @@ describe('settingsChannel (official scope vs direct Host channel)', () => {
     await channel.set('sidebarEnabled', false)
     expect(official.writes).toEqual([{ field: 'sidebarEnabled', value: false }])
     expect(openDirect).not.toHaveBeenCalled()
+  })
+
+  it('routes a loopback page through the projected configFormScope end to end', async () => {
+    // The real loopback wiring: `ctx.configForms.get(entryId)` projected by
+    // configFormScope. A ready form wins, the direct channel never opens, and a
+    // refused write surfaces as a conflict rather than a silent success.
+    const official = makeConfigForm({ value: prefs({ channel: 'next' }), revision: 4 })
+    const openDirect = vi.fn(() => undefined)
+    const channel = createSettingsChannel({ openDirect })
+    channel.setOfficial(configFormScope(official.form))
+    expect(channel.getSnapshot()).toMatchObject({ status: 'ready', revision: 4 })
+    expect((channel.getSnapshot().value as { channel: string }).channel).toBe('next')
+
+    await channel.set('channel', 'alpha')
+    expect(official.sets).toEqual([{ field: 'channel', value: 'alpha' }])
+    expect(openDirect).not.toHaveBeenCalled()
+
+    official.refuse()
+    await expect(channel.set('channel', 'latest')).rejects.toBeInstanceOf(SettingsWriteFailure)
+  })
+
+  it('falls back to the direct channel when the official form is pinned to memory (LAN)', async () => {
+    const remote = makeRemote({ rows: [{ ns: NS, value: prefs({ channel: 'alpha' }), revision: 8 }] })
+    const official = makeConfigForm({ status: 'unavailable', value: undefined, writable: false, mode: 'memory', revision: undefined })
+    const channel = createSettingsChannel({ openDirect: () => createHostDirectScope(remote.remote, NS) })
+    channel.setOfficial(configFormScope(official.form))
+    await flush()
+    expect(channel.getSnapshot()).toMatchObject({ status: 'ready', revision: 8, mode: 'host', writable: true })
   })
 
   it('reload() refreshes the direct channel through the invalidation seam', async () => {

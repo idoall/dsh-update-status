@@ -29,7 +29,7 @@
 插件只把展开侧栏中的品牌名称换成适配 24px 品牌行的 `DeepSeek + 版本芯片`，官方鱼标保持不变。版本号旁的**绿点**表示无事可做，**橙色呼吸圆点**表示线上有新版本。点击芯片可查看 npm 发布通道、兼容性状态，以及与所选通道对应的“仅复制”命令。
 
 <p align="center">
-  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status 面板：缓存时长、正在运行的 0.1.6-alpha.2（alpha 通道）、与所选通道不一致的 latest 行、兼容性标签和仅复制的升级命令">
+  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status 面板：缓存时长、正在运行的 0.1.7-rc.1（latest 通道）、与所选通道不一致的 next 行、兼容性标签和仅复制的升级命令">
 </p>
 
 ## 功能
@@ -53,7 +53,7 @@
 
 - 带 Web profile 的 DeepSeek Harness
 - Node.js 20 或更新版本
-- 已验证的 DSH 版本：`0.1.6-alpha.2`（同时验证了 `0.1.6-alpha.1` 与 `0.1.5-rc.1`）
+- 已验证的 DSH 版本：`0.1.7-rc.1` 与 `0.1.7-alpha.2`
 
 已经安装 `dsh` 命令：
 
@@ -137,41 +137,47 @@ npm install -g @deepseek-ai/dsh@alpha
 
 ## 局域网（非回环页面）访问
 
-DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Host 设置持久化（官方 `dsh-client-ui-settings` README 原文：*Non-loopback pages get no durable settings*）：`settingsScope` 直接返回 `unavailable`，并且从此不发 `settings.describe`；整页的 `connection.isLoopback` 也都是 false。
+DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Host 设置持久化（官方 `dsh-client-ui-settings` README 原文：*Non-loopback pages get no durable settings*）：所有按条目寻址的设置表单（`ctx.configForms.get(id)`，DSH 0.1.7 中已移除的 `settingsScope` 服务的继任者）此时被固定为 `memory`，直接返回 `unavailable`，并且从此不发 `settings.describe`；整页的 `connection.isLoopback` 也都是 false。
 
 从 `0.1.2` 起，本插件在局域网页面同样可用：
 
 - **版本/更新状态**照常读取。早先的版本把整个功能压在 `connection.isLoopback === true` 上，于是经局域网转发（`dsh-bridge`、`dsh-lan-proxy` 等）打开的页面从不发送 `POST /api/dsh-update-status.get-status`、详情面板打不开，还会把本包声明的兼容版本当成"当前运行版本"显示。该判断已移除——Connection RPC 本身是已认证的，Host 路由也是本插件自己的路由。
-- **偏好设置**（`sidebarEnabled`、`channel`、`cacheTtlMinutes`）继续读写 Host 上共享的那一份 `dsh-update-status` 命名空间，走的是与官方 settings Client 相同的公开 Remote（`settings.describe` / `settings.mutate`）。写入仍受 revision 栅栏保护，被拒时明确提示冲突而不会静默覆盖。直连通道只在官方 scope 报 `unavailable` 时才打开，所以回环页面仍走官方路径，不会多发一次线上读取。
+- **偏好设置**（`sidebarEnabled`、`channel`、`cacheTtlMinutes`）继续读写 Host 上共享的那一份 `dsh-update-status` 设置条目，走的是与官方设置表单相同的公开 Remote（`settings.describe` / `settings.mutate`）。写入仍受 revision 栅栏保护，被拒时明确提示冲突而不会静默覆盖。直连通道只在官方表单报 `unavailable` 时才打开，所以回环页面仍走官方路径，不会多发一次线上读取。
 
 若你希望保持 DSH 官方策略（非回环页面完全不落地设置），可以让转发侧声明宿主身份：在返回的 HTML 中、`__DSH_BOOT__` 之前注入 `window.__DSH_TRANSPORT__ = { fetch: (input, init) => window.fetch(input, init), ownsHost: true }`。DSH 的 `ctx.connection.isLoopback` 会据此为真，所有依赖设置的界面（含官方「设置」页）一并恢复；`dsh-mobile` 网关正是这么做的。
 
 ## 兼容性
 
-当前发布：插件 **`0.1.5`** 已针对 DeepSeek Harness **`0.1.6-alpha.2`** 验证。
+当前发布：插件 **`0.1.6`** 已针对 DeepSeek Harness **`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.1.5`** | `0.1.6-alpha.2`、`0.1.6-alpha.1`、`0.1.5-rc.1` | `latest` | 一颗圆点承载全部状态（绿=已是最新、灰=检查中、橙=有新版本）、两套主题都用中性灰底框、提示性告警不再重绘芯片 |
+| **`0.1.6`** | `0.1.7-rc.1`、`0.1.7-alpha.2` | 未发布 | 适配 DSH 0.1.7：偏好设置就是插件条目的 volatile `Config`（设置表单命名空间 = loader 条目 id），官方客户端通道改为 `ctx.configForms`，`@deepseek-ai/schemastery` 改为 peer |
+| `0.1.5` | `0.1.6-alpha.2`、`0.1.6-alpha.1`、`0.1.5-rc.1` | `latest` | 一颗圆点承载全部状态（绿=已是最新、灰=检查中、橙=有新版本）、两套主题都用中性灰底框、提示性告警不再重绘芯片 |
 | `0.1.4` | `0.1.6-alpha.1`、`0.1.5-rc.1` | 已发布 | 修复「正在运行的通道不可选」；偏好写入路径补齐回归测试 |
 | `0.1.3` | `0.1.6-alpha.1`、`0.1.5-rc.1` | 已发布 | 含 `0.1.2` 的局域网（非回环）修复，并在 0.1.6 上复验、补上回归测试 |
 | `0.1.2` | `0.1.5-rc.1` | **未发布** | 移除 `connection.isLoopback` 门控，局域网页面可用 |
 | `0.1.1` | `0.1.5-rc.1` | 已发布 | 此前 npm 上的 `latest`；局域网/非回环页面下插件整体不可用 |
 | `0.1.0` | `0.1.2-rc.1` | 已发布 | 首个版本 |
 
+- **`0.1.6` 只支持 DSH `0.1.7` 线。** DSH `0.1.7` 移除了本插件赖以工作的运行时 `ctx.settings.register(...)` API 与 `ctx.settingsScope` 客户端服务，因此该版本线上只有 `0.1.6` 的偏好设置能工作；仍在更早的 DSH（含 `0.1.6-alpha.2`）上时，请继续使用插件 **`0.1.5`**。
 - **已验证的 DeepSeek Harness** 是该插件构建实际测试过的确切 DSH 版本。这份清单只有两个存放处——[`src/shared/types.ts`](src/shared/types.ts) 的 `VERIFIED_DSH_VERSIONS` 与 [`package.json`](package.json) 的 `dsh.compatibility.dshReleases`——并有测试保证两者一致。未列出的 DSH 版本不会被宣称为兼容：请先人工验证；确认不兼容时请禁用或卸载插件，不要修改 DSH 核心。若只是**尚未列入**，插件会标为「尚未验证兼容」：这是**只出现在面板里**的提示，绝不会重绘芯片——DSH 升级快于插件时，芯片依然保持正常外观。
 - **npm 发布状态** 是 `dsh plugin --profile web add dsh-update-status@latest` 实际会装到的版本。只存在于本仓库、尚未发布到 npm 的版本属于开发状态，不是发布版本。
 - 需要精确对应时显式指定版本：
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.6   # DSH 0.1.7-rc.1 或 0.1.7-alpha.2（尚未发布到 npm）
   dsh plugin --profile web add dsh-update-status@0.1.5   # DSH 0.1.6-alpha.2、0.1.6-alpha.1 或 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.4   # DSH 0.1.6-alpha.1 或 0.1.5-rc.1
   dsh plugin --profile web add dsh-update-status@0.1.0   # 仅 DSH 0.1.2-rc.1
   ```
 
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 有两处声明让 `0.1.7` 线能正常加载，并由测试守住：
+  - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.2.0`，两个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。另外 DSH `0.1.7-rc.1` 会在 profile 加载时拒绝不兼容的 bundle，范围若排除正在运行的版本，插件会被静默丢弃。
+  - `@deepseek-ai/schemastery` 是 **peer**，不是普通依赖：DSH 0.1.7 只从运行安装解析 link 插件的 peer 依赖，否则 `link:` 安装会连 Host 半边都 import 失败。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 
@@ -183,7 +189,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 **设置 → 版本与更新** 可隐藏本插件侧栏入口和选择发布通道；详情面板中也能直接切换通道和填写缓存时长。修改缓存时长不会请求网络；只在之后普通读取且缓存已到期时更新，“检查更新”始终是立即手动检查。
 
-偏好只会在你于面板或该设置区块中主动选择时写入。插件没有任何自动写入路径——没有 effect、定时器，也不在挂载时写入，并由 `tests/client/entry.spec.ts` 挂载真实客户端入口长期守住这一点。这些值存放在 `~/.dsh/settings.yaml` 的 `dsh-update-status` 命名空间里；要重置某个偏好，直接在那里修改或删除即可，DSH 会在下次变更时重新加载该文档。
+偏好只会在你于面板或该设置区块中主动选择时写入。插件没有任何自动写入路径——没有 effect、定时器，也不在挂载时写入，并由 `tests/client/entry.spec.ts` 挂载真实客户端入口长期守住这一点。在 DSH 0.1.7 上，上面三个偏好就是本插件条目 `Config` 的 **volatile** 字段，因此以该条目的 `config` 落在当前 profile 的 patch 里（`~/.dsh/profiles/<profile>/cordis.patch.yml`）；要重置某个偏好，直接修改或删除该段即可，DSH 会在下次变更时重新加载 profile。`Config` 的其余字段只用于部署、不会出现在表单中：`cacheTtlHours`（默认 `6`）、`timeoutMs`（默认 `15000`）与 `autoCheckOnMount`（默认 `true`），同样写在同一份 profile patch 中。
 
 ## 故障排查
 
@@ -229,7 +235,7 @@ Host 会缓存一次 registry 响应，默认 360 分钟，且只有普通读取
 dsh plugin --profile web remove dsh-update-status
 ```
 
-重启 DSH 并刷新 Web GUI。如需清除偏好，可在卸载后从 `~/.dsh/settings.yaml` 删除 `dsh-update-status` 命名空间。
+重启 DSH 并刷新 Web GUI。卸载不会删除偏好：要清空偏好，请从当前 profile 的 `cordis.patch.yml` 中删除 `dsh-update-status` 条目的 `config` 段。
 
 ## 开发
 

@@ -4,12 +4,12 @@
  * WHY THIS EXISTS
  *
  * DSH's settings Client keeps Host persistence disabled on any page whose
- * location is not a loopback authority. `settingsScope.bind()` then answers
+ * location is not a loopback authority. `ctx.configForms.get(entryId)` — the
+ * DSH 0.1.7 successor of `settingsScope.bind()` — then answers
  * `status: 'unavailable'` immediately and NEVER sends `settings.describe`
- * (dsh-client-ui-settings README, "Known Limitations": "Non-loopback pages get
- * no durable settings — this Client keeps Host persistence disabled there, so a
- * scope starts `unavailable` and never crosses the wire; every row it backs is
- * inert even though Connection authentication covers the API").
+ * (`@deepseek-ai/dsh-client-ui-settings`: the persistence mode resolves from
+ * `remote.$host.isLoopback` and pins a remote page to `memory`; every row it
+ * backs is inert even though Connection authentication covers the API).
  *
  * The decision itself is one line in the official client:
  *
@@ -20,16 +20,16 @@
  * forwarding plugin is therefore non-loopback even though the API answers and
  * the page is authenticated.
  *
- * This plugin's settings — the sidebar toggle, the followed release channel and
- * the cache policy — live in the Host namespace `dsh-update-status`, so without a
- * channel they all silently fall back to defaults on a LAN page (the host's
- * configured `channel` would be ignored, silently switching the followed release
- * line). This module speaks the SAME public Remote the official scope speaks
- * (`settings.describe` / `settings.mutate`, the generated Typert face mounted by
- * `@deepseek-ai/dsh-api-remotes`) and derives the same per-namespace snapshot
- * shape, so the ONE shared Host document keeps serving every device.
+ * This plugin's preferences — the sidebar toggle, the followed release channel
+ * and the cache policy — live in the Host settings entry `dsh-update-status`, so
+ * without a channel they all silently fall back to defaults on a LAN page (the
+ * host's configured `channel` would be ignored, silently switching the followed
+ * release line). This module speaks the SAME public Remote the official form
+ * speaks (`settings.describe` / `settings.mutate`, the generated Typert face
+ * mounted by `@deepseek-ai/dsh-api-remotes`) and derives the same per-namespace
+ * snapshot shape, so the ONE shared Host document keeps serving every device.
  *
- * This channel is opened ONLY when the official scope reports `unavailable`
+ * This channel is opened ONLY when the official form reports `unavailable`
  * (see `settingsChannel.ts`), so loopback pages keep the official path and pay
  * no extra wire read. Everything here is guarded: an absent Remote, a refused
  * read, or a malformed answer leaves the preferences exactly as unavailable as

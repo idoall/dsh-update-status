@@ -2,9 +2,9 @@
  * JSON-only contract shared by the Host and Web halves.
  *
  * The static package uses the authenticated Connection RPC channel because
- * `harness.handle` / `host.call` are dynamic-Cordis-only closure APIs in DSH
- * 0.1.5-rc.1. The endpoint vocabulary remains deliberately small and private
- * to this plugin channel.
+ * `harness.handle` / `host.call` are dynamic-Cordis-only closure APIs. The
+ * endpoint vocabulary remains deliberately small and private to this plugin
+ * channel.
  */
 
 export const PLUGIN_ID = 'dsh-update-status'
@@ -18,7 +18,7 @@ export const RELEASES_URL = 'https://github.com/deepseek-ai/deepseek-harness/rel
  * release the registry reports stays `unverified` — the plugin never claims a
  * compatibility nobody checked.
  */
-export const VERIFIED_DSH_VERSIONS: readonly string[] = ['0.1.5-rc.1', '0.1.6-alpha.1', '0.1.6-alpha.2']
+export const VERIFIED_DSH_VERSIONS: readonly string[] = ['0.1.7-alpha.2', '0.1.7-rc.1']
 export const RELEASE_CHANNELS = ['latest', 'next', 'alpha'] as const
 export const DEFAULT_CACHE_TTL_MINUTES = 360
 export const MIN_CACHE_TTL_MINUTES = 30
@@ -101,12 +101,4 @@ export interface UpdateStatus {
   channels: ChannelRelease[]
   /** Phase 1 is informational only; the GUI must never apply an update. */
   canApplyInPlace: false
-}
-
-/** Persisted browser preference served through the ordinary DSH settings seam. */
-export interface UpdateStatusSettings {
-  sidebarEnabled: boolean
-  channel: ReleaseChannel
-  /** On-demand npm-registry cache duration. This never starts a browser timer. */
-  cacheTtlMinutes: number
 }

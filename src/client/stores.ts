@@ -231,5 +231,10 @@ export class PanelStore implements Observable<PanelSnapshot> {
   }
 }
 
-/** The one namespace name used by Host registration and browser binding. */
+/**
+ * The one settings namespace, which on DSH 0.1.7 IS the Loader entry id in
+ * `cordis.patch.yml`: the Host half's volatile `Config` fields are projected as
+ * that entry's form, and the browser half addresses the same id through
+ * `ctx.configForms.get(...)`.
+ */
 export const SETTINGS_NAMESPACE = PLUGIN_ID

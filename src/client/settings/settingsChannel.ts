@@ -1,21 +1,23 @@
 /**
  * dsh-update-status — settings source selection.
  *
- * The plugin's ONE storage contract is the Host settings namespace
+ * The plugin's ONE storage contract is the Host settings entry
  * `dsh-update-status`. Two client channels can serve it:
  *
- * 1. the official `settingsScope` service (loopback pages), and
+ * 1. the official `ctx.configForms` form (loopback pages) — the DSH 0.1.7
+ *    successor of the removed `settingsScope` service, and
  * 2. the direct Host channel (`hostDirectScope.ts`), which exists exactly
- *    because the official scope is deliberately inert on a non-loopback page —
+ *    because the official form is deliberately inert on a non-loopback page —
  *    the LAN page a phone uses.
  *
  * This module picks between them without ever guessing:
  *
- * - The official scope wins whenever it is not `unavailable`, so a loopback page
- *   keeps the official semantics (schema decode, revision fences, document
- *   invalidation) and pays NO extra wire read.
- * - Only when the official scope reports `unavailable` (the documented
- *   non-loopback degradation) is the direct channel opened, lazily and once.
+ * - The official form wins whenever it is not `unavailable`, so a loopback page
+ *   keeps the official semantics (the one shared describe mirror, the official
+ *   write queue and revision fences) and pays NO extra wire read.
+ * - Only when the official form reports `unavailable` (the documented
+ *   non-loopback degradation: it is pinned to `memory` mode there and never
+ *   crosses the wire) is the direct channel opened, lazily and once.
  * - With neither source the channel stays `loading`, i.e. exactly the state this
  *   plugin had before the direct channel existed.
  */
@@ -43,11 +45,11 @@ export interface SettingsChannelOptions {
 }
 
 export interface SettingsChannel extends SettingsScopeLike {
-  /** Point the channel at the official scope once the service answers. */
+  /** Point the channel at the official form once the service answers. */
   setOfficial(scope: SettingsScopeLike | undefined): void
   /** Re-evaluate the selection (e.g. the Remote service just arrived). */
   refresh(): void
-  /** Ask the active source for a fresh read (no-op for the official scope). */
+  /** Ask the active source for a fresh read (no-op for the official form). */
   reload(): void
   dispose(): void
 }

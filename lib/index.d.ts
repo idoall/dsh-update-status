@@ -56,6 +56,32 @@ interface UpdateStatus {
   canApplyInPlace: false;
 }
 //#endregion
+//#region src/host/settings.d.ts
+/** Deployment config (ordinary) plus the volatile user preferences the form edits. */
+interface UpdateStatusConfig {
+  /** Deployment: on-demand registry cache duration, in hours. */
+  cacheTtlHours?: number;
+  /** Deployment: registry request timeout, in milliseconds. */
+  timeoutMs?: number;
+  /** Deployment: run one metadata check when the process mounts the plugin. */
+  autoCheckOnMount?: boolean;
+  /** Preference: show the sidebar version chip and its update panel. */
+  sidebarEnabled?: boolean;
+  /** Preference: release channel followed for comparison and commands. */
+  channel?: ReleaseChannel;
+  /** Preference: on-demand registry cache duration, in minutes. */
+  cacheTtlMinutes?: number;
+}
+/**
+ * The plugin's Config schema; its volatile fields ARE the settings form.
+ *
+ * The explicit two-argument annotation is load-bearing: a `.volatile()` field's
+ * output is a stable reference (`Volatile<T>`) rather than the bare value the
+ * input side takes, so the inferred schema type cannot be named by the emitted
+ * `.d.ts` (TS2883) without stating the input side here.
+ */
+declare const Config: z<UpdateStatusConfig, Record<string, unknown>>;
+//#endregion
 //#region src/host/installation.d.ts
 interface InstallationInfo {
   currentVersion: string;
@@ -101,13 +127,7 @@ declare class UpdateStatusService {
 declare const name = "dsh-update-status";
 /** Connection supplies the authenticated transport; settings remains optional. */
 declare const inject: string[];
-interface Config {
-  cacheTtlHours?: number;
-  timeoutMs?: number;
-  autoCheckOnMount?: boolean;
-}
-/** Deployment config only controls metadata-check timing; it never authorizes upgrades. */
-declare const Config: z<Config>;
+type Config = UpdateStatusConfig;
 declare function apply(ctx: Context, config?: Config): void;
 //#endregion
 export { Config, type InstallKind, type UpdateStatus, UpdateStatusService, apply, inject, name };
