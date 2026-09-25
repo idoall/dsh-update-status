@@ -1,6 +1,6 @@
 {
   "name": "dsh-update-status",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Read-only DeepSeek Harness Web plugin that shows the running DSH version, discovers latest/next/alpha releases, warns about compatibility, and generates copy-only upgrade commands.",
   "type": "module",
   "main": "lib/index.js",
@@ -72,7 +72,8 @@
     "compatibility": {
       "dshReleases": {
         "0.1.7-alpha.2": "compatible",
-        "0.1.7-rc.1": "compatible"
+        "0.1.7-rc.1": "compatible",
+        "0.1.7-rc.2": "compatible"
       }
     }
   },

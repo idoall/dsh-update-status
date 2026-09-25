@@ -53,7 +53,7 @@ Requirements:
 
 - DeepSeek Harness with the Web profile
 - Node.js 20 or newer
-- Verified DSH releases: `0.1.7-rc.1` (latest RC) and `0.1.7-alpha.2`
+- Verified DSH releases: `0.1.7-rc.2` (latest RC), `0.1.7-rc.1` and `0.1.7-alpha.2`
 
 With an installed `dsh` command:
 
@@ -148,13 +148,14 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current release: plugin **`0.1.7`** is verified against DeepSeek Harness **`0.1.7-rc.1`** (the latest release candidate) and **`0.1.7-alpha.2`**.
+Current release: plugin **`0.1.8`** is verified against DeepSeek Harness **`0.1.7-rc.2`** (the latest release candidate), **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| **`0.1.7`** | `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Runtime warnings become language-neutral codes rendered by the client, so the English UI is fully English; dev toolchain bumped |
+| **`0.1.8`** | `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Version-matrix release: adds the running `0.1.7-rc.2` to the verified list after auditing the rc.1 → rc.2 interface delta; zero code change |
+| `0.1.7` | `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Runtime warnings become language-neutral codes rendered by the client, so the English UI is fully English; dev toolchain bumped |
 | `0.1.6` | `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Adapts to DSH 0.1.7: the preferences ARE the plugin entry's volatile `Config` (a form namespace is the Loader entry id), the official client channel is `ctx.configForms`, and `@deepseek-ai/schemastery` is a peer |
 | `0.1.5` | `0.1.6-alpha.2`, `0.1.6-alpha.1`, `0.1.5-rc.1` | published | One dot carries every state (green up to date, grey checking, amber breathing update), neutral grey chip surface in both themes, and advisory notices no longer repaint the chip |
 | `0.1.4` | `0.1.6-alpha.1`, `0.1.5-rc.1` | published | Fixes the unselectable "channel you are running"; preference writes locked by tests |
@@ -163,12 +164,13 @@ Current release: plugin **`0.1.7`** is verified against DeepSeek Harness **`0.1.
 | `0.1.1` | `0.1.5-rc.1` | published | The previous npm `latest`; the plugin is inert on LAN/non-loopback pages |
 | `0.1.0` | `0.1.2-rc.1` | published | First release |
 
-- **`0.1.6` and `0.1.7` support the DSH `0.1.7` line only.** DSH `0.1.7` removed the runtime `ctx.settings.register(...)` API and the `ctx.settingsScope` client service this plugin was built on, so those are the only releases whose preferences work there. On an older DSH — including `0.1.6-alpha.2` — stay on plugin **`0.1.5`**.
+- **`0.1.6` through `0.1.8` support the DSH `0.1.7` line only.** DSH `0.1.7` removed the runtime `ctx.settings.register(...)` API and the `ctx.settingsScope` client service this plugin was built on, so those are the only releases whose preferences work there. On an older DSH — including `0.1.6-alpha.2` — stay on plugin **`0.1.5`**.
 - **Verified DeepSeek Harness** is the exact DSH release that plugin build was tested against. The list has one source of truth in two places — `VERIFIED_DSH_VERSIONS` in [`src/shared/types.ts`](src/shared/types.ts) and `dsh.compatibility.dshReleases` in [`package.json`](package.json) — and a test keeps them identical. A release that is not on the list is not declared compatible: verify it manually first, and if it turns out incompatible, disable or uninstall the plugin rather than patching DSH core. A release that is merely *not listed yet* is reported as **unverified**: that is an advisory in the panel only, and it never repaints the chip — an operator who upgrades DSH ahead of this plugin keeps a normal chip.
 - **On npm** is what `dsh plugin --profile web add dsh-update-status@latest` actually installs. A version that exists in this repository but not on npm is a development state, not a release.
 - Match them explicitly when it matters:
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.8   # DSH 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.7   # DSH 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.6   # DSH 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.5   # DSH 0.1.6-alpha.2, 0.1.6-alpha.1 or 0.1.5-rc.1
@@ -177,9 +179,9 @@ Current release: plugin **`0.1.7`** is verified against DeepSeek Harness **`0.1.
   ```
 
 - Two declarations make the `0.1.7` line load at all, and a test keeps them honest:
-  - `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` both declare `>=0.1.7-alpha.2 <0.2.0`, which admits both verified releases. The lower bound names the alpha on purpose — under node-semver's default prerelease rule a range like `>=0.1.6-0 <0.2.0` does **not** admit `0.1.7-alpha.2`. DSH `0.1.7-rc.1` also refuses an incompatible bundle at profile load, so a range that excluded the running release would silently drop the plugin.
+  - `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` both declare `>=0.1.7-alpha.2 <0.2.0`, which admits all three verified releases. The lower bound names the alpha on purpose — under node-semver's default prerelease rule a range like `>=0.1.6-0 <0.2.0` does **not** admit `0.1.7-alpha.2`. DSH `0.1.7-rc.2` also refuses an incompatible bundle at profile load, so a range that excluded the running release would silently drop the plugin.
   - `@deepseek-ai/schemastery` is a **peer**, not a plain dependency: DSH 0.1.7 resolves only a linked plugin's peer dependencies from the running installation, so a `link:` install of this directory would otherwise fail to import the Host half.
-- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
 
 ## Configuration
 

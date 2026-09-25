@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.8 — 2026-09-25
+
+Verified DeepSeek Harness: `0.1.7-rc.2` (the latest release candidate, and what npm's `next` dist-tag publishes), also `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.8.md`](docs/releases/v0.1.8.md).
+
+A version-matrix release with **zero code change**: DSH moved from `0.1.7-rc.1` to `0.1.7-rc.2`, and nothing this plugin binds to changed shape. No migration is needed from `0.1.7`.
+
+- **`0.1.7-rc.2` joins the verified list.** `VERIFIED_DSH_VERSIONS` in `src/shared/types.ts` and `package.json`'s `dsh.compatibility.dshReleases` both gain it, keeping `0.1.7-alpha.2` and `0.1.7-rc.1`; `tests/shared/compatibility.spec.ts` keeps the two lists identical and proves the `dsh.engines.dsh` / `@deepseek-ai/dsh-settings` peer ranges admit every listed release.
+- **The user-visible effect.** `0.1.7-rc.2` is what npm's `next` dist-tag publishes, and the old list stopped at `0.1.7-rc.1`, so following `next` produced a `preview-unverified` advisory (`notice` level, never repaints the chip). The running version and the channel row now read verified, and that advisory is gone. Generated upgrade commands and installation guidance are untouched.
+- **rc.1 → rc.2 interface audit, all 7 bound packages.** `dsh-settings`, `dsh-client-ui-settings`, `dsh-client-ui-settings-general`, `dsh-client-ui-sidebar`, `dsh-client-ui-layout`, `dsh-client-connection` and `dsh-api-remotes` were diffed across the two releases. Every difference is additive shortcut plumbing: `settingsOpen` / `settingsShortcut` on the settings slot context, `shortcuts` on the sidebar shell context, `useShortcuts` on `SidebarRoot` / `HeaderLeadingControls`, `panelInfo` on the layout service, a `shortcuts.layout` locale namespace, a `shortcut.open` label, and a `dsh-schedule/remote` type re-export. Nothing this plugin uses was removed or reshaped: the `ctx.configForms` form face, `remote.settings`' `settings.describe` / `settings.mutate`, the `/api/dsh-update-status.*` Connection RPC routes and the four slots (`sidebar.brand.name`, `sidebar.footer.action`, `shell.overlay`, `settings.section`) are all unchanged.
+- **Live load check on rc.2.** With a disposable `DSH_HOME`, this repository was installed into a web profile with `link:` and `dsh --profile web --dump-config` composed the `dsh-update-status` entry with no compatibility refusal — rc.2's profile-load gate accepts the bundle.
+- **Tests: 98 passing** (unchanged — this release adds no behaviour to lock). The audit and the live load check are the new evidence; the panel/chip end-to-end interaction was **not** re-run on rc.2, and the `0.1.6` live adaptation conclusion still stands.
+- **Unchanged**: the Host half, the client half, the RPC channel, the status read, the sidebar chip, the detail panel, the LAN (non-loopback) fallback and the profile-patch preference model.
+
 ## 0.1.7 — 2026-09-24
 
 Verified DeepSeek Harness: `0.1.7-rc.1` (the latest release candidate) and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.7.md`](docs/releases/v0.1.7.md).
