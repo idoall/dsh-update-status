@@ -1,5 +1,5 @@
-import z from "@deepseek-ai/schemastery";
 import { Context } from "@deepseek-ai/cordis";
+import z from "@deepseek-ai/schemastery";
 //#region src/shared/types.d.ts
 declare const RELEASE_CHANNELS: readonly ['latest', 'next', 'alpha'];
 type ReleaseChannel = (typeof RELEASE_CHANNELS)[number];
@@ -38,6 +38,18 @@ type UpdateWarning = {
   code: 'preview-unverified';
   channel: ReleaseChannel;
   version: string;
+} |
+/**
+ * The Host resolved a `@deepseek-ai/schemastery` that DSH does not ship, so the
+ * Loader's volatile projection is unavailable and the preference fields cannot
+ * be marked volatile. Advisory: the version answer itself is complete, and the
+ * text carries the exact directory to remove. See `host/schemastery.ts`.
+ */
+{
+  code: 'stale-schemastery';
+  version: string | null;
+  path: string;
+  nodeModulesDir: string | null;
 };
 interface ChannelRelease {
   channel: ReleaseChannel;
@@ -98,7 +110,8 @@ interface UpdateStatusConfig {
  * The explicit two-argument annotation is load-bearing: a `.volatile()` field's
  * output is a stable reference (`Volatile<T>`) rather than the bare value the
  * input side takes, so the inferred schema type cannot be named by the emitted
- * `.d.ts` (TS2883) without stating the input side here.
+ * `.d.ts` (TS2883) without stating the input side here. The builder preserves
+ * that contract even on the degraded path, where no field is volatile.
  */
 export declare const Config: z<UpdateStatusConfig, Record<string, unknown>>;
 //#endregion
@@ -123,6 +136,11 @@ interface UpdateStatusServiceOptions {
   now?: () => number;
   ttlMs?: number;
   releaseUrl?: string;
+  /**
+   * Facts about this process's own runtime, appended to every status. The schema
+   * resolution is the only producer today; the registry read never sets these.
+   */
+  runtimeWarnings?: readonly UpdateWarning[];
 }
 export declare class UpdateStatusService {
   private readonly installation;
@@ -130,6 +148,7 @@ export declare class UpdateStatusService {
   private readonly now;
   private readonly ttlMs;
   private readonly releaseUrl;
+  private readonly runtimeWarnings;
   private cache;
   private inFlight;
   constructor(options: UpdateStatusServiceOptions);
@@ -142,6 +161,59 @@ export declare class UpdateStatusService {
   private statusWithoutRemoteRelease;
 }
 //#endregion
+//#region src/host/schemastery.d.ts
+/** Where a candidate copy of schemastery was looked for. */
+type SchemaCandidateSource = 'dsh-install' | 'profile-peers' | 'profile-local' | 'plugin-local';
+interface SchemaCandidate {
+  source: SchemaCandidateSource;
+  /** Absolute file path `createRequire` anchors on; the file need not exist. */
+  anchor: string;
+}
+interface SchemaCandidateReport {
+  source: SchemaCandidateSource;
+  anchor: string;
+  /** Absolute path of the module that loaded, or null when it did not load. */
+  path: string | null;
+  version: string | null;
+  /** The loaded module exposes `volatile()`. */
+  volatile: boolean;
+  /** Why this candidate was skipped, or null when it loaded. */
+  error: string | null;
+}
+interface SchemaRuntime {
+  /** The loaded schemastery factory — structurally the package's default export. */
+  z: unknown;
+  volatile: boolean;
+  source: SchemaCandidateSource;
+  path: string | null;
+  version: string | null;
+  /** Every candidate that was tried, in order, for diagnostics. */
+  candidates: SchemaCandidateReport[];
+  /** Set when the resolved copy cannot project volatile preferences. */
+  warning: UpdateWarning | null;
+}
+interface ResolveSchemaRuntimeOptions {
+  /** Override the candidate order; used by tests and by an embedding host. */
+  candidates?: readonly SchemaCandidate[];
+}
+/**
+ * Resolve schemastery once, preferring the copy that can actually do the job.
+ *
+ * Only a total miss throws, and only with the per-candidate reasons attached:
+ * that state means the plugin is not running inside a working DSH installation,
+ * so there is no schema system to build a settings form with. Every other
+ * outcome loads.
+ */
+export declare function resolveSchemaRuntime(options?: ResolveSchemaRuntimeOptions): SchemaRuntime;
+/**
+ * The process-wide resolution, computed on first use.
+ *
+ * The settings schema is built at module scope — the Loader reads the exported
+ * `Config` before `apply` runs — so the resolution cannot wait for a Host
+ * context. Every input here comes from the process environment or the filesystem.
+ */
+export declare function schemaRuntime(): SchemaRuntime;
+//#endregion
 //#region src/index.d.ts
 export declare const name = "dsh-update-status";
 /** Connection supplies the authenticated transport; settings remains optional. */
@@ -149,4 +221,4 @@ export declare const inject: string[];
 export type Config = UpdateStatusConfig;
 export declare function apply(ctx: Context, config?: Config): void;
 //#endregion
-export type { InstallKind, UpdateStatus };
+export type { InstallKind, SchemaRuntime, UpdateStatus };

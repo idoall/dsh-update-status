@@ -223,6 +223,13 @@ Host 会缓存一次 registry 响应，默认 360 分钟，且只有普通读取
 **完全连不上 npm registry。**
 插件会报告失败，并仍然显示本地检测到的运行版本。registry 访问只允许 HTTPS 的 `registry.npmjs.org`；代理或离线环境会给出这条警告，而不是编造一个版本号。
 
+**升级之后插件整个消失了，宿主日志里是 `volatile is not a function`。**
+`0.1.5` 及更早版本把 `@deepseek-ai/schemastery` 声明为普通依赖；从 `0.1.6` 起它是**由 DSH 提供的 peer**，而 DSH 给它加的 `volatile()` 正是把三个偏好变成这个条目设置表单的机制。如果该包的一份旧副本被留在插件自己的安装目录里（用本地目录安装时被一起拷进来的 dev `node_modules`，pnpm 永远不会清理），Node 就会解析到那份旧副本，缺失的方法在宿主半 import 阶段直接抛错，插件在来得及报告任何信息之前就消失了。新版本改为显式解析平台那份，两种情况都能加载；只找得到旧副本时，面板会给出 `stale-schemastery` 提示并指出该删除哪个目录。删除残留目录后重启 DSH：
+
+```sh
+rm -rf ~/.dsh/profiles/<profile>/node_modules/dsh-update-status/node_modules
+```
+
 ## 安全边界
 
 - registry 访问只允许 HTTPS `registry.npmjs.org`，并拒绝重定向。

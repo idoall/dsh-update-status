@@ -223,6 +223,13 @@ The Host caches one registry response, 360 minutes by default, and only a normal
 **Nothing reaches the npm registry.**
 The plugin reports the failure and still shows the locally detected running version. Registry access is HTTPS-only to `registry.npmjs.org`; a proxy or offline host produces that warning rather than a wrong version.
 
+**The plugin disappeared after an upgrade, and the host log says `volatile is not a function`.**
+Up to `0.1.5` this plugin declared `@deepseek-ai/schemastery` as a regular dependency. From `0.1.6` it is a **peer that DSH provides**, and the `volatile()` DSH adds to it is what turns the three preferences into this entry's settings form. If a copy of that package is left inside the plugin's own install directory — a dev `node_modules` copied in by a local-directory install, which pnpm never removes — Node used to resolve that stale copy, and the missing method threw while the host half was being imported, so the plugin disappeared before it could report anything at all. Newer builds resolve the platform copy explicitly and load either way, and when only a stale copy is reachable the panel shows a `stale-schemastery` notice naming the directory. Remove the leftover copy and restart DSH:
+
+```sh
+rm -rf ~/.dsh/profiles/<profile>/node_modules/dsh-update-status/node_modules
+```
+
 ## Security boundary
 
 - Registry access is limited to HTTPS `registry.npmjs.org`; redirects are rejected.

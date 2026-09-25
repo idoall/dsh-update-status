@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+No version bump yet: this is the fix for a load failure that made the plugin disappear on some machines, and it changes no user-facing contract beyond one new advisory warning.
+
+- **`@deepseek-ai/schemastery` is resolved explicitly instead of imported by bare specifier.** The host half used to `import z from '@deepseek-ai/schemastery'`, which Node resolves *from the importing file*, so any copy left inside the plugin's install directory won over the copy DSH ships. That is not theoretical: an unmanaged dev `node_modules` (copied in by a local-directory install, which pnpm never removes) pinned `3.18.2`, which has no `volatile()`, and `lib/index.js` threw `TypeError: …volatile is not a function` while it was being imported — the whole host half was gone before any plugin code ran. `src/host/schemastery.ts` now resolves the peer itself, platform copies first (the running DSH installation, then the profile peer farm at `$DSH_HOME/profiles/node_modules`, then the profile tree), and only then falls back to Node's walk. The first candidate that actually exposes `volatile()` wins, and the capability is verified rather than assumed.
+- **A missing `volatile()` degrades the form instead of killing the plugin.** When only a stale copy is reachable the plugin still loads: `Config` is built with ordinary fields, the Host logs the resolution, and the panel shows a new `stale-schemastery` warning (severity `notice`, so the chip never repaints) naming the version, the resolved path and the exact directory to remove. Only a total miss — no schemastery anywhere, which means the plugin is not running inside a working DSH installation — still throws, and it names every candidate it tried.
+- **The regression is locked three ways.** `tests/host/schemastery.spec.ts` drives the resolver with injected candidates (platform copy beats a shadowing copy; a stale-only environment loads and reports; unresolvable candidates are skipped; the default order is platform-first, plugin-local last) and adds a source guard that fails if any file under `src/` takes a *value* import of the peer again. `tests/guards/shadowed-peer.mjs` (wired into `pnpm run verify`, CI and both release workflows, after the build) loads the **built** entry with a fake `3.18.2` planted beside it, asserting it still loads and that, with a platform copy present, the platform copy wins.
+- **Tests: 114 passing** (up from 98) across 15 files.
+- **Unchanged**: the status read, the RPC channel, the client rendering path, the sidebar chip, the detail panel, the LAN fallback and the profile-patch preference model. The three preferences are still the only volatile fields.
+
 ## 0.1.8 — 2026-09-25
 
 Verified DeepSeek Harness: `0.1.7-rc.2` (the latest release candidate, and what npm's `next` dist-tag publishes), also `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.8.md`](docs/releases/v0.1.8.md).

@@ -26,4 +26,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test
       - run: pnpm run build
+      - run: pnpm run guard:shadowed-peer
       - run: pnpm pack --dry-run
