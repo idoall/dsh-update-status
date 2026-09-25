@@ -6,6 +6,7 @@
 
 import type { InstallationInfo } from './installation.ts'
 import { upgradeCommandFor } from './installation.ts'
+import { SCHEMASTERY_NAME } from './schemastery.ts'
 import { compareSemver } from '../shared/semver.ts'
 import {
   PACKAGE_NAME,
@@ -38,6 +39,11 @@ export interface UpdateStatusServiceOptions {
   now?: () => number
   ttlMs?: number
   releaseUrl?: string
+  /**
+   * Facts about this process's own runtime, appended to every status. The schema
+   * resolution is the only producer today; the registry read never sets these.
+   */
+  runtimeWarnings?: readonly UpdateWarning[]
 }
 
 interface CachedRelease {
@@ -51,22 +57,41 @@ function boundedMessage(error: unknown): string {
   return trimmed === '' ? 'unknown error' : trimmed.slice(0, 220)
 }
 
-function warningText(warning: UpdateWarning): string {
+/** English, single-line rendering of one warning; the Host log uses it directly. */
+export function describeWarning(warning: UpdateWarning): string {
   switch (warning.code) {
     case 'registry-unavailable': return `Unable to check the npm registry: ${warning.detail}`
     case 'channel-unavailable': return `The npm registry does not publish a ${warning.channel} channel.`
     case 'version-incomparable': return `Unable to compare the current version ${warning.currentVersion} with ${warning.channel} channel version ${warning.selectedVersion} using SemVer.`
     case 'preview-unverified': return `${warning.channel} is a preview channel; version ${warning.version} has not been verified as compatible with this plugin.`
+    case 'stale-schemastery': {
+      const version = warning.version === null ? '' : ` ${warning.version}`
+      // Only name a removal command when the directory is known; `rm -rf` on the
+      // module path would delete one file out of the stale package.
+      const remedy = warning.nodeModulesDir === null
+        ? `Remove the stale ${SCHEMASTERY_NAME} directory there and restart DSH.`
+        : `Remove the stale copy and restart DSH: rm -rf ${warning.nodeModulesDir}`
+      return `This plugin resolved ${SCHEMASTERY_NAME}${version} from ${warning.path} instead of the copy DSH provides, so preference fields cannot be marked volatile. ${remedy}`
+    }
   }
 }
 
 function warningFallback(warnings: UpdateWarning[]): string | null {
-  return warnings.length === 0 ? null : warnings.map(warningText).join(' ')
+  return warnings.length === 0 ? null : warnings.map(describeWarning).join(' ')
 }
+
+/**
+ * Advisory codes leave the chip alone; everything else is a failed read.
+ *
+ * `stale-schemastery` belongs here: the version answer is complete and usable,
+ * and only the settings form is degraded, so repainting the brand row would
+ * misreport a plugin-runtime fact as a failed update check.
+ */
+const ADVISORY_CODES: readonly UpdateWarning['code'][] = ['preview-unverified', 'stale-schemastery']
 
 function warningKindOf(warnings: UpdateWarning[]): UpdateWarningKind | null {
   if (warnings.length === 0) return null
-  return warnings.every(warning => warning.code === 'preview-unverified') ? 'notice' : 'failure'
+  return warnings.every(warning => ADVISORY_CODES.includes(warning.code)) ? 'notice' : 'failure'
 }
 
 function dateOrNull(value: unknown): string | null {
@@ -145,6 +170,7 @@ export class UpdateStatusService {
   private readonly now: () => number
   private readonly ttlMs: number
   private readonly releaseUrl: string
+  private readonly runtimeWarnings: readonly UpdateWarning[]
   private cache: CachedRelease | undefined
   private inFlight: Promise<CachedRelease> | undefined
 
@@ -154,6 +180,7 @@ export class UpdateStatusService {
     this.now = options.now ?? Date.now
     this.ttlMs = Math.max(1, Math.floor(options.ttlMs ?? DEFAULT_TTL_MS))
     this.releaseUrl = options.releaseUrl ?? RELEASES_URL
+    this.runtimeWarnings = options.runtimeWarnings ?? []
   }
 
   getStatus(channel: ReleaseChannel = 'latest', cacheTtlMinutes?: number): Promise<UpdateStatus> {
@@ -216,6 +243,7 @@ export class UpdateStatusService {
     if (channel !== 'latest' && selected.version !== null && selected.compatibility !== 'verified') {
       warnings.push({ code: 'preview-unverified', channel, version: selected.version })
     }
+    warnings.push(...this.runtimeWarnings)
     return {
       currentVersion: this.installation.currentVersion,
       latestVersion: selected.version,
@@ -238,15 +266,16 @@ export class UpdateStatusService {
   }
 
   private statusWithoutRemoteRelease(channel: ReleaseChannel, warnings: UpdateWarning[]): UpdateStatus {
+    const combined = [...warnings, ...this.runtimeWarnings]
     return {
       currentVersion: this.installation.currentVersion,
       latestVersion: null,
       hasUpdate: false,
       cached: false,
       checkedAt: null,
-      warning: warningFallback(warnings),
-      warningKind: warningKindOf(warnings),
-      warnings,
+      warning: warningFallback(combined),
+      warningKind: warningKindOf(combined),
+      warnings: combined,
       installKind: this.installation.installKind,
       upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, channel),
       releaseUrl: this.releaseUrl,

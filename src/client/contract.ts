@@ -79,6 +79,15 @@ function warningOf(value: unknown): UpdateWarning | undefined {
   if (record.code === 'preview-unverified' && isReleaseChannel(record.channel) && typeof record.version === 'string') {
     return { code: record.code, channel: record.channel, version: record.version }
   }
+  if (record.code === 'stale-schemastery') {
+    const version = record.version === null ? null : stringOrNull(record.version)
+    const nodeModulesDir = record.nodeModulesDir === null ? null : stringOrNull(record.nodeModulesDir)
+    const path = stringOrNull(record.path)
+    if (path !== null && (record.version === null || version !== null)
+      && (record.nodeModulesDir === null || nodeModulesDir !== null)) {
+      return { code: record.code, version, path, nodeModulesDir }
+    }
+  }
   return undefined
 }
 

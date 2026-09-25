@@ -36,8 +36,9 @@
     "test": "pnpm run typecheck && vitest run",
     "test:unit": "vitest run",
     "clean": "rm -rf lib coverage",
+    "guard:shadowed-peer": "node tests/guards/shadowed-peer.mjs",
     "prepack": "pnpm run build",
-    "verify": "pnpm run test && pnpm run build && pnpm pack --dry-run"
+    "verify": "pnpm run test && pnpm run build && pnpm run guard:shadowed-peer && pnpm pack --dry-run"
   },
   "repository": {
     "type": "git",

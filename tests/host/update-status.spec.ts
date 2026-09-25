@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { upgradeCommandFor, type InstallationInfo } from '../../src/host/installation.ts'
 import { assertApprovedRegistryUrl, registryReleaseOf, UpdateStatusService, type RegistryRelease } from '../../src/host/update-status.ts'
+import type { UpdateWarning } from '../../src/shared/types.ts'
 
 const installation: InstallationInfo = {
   currentVersion: '0.1.2-rc.1',
@@ -131,6 +132,36 @@ describe('UpdateStatusService', () => {
     expect(status.warnings).toEqual([
       { code: 'registry-unavailable', detail: 'network unavailable' },
     ])
+  })
+
+  it('appends the process runtime warnings to every status as advisory', async () => {
+    const stale: UpdateWarning = {
+      code: 'stale-schemastery',
+      version: '3.18.2',
+      path: '/tmp/stale/node_modules/@deepseek-ai/schemastery/lib/index.cjs',
+      nodeModulesDir: '/tmp/stale/node_modules',
+    }
+    const service = new UpdateStatusService({
+      installation,
+      fetchLatest: async () => releases(),
+      runtimeWarnings: [stale],
+    })
+    const status = await service.getStatus()
+    expect(status.warnings).toEqual([stale])
+    // A degraded settings form is advisory: the version answer is complete and
+    // usable, so the chip must not repaint for it.
+    expect(status.warningKind).toBe('notice')
+    expect(status.warning).toContain('rm -rf /tmp/stale/node_modules')
+
+    const offline = new UpdateStatusService({
+      installation,
+      fetchLatest: async () => { throw new Error('offline') },
+      runtimeWarnings: [stale],
+    })
+    const cold = await offline.getStatus()
+    // The registry failure still leads, and still decides the severity.
+    expect(cold.warnings).toEqual([{ code: 'registry-unavailable', detail: 'offline' }, stale])
+    expect(cold.warningKind).toBe('failure')
   })
 
   it('parses supported npm dist-tags from one registry document', () => {

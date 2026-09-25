@@ -49,6 +49,8 @@ const DICTIONARY: Record<string, Entry> = {
   'warning.channelUnavailable': { zh: 'npm registry 未发布 {channel} 通道。', en: 'The npm registry does not publish a {channel} channel.' },
   'warning.versionIncomparable': { zh: '无法按 SemVer 比较当前版本 {currentVersion} 与 {channel} 通道版本 {selectedVersion}。', en: 'Unable to compare the current version {currentVersion} with {channel} channel version {selectedVersion} using SemVer.' },
   'warning.previewUnverified': { zh: '{channel} 是预览通道，版本 {version} 尚未验证与本插件兼容。', en: '{channel} is a preview channel; version {version} has not been verified as compatible with this plugin.' },
+  'warning.staleSchemastery': { zh: '本插件解析到的 @deepseek-ai/schemastery（版本 {version}）来自 {path}，不是 DSH 自带的那份，偏好字段无法标记为 volatile。请删除该残留目录并重启 DSH：rm -rf {nodeModulesDir}', en: 'This plugin resolved @deepseek-ai/schemastery {version} from {path} instead of the copy DSH provides, so preference fields cannot be marked volatile. Remove the stale directory and restart DSH: rm -rf {nodeModulesDir}' },
+  'warning.staleSchemasteryNoPath': { zh: '本插件解析到的 @deepseek-ai/schemastery（版本 {version}）来自 {path}，不是 DSH 自带的那份，偏好字段无法标记为 volatile。请删除该处残留的 @deepseek-ai/schemastery 目录并重启 DSH。', en: 'This plugin resolved @deepseek-ai/schemastery {version} from {path} instead of the copy DSH provides, so preference fields cannot be marked volatile. Remove the stale @deepseek-ai/schemastery directory there and restart DSH.' },
   'guidance.sourceCheckout': { zh: '请更新 DSH 源码 checkout、安装依赖并重新构建；本插件无法从 GUI 原地替换。', en: 'Update the DSH source checkout, install its dependencies, and rebuild it; this plugin cannot replace it in place from the GUI.' },
   'guidance.unknownInstall': { zh: '升级前请先确认 DSH 的安装方式；本插件无法代为执行升级。', en: 'Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you.' },
   'panel.static': { zh: '此连接只显示静态版本；请在运行 DSH 的本机打开侧栏查看完整更新信息。', en: 'This connection shows only the static version. Open the sidebar on the computer running DSH for full update details.' },
@@ -96,6 +98,14 @@ export function warningText(warning: UpdateWarning, language: Language = languag
       selectedVersion: warning.selectedVersion,
     }, language)
     case 'preview-unverified': return t('warning.previewUnverified', { channel: warning.channel, version: warning.version }, language)
+    case 'stale-schemastery': {
+      const params = { version: warning.version ?? '—', path: warning.path }
+      // Only print a removal command when the Host could name the directory to
+      // remove; the module path alone would make `rm -rf` delete a single file.
+      return warning.nodeModulesDir === null
+        ? t('warning.staleSchemasteryNoPath', params, language)
+        : t('warning.staleSchemastery', { ...params, nodeModulesDir: warning.nodeModulesDir }, language)
+    }
   }
 }
 

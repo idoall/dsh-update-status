@@ -62,6 +62,13 @@ export type UpdateWarning =
   | { code: 'channel-unavailable'; channel: ReleaseChannel }
   | { code: 'version-incomparable'; currentVersion: string; channel: ReleaseChannel; selectedVersion: string }
   | { code: 'preview-unverified'; channel: ReleaseChannel; version: string }
+  /**
+   * The Host resolved a `@deepseek-ai/schemastery` that DSH does not ship, so the
+   * Loader's volatile projection is unavailable and the preference fields cannot
+   * be marked volatile. Advisory: the version answer itself is complete, and the
+   * text carries the exact directory to remove. See `host/schemastery.ts`.
+   */
+  | { code: 'stale-schemastery'; version: string | null; path: string; nodeModulesDir: string | null }
 
 export function isReleaseChannel(value: unknown): value is ReleaseChannel {
   return value === 'latest' || value === 'next' || value === 'alpha'

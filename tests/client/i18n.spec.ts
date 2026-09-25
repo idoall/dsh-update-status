@@ -32,6 +32,26 @@ describe('runtime message localization', () => {
     expect(localizedWarning({ warning: 'legacy fallback' }, 'zh')).toBe('legacy fallback')
   })
 
+  it('renders the stale-schemastery warning with the directory to remove', () => {
+    const stale: UpdateWarning = {
+      code: 'stale-schemastery',
+      version: '3.18.2',
+      path: '/p/node_modules/@deepseek-ai/schemastery/lib/index.cjs',
+      nodeModulesDir: '/p/node_modules',
+    }
+    expect(warningText(stale, 'en')).toContain('3.18.2')
+    expect(warningText(stale, 'en')).toContain('rm -rf /p/node_modules')
+    expect(warningText(stale, 'zh')).toContain('偏好字段无法标记为 volatile')
+    expect(warningText(stale, 'zh')).toContain('rm -rf /p/node_modules')
+    // An unreadable version and an unknown directory still produce a usable
+    // sentence, and never a removal command aimed at a single module file.
+    const unknown: UpdateWarning = { ...stale, version: null, nodeModulesDir: null }
+    expect(warningText(unknown, 'en')).toContain(stale.path)
+    expect(warningText(unknown, 'en')).not.toContain('rm -rf')
+    expect(warningText(unknown, 'zh')).toContain('—')
+    expect(warningText(unknown, 'zh')).not.toContain('rm -rf')
+  })
+
   it('localizes non-command installation guidance without changing real commands', () => {
     expect(localizedUpgradeGuidance({ installKind: 'source-checkout', upgradeCommand: 'fallback' }, 'zh')).toContain('DSH 源码 checkout')
     expect(localizedUpgradeGuidance({ installKind: 'unknown', upgradeCommand: 'fallback' }, 'en')).toBe(
