@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.10 — 2026-09-26
+
+Verified DeepSeek Harness: `0.1.7-rc.2` (the latest release candidate, and what npm's `next` dist-tag publishes), also `0.1.7-rc.1` and `0.1.7-alpha.2`. The verified list is unchanged from `0.1.8`. Full bilingual release notes: [`docs/releases/v0.1.10.md`](docs/releases/v0.1.10.md).
+
+- **A collapsed sidebar no longer carries an entry.** DSH renders `sidebar.footer.action` as one row directly above Settings, and the collapsed rail's content box is only 36px wide (the 56px column minus its 10px inline padding) — room for the single official action. A second registrant makes that shared, centred row overflow, and on a phone it did: a neighbouring plugin's entry was pushed off the screen's left edge and this plugin's status dot landed on the rail's border. The rail is also the *default* state on any viewport under 1024px (DSH's `SIDEBAR_AUTO_COLLAPSE`), so a phone showed it permanently. The `sidebar.footer.action` registration, its `FooterAction` component, its `.dus-footer-*` rules and the `footer.status` string are gone: the brand-row chip is the only entry, and the `sidebarEnabled` preference still hides it.
+- **The detail panel's trigger origin went with it.** `PanelStore` carried a `brand` / `rail` origin so the desktop card could sit beside either trigger; with one trigger left it is a plain open/closed toggle, `.dus-panel` owns the desktop `left` that `[data-origin=brand]` used to supply, and the narrow-view bottom sheet is bound to `.dus-panel` itself rather than `[data-origin]`.
+- **Locked by tests (118 passing).** The entry spec asserts `sidebar.footer.action` is *not* registered, and the stylesheet spec asserts no `.dus-footer` rule remains plus that the narrow-view media query still matches the bare panel — a selector left on `[data-origin]` would silently drop the phone's bottom sheet.
+- **Unchanged**: the Host half, the status read, the RPC routes, the brand-row chip, the three dot states, the detail panel, the LAN (non-loopback) fallback and the three preference fields. No migration is needed.
+
 ## 0.1.9 — 2026-09-26
 
 Verified DeepSeek Harness: `0.1.7-rc.2` (the latest release candidate, and what npm's `next` dist-tag publishes), also `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.9.md`](docs/releases/v0.1.9.md).

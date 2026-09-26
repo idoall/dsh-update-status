@@ -198,16 +198,13 @@ export class PreferencesStore implements Observable<PreferencesSnapshot> {
   }
 }
 
-export type PanelOrigin = 'brand' | 'rail'
-
 export interface PanelSnapshot {
   open: boolean
-  origin: PanelOrigin
 }
 
-/** Open state also retains its trigger, so the desktop card sits beside it. */
+/** Open state of the detail panel, whose only trigger is the brand-row chip. */
 export class PanelStore implements Observable<PanelSnapshot> {
-  private snapshot: PanelSnapshot = { open: false, origin: 'brand' }
+  private snapshot: PanelSnapshot = { open: false }
   private readonly listeners = new Set<() => void>()
 
   getSnapshot = (): PanelSnapshot => this.snapshot
@@ -217,15 +214,14 @@ export class PanelStore implements Observable<PanelSnapshot> {
     return () => { this.listeners.delete(listener) }
   }
 
-  toggle(origin: PanelOrigin): void {
-    const open = !(this.snapshot.open && this.snapshot.origin === origin)
-    this.set({ open, origin })
+  toggle(): void {
+    this.set({ open: !this.snapshot.open })
   }
 
-  close(): void { this.set({ ...this.snapshot, open: false }) }
+  close(): void { this.set({ open: false }) }
 
   private set(next: PanelSnapshot): void {
-    if (this.snapshot.open === next.open && this.snapshot.origin === next.origin) return
+    if (this.snapshot.open === next.open) return
     this.snapshot = next
     for (const listener of this.listeners) listener()
   }

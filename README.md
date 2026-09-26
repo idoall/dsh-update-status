@@ -34,11 +34,11 @@ It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact v
 
 ## Features
 
-- **Visible version status** — shows the running DSH version in the expanded sidebar and a fallback action in the collapsed rail.
+- **Visible version status** — shows the running DSH version in the expanded sidebar. Nothing is rendered while the sidebar is collapsed: DSH's `sidebar.footer.action` row is a single 36px cell above Settings, and a second registrant overflows it (it pushed a neighbouring plugin's entry off the screen edge), so the brand-row chip is the only entry.
 - **Quiet update signal** — a pending update never repaints the version chip. Only an amber dot with a soft halo next to the version breathes (scale + glow; the animation is disabled under `prefers-reduced-motion`), so a new release reads as one small light instead of a recoloured brand row.
 - **Three dot states, one glance** — with nothing to do the dot beside the version is a plain **green circle** (the theme's success colour, not the text colour, so a dark shell no longer paints a dot that reads as "off"). While a check is running it is the neutral grey pulse; a pending update is the amber halo. Only the update state animates or glows, and only a failed status read repaints the chip, in red.
 - **Neutral chip surface** — the chip is a grey second-level surface in both themes (`#f1f3f5` light / `#353638` dark) with the theme's normal label colour, so the dark shell gets a dark grey chip with white text rather than a white pill that hides the amber halo.
-- **Light, dark, or system — followed automatically** — every colour the plugin renders is a DSH semantic token, so the chip, the dot, its halo, the footer ring and the panel all resolve through whatever appearance DSH is using. Set DSH to light, to dark, or to system and the plugin switches with the shell: no plugin-side theme setting, no media query to keep in sync. Hover lifts the chip in both directions (darkened in light mode, lightened in dark mode) by mixing the theme's label colour into the surface.
+- **Light, dark, or system — followed automatically** — every colour the plugin renders is a DSH semantic token, so the chip, the dot, its halo and the panel all resolve through whatever appearance DSH is using. Set DSH to light, to dark, or to system and the plugin switches with the shell: no plugin-side theme setting, no media query to keep in sync. Hover lifts the chip in both directions (darkened in light mode, lightened in dark mode) by mixing the theme's label colour into the surface.
 - **Stable and preview discovery** — reads npm dist-tags `latest`, `next`, and `alpha` in one registry request; `latest` is the default.
 - **Useful choices only** — de-duplicates rows by version, keeps `latest` and the channel you follow, and never hides the channel that matches the release you are running.
 - **In-panel channel selection** — select a meaningful stable, candidate, or preview release directly in the panel; the preference is stored by the DSH Host.
@@ -148,13 +148,14 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current release: plugin **`0.1.9`** is verified against DeepSeek Harness **`0.1.7-rc.2`** (the latest release candidate), **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
+Current release: plugin **`0.1.10`** is verified against DeepSeek Harness **`0.1.7-rc.2`** (the latest release candidate), **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| **`0.1.9`** | `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Resolves `@deepseek-ai/schemastery` explicitly so a stale copy left in the install directory can no longer shadow the copy DSH ships and take the host half down; a missing `volatile()` now degrades the settings form with a `stale-schemastery` notice instead of throwing |
+| **`0.1.10`** | `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Drops the collapsed-rail entry: DSH's `sidebar.footer.action` row is only 36px wide inside the rail, so a second registrant pushed a neighbouring plugin's entry off the screen and this plugin's button onto the rail's border; the entry is now only the chip in the expanded brand row |
+| `0.1.9` | `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Resolves `@deepseek-ai/schemastery` explicitly so a stale copy left in the install directory can no longer shadow the copy DSH ships and take the host half down; a missing `volatile()` now degrades the settings form with a `stale-schemastery` notice instead of throwing |
 | `0.1.8` | `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Version-matrix release: adds the running `0.1.7-rc.2` to the verified list after auditing the rc.1 → rc.2 interface delta; zero code change |
 | `0.1.7` | `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Runtime warnings become language-neutral codes rendered by the client, so the English UI is fully English; dev toolchain bumped |
 | `0.1.6` | `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Adapts to DSH 0.1.7: the preferences ARE the plugin entry's volatile `Config` (a form namespace is the Loader entry id), the official client channel is `ctx.configForms`, and `@deepseek-ai/schemastery` is a peer |
@@ -165,12 +166,13 @@ Current release: plugin **`0.1.9`** is verified against DeepSeek Harness **`0.1.
 | `0.1.1` | `0.1.5-rc.1` | published | The previous npm `latest`; the plugin is inert on LAN/non-loopback pages |
 | `0.1.0` | `0.1.2-rc.1` | published | First release |
 
-- **`0.1.6` through `0.1.9` support the DSH `0.1.7` line only.** DSH `0.1.7` removed the runtime `ctx.settings.register(...)` API and the `ctx.settingsScope` client service this plugin was built on, so those are the only releases whose preferences work there. On an older DSH — including `0.1.6-alpha.2` — stay on plugin **`0.1.5`**.
+- **`0.1.6` through `0.1.10` support the DSH `0.1.7` line only.** DSH `0.1.7` removed the runtime `ctx.settings.register(...)` API and the `ctx.settingsScope` client service this plugin was built on, so those are the only releases whose preferences work there. On an older DSH — including `0.1.6-alpha.2` — stay on plugin **`0.1.5`**.
 - **Verified DeepSeek Harness** is the exact DSH release that plugin build was tested against. The list has one source of truth in two places — `VERIFIED_DSH_VERSIONS` in [`src/shared/types.ts`](src/shared/types.ts) and `dsh.compatibility.dshReleases` in [`package.json`](package.json) — and a test keeps them identical. A release that is not on the list is not declared compatible: verify it manually first, and if it turns out incompatible, disable or uninstall the plugin rather than patching DSH core. A release that is merely *not listed yet* is reported as **unverified**: that is an advisory in the panel only, and it never repaints the chip — an operator who upgrades DSH ahead of this plugin keeps a normal chip.
 - **On npm** is what `dsh plugin --profile web add dsh-update-status@latest` actually installs. A version that exists in this repository but not on npm is a development state, not a release.
 - Match them explicitly when it matters:
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.10  # DSH 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.9   # DSH 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.8   # DSH 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.7   # DSH 0.1.7-rc.1 or 0.1.7-alpha.2
@@ -183,7 +185,7 @@ Current release: plugin **`0.1.9`** is verified against DeepSeek Harness **`0.1.
 - Two declarations make the `0.1.7` line load at all, and a test keeps them honest:
   - `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` both declare `>=0.1.7-alpha.2 <0.2.0`, which admits all three verified releases. The lower bound names the alpha on purpose — under node-semver's default prerelease rule a range like `>=0.1.6-0 <0.2.0` does **not** admit `0.1.7-alpha.2`. DSH `0.1.7-rc.2` also refuses an incompatible bundle at profile load, so a range that excluded the running release would silently drop the plugin.
   - `@deepseek-ai/schemastery` is a **peer**, not a plain dependency: DSH 0.1.7 resolves only a linked plugin's peer dependencies from the running installation, so a `link:` install of this directory would otherwise fail to import the Host half.
-- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
 
 ## Configuration
 

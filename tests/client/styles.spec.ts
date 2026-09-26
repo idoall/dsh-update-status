@@ -107,4 +107,19 @@ describe('update indicator styling', () => {
     expect(reduced).toContain('animation:none')
     expect(reduced).toContain('box-shadow:')
   })
+
+  it('renders nothing in the collapsed rail', () => {
+    // The rail entry is gone for good: DSH's `sidebar.footer.action` row is one
+    // 36px cell above `sidebar.settings`, so a second registrant overflows it.
+    expect(CSS).not.toContain('.dus-footer')
+  })
+
+  it('binds the narrow-view bottom sheet to the panel itself', () => {
+    // The sheet used to hang off `.dus-panel[data-origin]`; the trigger origin is
+    // gone, so the selector must match the bare panel or the phone layout would
+    // silently lose its bottom sheet.
+    const narrow = line('@media (max-width:640px),(hover:none) and (pointer:coarse)')
+    expect(narrow).toContain('.dus-panel{')
+    expect(CSS).not.toContain('data-origin')
+  })
 })

@@ -1,9 +1,16 @@
 /**
  * DSH Web client half. It shadows only `sidebar.brand.name` with a compact
- * name + version chip that fits the 24px brand row, leaves the official fish
- * (`sidebar.brand.mark`) untouched, and adds a collapsed-rail fallback at
- * `sidebar.footer.action`. The detail panel is an additive `shell.overlay`,
- * never a chat-area floating widget.
+ * name + version chip that fits the 24px brand row and leaves the official fish
+ * (`sidebar.brand.mark`) untouched. The detail panel is an additive
+ * `shell.overlay`, never a chat-area floating widget.
+ *
+ * Deliberately NO `sidebar.footer.action` entry. DSH renders that list in one
+ * row directly above `sidebar.settings`, and the collapsed rail's content box is
+ * only 36px wide (the 56px column minus its 10px inline padding) — room for the
+ * single official action. A second registrant makes that shared, centred row
+ * overflow: on a phone it pushed the neighbouring plugin's entry off the screen
+ * edge and parked our own dot on the rail's border. The chip in the expanded
+ * brand row is the entry, so a collapsed sidebar carries none.
  *
  * The status read and the detail panel are NOT restricted to a loopback page.
  * DSH disables Host settings *persistence* on a non-loopback page, but the
@@ -21,7 +28,7 @@
  */
 
 import type { ClientContext, ConnectionClient } from './contract.ts'
-import { BrandName, FooterAction, type SharedUi, UpdatePanel, UpdateSettings } from './components.tsx'
+import { BrandName, type SharedUi, UpdatePanel, UpdateSettings } from './components.tsx'
 import { SETTINGS_NAMESPACE, PanelStore, PreferencesStore, StatusStore } from './stores.ts'
 import { configFormScope, configFormsOf } from './settings/configFormScope.ts'
 import {
@@ -200,12 +207,6 @@ function apply(ctx: ClientContext): void {
   ctx.slots.inject('sidebar.brand.name', () => ctx.slots.register(
     { name: 'sidebar.brand.name', priority: -10 },
     () => BrandName({ ui }),
-  ))
-
-  // additive fallback; returns null in wide mode to avoid two visible badges.
-  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register(
-    { name: 'sidebar.footer.action', id: 'dsh-update-status', order: 40 },
-    props => FooterAction({ wide: props.wide, ui }),
   ))
 
   // additive frame overlay for click/tap panel and narrow-view bottom sheet.

@@ -34,11 +34,11 @@
 
 ## 功能
 
-- **侧栏版本状态**：展开侧栏显示当前 DSH 版本，收起轨道提供状态入口。
+- **侧栏版本状态**：展开侧栏显示当前 DSH 版本。收起侧栏时不渲染任何入口——DSH 的 `sidebar.footer.action` 是「设置」上方的一格 36px 位置，第二个注册者会把这一行撑破（实测把相邻插件的入口顶出了屏幕左缘），所以品牌行芯片是唯一入口。
 - **安静的更新提示**：有新版本时**不改变版本 Badge 的背景**，只在版本号旁保留一个带小光晕的橙色圆点做放大缩小的呼吸动画（`prefers-reduced-motion` 下停用动画），让新版本表现为一盏小灯，而不是整条品牌行换色。
 - **一眼三态**：没有可做的事时，版本号旁是**纯绿色小圆圈**（取主题 success 色，不再跟随文字色——暗色外壳下不会再出现一个看起来像「熄灭」的深色点）；检查中是中性灰呼吸点；有新版本才是橙色光晕呼吸点。只有更新态会动、会发光，也只有状态读取失败才会把 Badge 重绘成红色。
 - **中性版本底框**：Badge 在明暗两套主题下都用灰色二级面（浅色 `#f1f3f5` / 深色 `#353638`）配主题常规文字色，所以暗色下是「深灰底 + 白字」，不再是会把橙色光晕吃掉的白框；只有状态读取失败时才会重绘成红色。
-- **浅色 / 深色 / 跟随系统，自动适配**：插件渲染的每个颜色都是 DSH 语义令牌，Badge、圆点、光晕、收起轨道圆环与面板都按 DSH 当前外观解析。DSH 设为浅色、深色或跟随系统，插件就跟着切换——插件侧没有自己的主题开关，也没有需要同步的媒体查询。hover 在两个方向上都是「抬起」：浅色下压深、深色下提亮（把主题文字色按比例混进底色实现）。
+- **浅色 / 深色 / 跟随系统，自动适配**：插件渲染的每个颜色都是 DSH 语义令牌，Badge、圆点、光晕与面板都按 DSH 当前外观解析。DSH 设为浅色、深色或跟随系统，插件就跟着切换——插件侧没有自己的主题开关，也没有需要同步的媒体查询。hover 在两个方向上都是「抬起」：浅色下压深、深色下提亮（把主题文字色按比例混进底色实现）。
 - **稳定版与预览版发现**：一次 registry 请求读取 npm dist-tags `latest`、`next`、`alpha`，默认选择 `latest`。
 - **只展示有意义的选择**：按版本号去重；`latest` 与你当前跟随的通道始终保留，并且**不会隐藏与你正在运行的版本相符的那条通道**。
 - **弹窗内直接选择通道**：可直接选择有价值的稳定版、候选版或预览版；偏好由 DSH Host 持久化。
@@ -148,13 +148,14 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 ## 兼容性
 
-当前发布：插件 **`0.1.9`** 已针对 DeepSeek Harness **`0.1.7-rc.2`**（最新候选版本）、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
+当前发布：插件 **`0.1.10`** 已针对 DeepSeek Harness **`0.1.7-rc.2`**（最新候选版本）、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.1.9`** | `0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 显式解析 `@deepseek-ai/schemastery`，安装目录里残留的旧副本不再能遮蔽 DSH 自带的那份、把宿主半整个带走；缺少 `volatile()` 时改为降级设置表单并给出 `stale-schemastery` 提示，而不是抛错 |
+| **`0.1.10`** | `0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 取消收起轨道的兜底入口：官方 `sidebar.footer.action` 那一行在轨道里只有 36px，第二个注册者会把相邻插件的入口挤出屏幕、把自己的按钮顶到边框上；入口改为只在展开侧栏的品牌行 |
+| `0.1.9` | `0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 显式解析 `@deepseek-ai/schemastery`，安装目录里残留的旧副本不再能遮蔽 DSH 自带的那份、把宿主半整个带走；缺少 `volatile()` 时改为降级设置表单并给出 `stale-schemastery` 提示，而不是抛错 |
 | `0.1.8` | `0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 版本矩阵发布：核对 rc.1 → rc.2 接口差异后，把正在运行的 `0.1.7-rc.2` 加入已验证清单；代码零改动 |
 | `0.1.7` | `0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 运行期告警改为语言中立的代码、由客户端按界面语言渲染，英文界面不再混入中文；dev 工具链升级 |
 | `0.1.6` | `0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 适配 DSH 0.1.7：偏好设置就是插件条目的 volatile `Config`（设置表单命名空间 = loader 条目 id），官方客户端通道改为 `ctx.configForms`，`@deepseek-ai/schemastery` 改为 peer |
@@ -165,12 +166,13 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 | `0.1.1` | `0.1.5-rc.1` | 已发布 | 此前 npm 上的 `latest`；局域网/非回环页面下插件整体不可用 |
 | `0.1.0` | `0.1.2-rc.1` | 已发布 | 首个版本 |
 
-- **`0.1.6` 至 `0.1.9` 只支持 DSH `0.1.7` 线。** DSH `0.1.7` 移除了本插件赖以工作的运行时 `ctx.settings.register(...)` API 与 `ctx.settingsScope` 客户端服务，因此该版本线上只有它们的偏好设置能工作；仍在更早的 DSH（含 `0.1.6-alpha.2`）上时，请继续使用插件 **`0.1.5`**。
+- **`0.1.6` 至 `0.1.10` 只支持 DSH `0.1.7` 线。** DSH `0.1.7` 移除了本插件赖以工作的运行时 `ctx.settings.register(...)` API 与 `ctx.settingsScope` 客户端服务，因此该版本线上只有它们的偏好设置能工作；仍在更早的 DSH（含 `0.1.6-alpha.2`）上时，请继续使用插件 **`0.1.5`**。
 - **已验证的 DeepSeek Harness** 是该插件构建实际测试过的确切 DSH 版本。这份清单只有两个存放处——[`src/shared/types.ts`](src/shared/types.ts) 的 `VERIFIED_DSH_VERSIONS` 与 [`package.json`](package.json) 的 `dsh.compatibility.dshReleases`——并有测试保证两者一致。未列出的 DSH 版本不会被宣称为兼容：请先人工验证；确认不兼容时请禁用或卸载插件，不要修改 DSH 核心。若只是**尚未列入**，插件会标为「尚未验证兼容」：这是**只出现在面板里**的提示，绝不会重绘芯片——DSH 升级快于插件时，芯片依然保持正常外观。
 - **npm 发布状态** 是 `dsh plugin --profile web add dsh-update-status@latest` 实际会装到的版本。只存在于本仓库、尚未发布到 npm 的版本属于开发状态，不是发布版本。
 - 需要精确对应时显式指定版本：
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.10  # DSH 0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.9   # DSH 0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.8   # DSH 0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.7   # DSH 0.1.7-rc.1 或 0.1.7-alpha.2
@@ -183,7 +185,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 有两处声明让 `0.1.7` 线能正常加载，并由测试守住：
   - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.2.0`，三个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。另外 DSH `0.1.7-rc.2` 会在 profile 加载时拒绝不兼容的 bundle，范围若排除正在运行的版本，插件会被静默丢弃。
   - `@deepseek-ai/schemastery` 是 **peer**，不是普通依赖：DSH 0.1.7 只从运行安装解析 link 插件的 peer 依赖，否则 `link:` 安装会连 Host 半边都 import 失败。
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 

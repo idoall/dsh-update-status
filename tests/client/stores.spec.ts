@@ -178,21 +178,19 @@ describe('PreferencesStore release channel', () => {
   })
 })
 
-describe('PanelStore trigger origin', () => {
-  it('retains the active trigger and closes only on a second same-trigger action', () => {
+describe('PanelStore', () => {
+  it('toggles open state and closes idempotently', () => {
     const store = new PanelStore()
-    expect(store.getSnapshot()).toEqual({ open: false, origin: 'brand' })
+    expect(store.getSnapshot()).toEqual({ open: false })
 
-    store.toggle('brand')
-    expect(store.getSnapshot()).toEqual({ open: true, origin: 'brand' })
+    store.toggle()
+    expect(store.getSnapshot()).toEqual({ open: true })
 
-    store.toggle('rail')
-    expect(store.getSnapshot()).toEqual({ open: true, origin: 'rail' })
+    store.toggle()
+    expect(store.getSnapshot()).toEqual({ open: false })
 
-    store.toggle('rail')
-    expect(store.getSnapshot()).toEqual({ open: false, origin: 'rail' })
-
+    store.toggle()
     store.close()
-    expect(store.getSnapshot()).toEqual({ open: false, origin: 'rail' })
+    expect(store.getSnapshot()).toEqual({ open: false })
   })
 })

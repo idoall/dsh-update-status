@@ -181,15 +181,18 @@ describe('client entry wiring', () => {
     mounted.teardown()
   })
 
-  it('registers the brand chip, rail fallback, overlay and settings section', async () => {
+  it('registers the brand chip, overlay and settings section — and no rail entry', async () => {
     const mounted = await mount(connectionRpc(false, []))
 
     expect(mounted.registered.map(entry => entry.options.name)).toEqual([
       'sidebar.brand.name',
-      'sidebar.footer.action',
       'shell.overlay',
       'settings.section',
     ])
+    // A collapsed sidebar carries no entry of ours: DSH's `sidebar.footer.action`
+    // row is one 36px-wide cell above `sidebar.settings`, and a second registrant
+    // overflows it (it pushed the neighbouring plugin's entry off the screen edge).
+    expect(mounted.registered.map(entry => entry.options.name)).not.toContain('sidebar.footer.action')
     // The chip keeps shadowing the official wordmark (lowest priority renders).
     expect(mounted.registered[0]?.options.priority).toBe(-10)
     mounted.teardown()

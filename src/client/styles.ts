@@ -15,7 +15,7 @@ export const UPDATE_STATUS_CSS = `
    resolves — light, dark, or system-follows-the-OS — with no plugin-side detection,
    no media query and no per-theme branch to keep in sync. */
 .dus-badge{--dus-badge-surface:var(--dsw-alias-button-floating-hover,#f1f3f5);align-items:center;background:var(--dus-badge-surface);border:0;border-radius:4px;color:var(--dsw-alias-label-primary,#0f1115);cursor:pointer;display:inline-flex;flex:none;font-family:var(--ds-font-family-code,var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace));font-size:10px;font-variant-numeric:tabular-nums;font-weight:600;gap:4px;height:16px;line-height:16px;max-width:140px;outline:none;padding:0 6px;touch-action:manipulation;user-select:none;white-space:nowrap}
-.dus-badge:focus-visible,.dus-footer-button:focus-visible,.dus-action:focus-visible,.dus-close:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+.dus-badge:focus-visible,.dus-action:focus-visible,.dus-close:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
 /* Hover has to read as "raised" in BOTH themes. brightness() only ever brightens, and on
    the light shell it turns the grey chip pure white — the chip all but disappears. Mixing
    a little of the theme's own label colour into the surface darkens it in light mode and
@@ -52,16 +52,10 @@ export const UPDATE_STATUS_CSS = `
 @keyframes dus-pulse{0%,100%{opacity:.45;transform:scale(.82)}50%{opacity:1;transform:scale(1.15)}}
 @keyframes dus-update-pulse{0%,100%{box-shadow:0 0 2px 0 rgba(245,158,11,.4);box-shadow:0 0 2px 0 color-mix(in srgb,var(--dus-update-color) 45%,transparent);transform:scale(.8)}50%{box-shadow:0 0 7px 2px rgba(245,158,11,.72);box-shadow:0 0 7px 2px color-mix(in srgb,var(--dus-update-color) 72%,transparent);transform:scale(1.15)}}
 @media (prefers-reduced-motion:reduce){.dus-dot[data-update=true],.dus-dot[data-loading=true]{animation:none}.dus-dot[data-update=true]{box-shadow:0 0 5px 1px rgba(245,158,11,.6);box-shadow:0 0 5px 1px color-mix(in srgb,var(--dus-update-color) 62%,transparent)}}
-.dus-footer-button{align-items:center;background:transparent;border:0;border-radius:10px;color:var(--dsw-alias-label-secondary);cursor:pointer;display:flex;height:44px;justify-content:center;min-height:44px;min-width:44px;padding:0;position:relative;touch-action:manipulation;width:44px}
-.dus-footer-button:hover{background:var(--dsw-alias-button-floating-hover);color:var(--dsw-alias-label-primary)}
-.dus-footer-icon{font-size:18px;line-height:1}
-.dus-footer-dot{border:1.5px solid var(--dsw-specific-sidebar-fill);position:absolute;right:9px;top:9px}
 .dus-overlay-root{background:transparent;border:0;color:inherit;height:100dvh;inset:0;margin:0;max-height:none;max-width:none;padding:0;pointer-events:none;position:fixed;width:100vw}
 .dus-overlay-root::backdrop{background:transparent}
 .dus-backdrop{background:transparent;inset:0;pointer-events:auto;position:absolute}
-.dus-panel{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:14px;box-shadow:var(--dsw-elevation-panel);box-sizing:border-box;color:var(--dsw-alias-label-primary);max-height:min(640px,calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));overflow:auto;padding:14px;pointer-events:auto;position:absolute;top:12px;width:min(390px,calc(100vw - 24px));z-index:1}
-.dus-panel[data-origin=brand]{left:min(292px,calc(100vw - 402px))}
-.dus-panel[data-origin=rail]{left:min(68px,calc(100vw - 402px))}
+.dus-panel{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:14px;box-shadow:var(--dsw-elevation-panel);box-sizing:border-box;color:var(--dsw-alias-label-primary);left:min(292px,calc(100vw - 402px));max-height:min(640px,calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));overflow:auto;padding:14px;pointer-events:auto;position:absolute;top:12px;width:min(390px,calc(100vw - 24px));z-index:1}
 .dus-panel-head{align-items:center;display:flex;gap:8px;justify-content:space-between;margin-bottom:12px}
 .dus-panel-title{font-size:14px;font-weight:650}
 .dus-close{align-items:center;background:transparent;border:0;border-radius:8px;color:inherit;cursor:pointer;display:inline-flex;font-size:20px;height:32px;justify-content:center;line-height:1;min-height:32px;min-width:32px;padding:0;touch-action:manipulation;width:32px}
@@ -109,5 +103,5 @@ export const UPDATE_STATUS_CSS = `
 .dus-channel-compat[data-compatibility=verified]{color:var(--dsw-alias-state-success-primary)}
 .dus-channel-compat[data-compatibility=incompatible]{color:var(--dsw-alias-state-error-primary)}
 .dus-settings-hint{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.45;margin:8px 0 0}
-@media (max-width:640px),(hover:none) and (pointer:coarse){.dus-panel[data-origin]{border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;bottom:0;left:0;right:0;max-height:min(78dvh,calc(100dvh - env(safe-area-inset-top)));padding:16px max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));position:fixed;top:auto;width:100vw}.dus-footer-button{height:48px;min-height:48px;min-width:48px;width:48px}.dus-action{min-height:40px;line-height:38px}.dus-close{height:40px;min-height:40px;min-width:40px;width:40px}}
+@media (max-width:640px),(hover:none) and (pointer:coarse){.dus-panel{border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;bottom:0;left:0;right:0;max-height:min(78dvh,calc(100dvh - env(safe-area-inset-top)));padding:16px max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));position:fixed;top:auto;width:100vw}.dus-action{min-height:40px;line-height:38px}.dus-close{height:40px;min-height:40px;min-width:40px;width:40px}}
 `

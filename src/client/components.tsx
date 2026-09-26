@@ -1,4 +1,4 @@
-/** Sidebar replacement, collapsed-rail fallback, overlay detail panel, and settings page. */
+/** Sidebar chip, overlay detail panel, and settings page. */
 
 import type * as ReactNS from 'react'
 import { visibleChannelReleases } from '../shared/channels.ts'
@@ -119,7 +119,7 @@ export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null
     // inside it while the modal dialog is open (Chrome otherwise warns).
     const target = event.currentTarget
     if (target instanceof HTMLElement) target.blur()
-    ui.panel.toggle('brand')
+    ui.panel.toggle()
   }
   const onKeyDown = (event: ReactNS.KeyboardEvent<HTMLSpanElement>): void => {
     if (event.key !== 'Enter' && event.key !== ' ') return
@@ -147,27 +147,6 @@ export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null
         <span className="dus-dot" data-state={state} data-update={snapshot.status?.hasUpdate === true || undefined} data-loading={snapshot.loading || undefined} aria-hidden="true" />
       </span>
     </span>
-  )
-}
-
-/** List-slot fallback: it deliberately disappears while the name badge is wide. */
-export function FooterAction({ wide, ui }: { wide?: unknown; ui: SharedUi }): ReactNS.ReactElement | null {
-  const preferences = useObservable(ui.preferences)
-  const snapshot = useObservable(ui.status)
-  if (wide === true || !preferences.sidebarEnabled) return null
-  const state = visualState(snapshot.status, snapshot.loading, snapshot.error)
-  const label = badgeLabel(snapshot.status, snapshot.loading, snapshot.error)
-  return (
-    <button
-      className="dus-footer-button"
-      type="button"
-      aria-label={t('footer.status')}
-      title={label}
-      onClick={() => { ui.panel.toggle('rail') }}
-    >
-      <span className="dus-footer-icon" aria-hidden="true">↟</span>
-      <span className="dus-dot dus-footer-dot" data-state={state} data-update={snapshot.status?.hasUpdate === true || undefined} data-loading={state === 'loading' || undefined} />
-    </button>
   )
 }
 
@@ -261,7 +240,7 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
       }}
     >
       <div className="dus-backdrop" onClick={() => { ui.panel.close() }} />
-      <section className="dus-panel" data-origin={panel.origin} role="dialog" aria-modal="true" aria-label={t('panel.title')} onClick={(event) => { event.stopPropagation() }}>
+      <section className="dus-panel" role="dialog" aria-modal="true" aria-label={t('panel.title')} onClick={(event) => { event.stopPropagation() }}>
         <div className="dus-panel-head">
           <span className="dus-panel-title">{t('panel.title')}</span>
           <button className="dus-close" type="button" aria-label={t('panel.close')} onClick={() => { ui.panel.close() }}>×</button>
