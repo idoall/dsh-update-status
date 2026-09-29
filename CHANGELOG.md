@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.11 — 2026-09-29
+
+Verified DeepSeek Harness: `0.2.0-rc.1` (the current release, and the one this profile runs), also `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.11.md`](docs/releases/v0.1.11.md).
+
+- **The plugin now declares the DSH `0.2.0` line.** The verified list gains the running `0.2.0-rc.1`, and the two load-bearing ranges — `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` — widen from `>=0.1.7-alpha.2 <0.2.0` to `>=0.1.7-alpha.2 <0.3.0`. The old upper bound was a time bomb: profile load refuses a bundle whose range excludes the running release, and a plain `<0.2.0` excludes exactly the `0.2.0` stable, so the day DSH `0.2.0` shipped, this plugin would have been silently dropped.
+- **Why `0.2.0-rc.1` may be declared verified.** The plugin is loaded and running in this DSH `0.2.0-rc.1` profile right now, and the `dsh-v0.1.7-rc.2` → `dsh-v0.2.0-rc.1` diff for every package in `dsh.client.inject` is version bumps, README i18n and two additive client changes (a product-analytics remote contribution; telemetry on two sidebar panel clicks) — none of the surfaces this plugin uses (`remote.settings`, the `configForms` channel, the sidebar slots, the authenticated Connection RPC) changed.
+- **Unchanged**: all code — the Host half, the status read, the RPC routes, the brand-row chip, the three dot states, the detail panel, the LAN (non-loopback) fallback and the three preference fields. All 118 tests pass. No migration is needed.
+
 ## 0.1.10 — 2026-09-26
 
 Verified DeepSeek Harness: `0.1.7-rc.2` (the latest release candidate, and what npm's `next` dist-tag publishes), also `0.1.7-rc.1` and `0.1.7-alpha.2`. The verified list is unchanged from `0.1.8`. Full bilingual release notes: [`docs/releases/v0.1.10.md`](docs/releases/v0.1.10.md).

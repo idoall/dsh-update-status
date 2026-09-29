@@ -1,6 +1,6 @@
 {
   "name": "dsh-update-status",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Read-only DeepSeek Harness Web plugin that shows the running DSH version, discovers latest/next/alpha releases, warns about compatibility, and generates copy-only upgrade commands.",
   "type": "module",
   "main": "lib/index.js",
@@ -54,7 +54,7 @@
   "dsh": {
     "manifestVersion": 1,
     "engines": {
-      "dsh": ">=0.1.7-alpha.2 <0.2.0"
+      "dsh": ">=0.1.7-alpha.2 <0.3.0"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -74,7 +74,8 @@
       "dshReleases": {
         "0.1.7-alpha.2": "compatible",
         "0.1.7-rc.1": "compatible",
-        "0.1.7-rc.2": "compatible"
+        "0.1.7-rc.2": "compatible",
+        "0.2.0-rc.1": "compatible"
       }
     }
   },
@@ -89,7 +90,7 @@
   "license": "MIT",
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",
-    "@deepseek-ai/dsh-settings": ">=0.1.7-alpha.2 <0.2.0",
+    "@deepseek-ai/dsh-settings": ">=0.1.7-alpha.2 <0.3.0",
     "@deepseek-ai/schemastery": "^3.18.4"
   },
   "devDependencies": {
