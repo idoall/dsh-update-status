@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.12 — 2026-09-30
+
+Verified DeepSeek Harness: `0.2.0-rc.2` (the current release, and the one this profile runs), also `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.12.md`](docs/releases/v0.1.12.md).
+
+- **`0.2.0-rc.2` joins the verified list.** `VERIFIED_DSH_VERSIONS` in [`src/shared/types.ts`](src/shared/types.ts) and `package.json`'s `dsh.compatibility.dshReleases` both gain it, so the running release and the followed channel read verified instead of carrying the *not verified compatible* advisory; `tests/shared/compatibility.spec.ts` keeps the two lists identical and proves the `dsh.engines.dsh` / `@deepseek-ai/dsh-settings` peer ranges admit every listed release.
+- **No range change was needed this time.** Both load-bearing ranges already say `>=0.1.7-alpha.2 <0.3.0`, and DSH evaluates them at profile load with `includePrerelease: true`, so `0.2.0-rc.2` — and the `0.2.0` stable still to come — is inside. Bundles that enumerate `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` are refused on rc.2, because `>=0.2.0` does not admit a `0.2.0` prerelease; that is the `skipping profile bundle` warning this plugin never produced.
+- **rc.1 → rc.2 interface audit, all 7 packages in `dsh.client.inject`.** The two releases differ in only three files: `dsh-api-remotes` adds a user-questions remote contribution, `dsh-client-ui-settings-general` moves the web Settings shortcut to `Alt+Cmd+,` and rewrites two locale strings, and `dsh-client-ui-sidebar` drops the tooltip that wrapped the non-macOS brand button. Nothing this plugin binds to changed: `remote.settings`, the `configForms` channel, the `sidebar.brand.name` / `shell.overlay` / `settings.section` slots and the authenticated Connection RPC.
+- **Verified on rc.2 in a real browser, not only by declaration.** A disposable `DSH_HOME` profile with this repository installed through `link:` composed the `dsh-update-status` entry with no compatibility refusal; on `dsh web` the brand-row chip rendered `0.2.0-rc.2` with the green *up to date* dot, the detail panel read the Host status and its cache-duration field, and **Settings → Version & updates** opened with both preference fields. The one visible rc.2 symptom was the advisory this release removes.
+- **Unchanged**: all code — the Host half, the status read, the RPC routes, the brand-row chip, the three dot states, the detail panel, the LAN (non-loopback) fallback and the three preference fields. All 118 tests pass. No migration is needed.
+
 ## 0.1.11 — 2026-09-29
 
 Verified DeepSeek Harness: `0.2.0-rc.1` (the current release, and the one this profile runs), also `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.11.md`](docs/releases/v0.1.11.md).

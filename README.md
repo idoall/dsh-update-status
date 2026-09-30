@@ -53,7 +53,7 @@ Requirements:
 
 - DeepSeek Harness with the Web profile
 - Node.js 20 or newer
-- Verified DSH releases: `0.1.7-rc.2` (latest RC), `0.1.7-rc.1` and `0.1.7-alpha.2`
+- Verified DSH releases: `0.2.0-rc.2` (current), `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`
 
 With an installed `dsh` command:
 
@@ -148,13 +148,14 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current release: plugin **`0.1.11`** is verified against DeepSeek Harness **`0.2.0-rc.1`** (the current release), **`0.1.7-rc.2`**, **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
+Current release: plugin **`0.1.12`** is verified against DeepSeek Harness **`0.2.0-rc.2`** (the current release), **`0.2.0-rc.1`**, **`0.1.7-rc.2`**, **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| **`0.1.11`** | `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Declaration release for the DSH `0.2.0` line: audits the `0.1.7-rc.2` → `0.2.0-rc.1` delta for every package in `dsh.client.inject` (version bumps and two additive client changes — no surface this plugin uses changed), adds the running `0.2.0-rc.1` to the verified list, and widens the load-bearing ranges to `<0.3.0` so the `0.2.0` stable cannot silently drop the plugin; zero code change |
+| **`0.1.12`** | `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Declares compatibility with the running `0.2.0-rc.2`: audits all 7 packages in `dsh.client.inject` across rc.1 → rc.2 (only three files differ, and no surface this plugin uses is among them), adds `0.2.0-rc.2` to the verified list so following `latest` no longer shows the *not verified compatible* advisory, and re-verifies the chip, panel and settings section in a real browser on a disposable profile; zero code change |
+| **`0.1.11`** | `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Declaration release for the DSH `0.2.0` line: audits the `0.1.7-rc.2` → `0.2.0-rc.1` delta for every package in `dsh.client.inject` (version bumps and two additive client changes — no surface this plugin uses changed), adds the running `0.2.0-rc.1` to the verified list, and widens the load-bearing ranges to `<0.3.0` so the `0.2.0` stable cannot silently drop the plugin; zero code change |
 | **`0.1.10`** | `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Drops the collapsed-rail entry: DSH's `sidebar.footer.action` row is only 36px wide inside the rail, so a second registrant pushed a neighbouring plugin's entry off the screen and this plugin's button onto the rail's border; the entry is now only the chip in the expanded brand row |
 | `0.1.9` | `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Resolves `@deepseek-ai/schemastery` explicitly so a stale copy left in the install directory can no longer shadow the copy DSH ships and take the host half down; a missing `volatile()` now degrades the settings form with a `stale-schemastery` notice instead of throwing |
 | `0.1.8` | `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Version-matrix release: adds the running `0.1.7-rc.2` to the verified list after auditing the rc.1 → rc.2 interface delta; zero code change |
@@ -173,6 +174,7 @@ Current release: plugin **`0.1.11`** is verified against DeepSeek Harness **`0.2
 - Match them explicitly when it matters:
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.1.12 # DSH 0.2.0-rc.2, 0.2.0-rc.1, 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.11 # DSH 0.2.0-rc.1, 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.10  # DSH 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.9   # DSH 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
@@ -185,9 +187,9 @@ Current release: plugin **`0.1.11`** is verified against DeepSeek Harness **`0.2
   ```
 
 - Two declarations make the verified lines load at all, and a test keeps them honest:
-  - `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` both declare `>=0.1.7-alpha.2 <0.3.0`, which admits all four verified releases. The lower bound names the alpha on purpose — under node-semver's default prerelease rule a range like `>=0.1.6-0 <0.2.0` does **not** admit `0.1.7-alpha.2`. The upper bound moved from `<0.2.0` to `<0.3.0` in `0.1.11` for the mirror-image reason: DSH refuses an incompatible bundle at profile load, and a plain `<0.2.0` excludes the `0.2.0` stable, so the day DSH `0.2.0` shipped the plugin would have been silently dropped.
+  - `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` both declare `>=0.1.7-alpha.2 <0.3.0`, which admits all five verified releases. The lower bound names the alpha on purpose — under node-semver's default prerelease rule a range like `>=0.1.6-0 <0.2.0` does **not** admit `0.1.7-alpha.2`. The upper bound moved from `<0.2.0` to `<0.3.0` in `0.1.11` for the mirror-image reason: DSH refuses an incompatible bundle at profile load, and a plain `<0.2.0` excludes the `0.2.0` stable, so the day DSH `0.2.0` shipped the plugin would have been silently dropped. DSH evaluates the range with `includePrerelease: true`, so `0.2.0-rc.2` was already inside it and `0.1.12` needed no range change; conversely, a bundle that enumerates `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` is refused on rc.2, because `>=0.2.0` does not admit a `0.2.0` prerelease.
   - `@deepseek-ai/schemastery` is a **peer**, not a plain dependency: DSH 0.1.7 resolves only a linked plugin's peer dependencies from the running installation, so a `link:` install of this directory would otherwise fail to import the Host half.
-- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
 
 ## Configuration
 
