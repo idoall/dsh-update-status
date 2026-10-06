@@ -109,6 +109,12 @@ function configForms(
         return form
       },
     },
+    /** Simulate the Host answering with a new document (another surface edited it). */
+    publish: (value: Partial<{ sidebarEnabled: boolean; cacheTtlMinutes: number }>) => {
+      Object.assign(snapshot.value, value)
+      snapshot.revision += 1
+      for (const listener of [...listeners]) listener()
+    },
   }
 }
 
@@ -124,13 +130,24 @@ async function mount(connection: Record<string, unknown>, forms?: Record<string,
   const ctx = {
     get: (name: string): unknown => (name === 'connection' ? connection : undefined),
     slots: {
+      // `ctx.inject(deps, cb)` is a child plugin whose apply-return is disposed
+      // with the fiber; keep that contract so a slot registration leaked at
+      // teardown is observable here.
       inject: (_name: string, callback: () => unknown): (() => void) => {
-        callback()
+        const dispose = callback()
+        if (typeof dispose === 'function') disposers.push(dispose as () => void)
         return () => {}
       },
+      // The real ledger arbitrates a single slot by priority and drops the cell
+      // when its entry is disposed; the fake mirrors the drop so a disposed
+      // registration is observable as "not registered any more".
       register: (options: RegisteredEntry['options'], component: RegisteredEntry['component']): (() => void) => {
-        registered.push({ options, component })
-        return () => {}
+        const entry: RegisteredEntry = { options, component }
+        registered.push(entry)
+        return () => {
+          const index = registered.indexOf(entry)
+          if (index >= 0) registered.splice(index, 1)
+        }
       },
     },
     // No settings seam by default: the worst case for a bridged page. The status
@@ -237,6 +254,37 @@ describe('client entry wiring', () => {
     mounted.teardown()
     await flush()
     expect(writes).toEqual([])
+  })
+
+  it('disposes the brand chip while the sidebar entry is hidden so the official occupant returns', async () => {
+    // A single slot arbitrates by PRIORITY, not by content: a component that
+    // returns null still occupies the cell, so the official brand occupant (and
+    // the shell's own fallback) never rendered and the brand row went blank.
+    // Disabling the preference must therefore remove the registration itself.
+    const forms = configForms({ sidebarEnabled: true, cacheTtlMinutes: 360 }, [])
+    const mounted = await mount(connectionRpc(false, []), forms)
+    const brandNames = () => mounted.registered.filter(entry => entry.options.name === 'sidebar.brand.name')
+    expect(brandNames()).toHaveLength(1)
+
+    forms.publish({ sidebarEnabled: false })
+    await flush()
+    expect(brandNames()).toHaveLength(0)
+
+    forms.publish({ sidebarEnabled: true })
+    await flush()
+    expect(brandNames()).toHaveLength(1)
+    expect(brandNames()[0]?.options.priority).toBe(-10)
+
+    mounted.teardown()
+  })
+
+  it('drops the brand chip on teardown even while the entry is shown', async () => {
+    const forms = configForms({ sidebarEnabled: true, cacheTtlMinutes: 360 }, [])
+    const mounted = await mount(connectionRpc(false, []), forms)
+    expect(mounted.registered.some(entry => entry.options.name === 'sidebar.brand.name')).toBe(true)
+
+    mounted.teardown()
+    expect(mounted.registered.some(entry => entry.options.name === 'sidebar.brand.name')).toBe(false)
   })
 
   it('keeps its slots registered when no usable transport exists', async () => {

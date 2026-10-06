@@ -49,7 +49,7 @@ const DICTIONARY: Record<string, Entry> = {
   'guidance.unknownInstall': { zh: '升级前请先确认 DSH 的安装方式；本插件无法代为执行升级。', en: 'Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you.' },
   'settings.title': { zh: '版本与更新', en: 'Version & updates' },
   'settings.sidebar': { zh: '在侧栏显示版本状态入口', en: 'Show the version-status entry in the sidebar' },
-  'settings.sidebarHint': { zh: '关闭后不再渲染品牌行里的版本芯片。不会执行或安排升级。', en: 'When off, the version chip in the brand row is not rendered. No update is run or scheduled.' },
+  'settings.sidebarHint': { zh: '关闭后不再渲染品牌行里的版本芯片，品牌行恢复为 DSH 官方内容。不会执行或安排升级。', en: 'When off, the version chip in the brand row is not rendered and the brand row falls back to DSH’s own content. No update is run or scheduled.' },
   'settings.readonly': { zh: '此连接的设置为只读；显示状态不受影响。', en: 'Settings are read-only on this connection; status display is unchanged.' },
 }
 

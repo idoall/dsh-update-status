@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.2.1 — 2026-10-06
+
+Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.2.1.md`](docs/releases/v0.2.1.md).
+
+- **Hiding the version chip left the brand row blank.** A single slot arbitrates by **priority**, not by rendered content: the client registered `sidebar.brand.name` at `priority: -10`, so a component returning `null` still occupied the cell and DSH's official occupant (`@deepseek-ai/dsh-client-ui-brand-official`, priority 0) plus the shell's own fallback could never come back.
+- **The registration is now conditional.** While `sidebarEnabled` is off the client disposes its entry — the winner leaves the ledger and the next-lowest occupant renders — and switching it back on registers a fresh one at the same priority. Teardown disposes it either way.
+- **The settings hint states the promise**: with the entry hidden, the brand row falls back to DSH's own content.
+- **Verified live on 0.2.1-alpha.1** in a disposable profile and a real browser: checked → this plugin's chip, unchecked → DSH's fish mark and `deepseek HARNESS` wordmark, checked again → the chip returns. Two new regression specs cover the disposal, the re-registration and the teardown; 129 tests pass.
+
 ## 0.2.0 — 2026-10-06
 
 Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.2.0.md`](docs/releases/v0.2.0.md).

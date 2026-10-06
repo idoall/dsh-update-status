@@ -90,6 +90,10 @@ export interface SharedUi {
 export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null {
   const preferences = useObservable(ui.preferences)
   const snapshot = useObservable(ui.status)
+  // Defence in depth only: the entry that renders this component is already
+  // disposed while the preference is off, because a single slot arbitrates by
+  // priority and returning null would keep occupying the cell. See
+  // client/index.ts — that disposal is what brings the official brand back.
   if (!preferences.sidebarEnabled) return null
 
   const state = visualState(snapshot.status, snapshot.loading, snapshot.error)

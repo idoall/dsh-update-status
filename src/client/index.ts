@@ -211,10 +211,33 @@ function apply(ctx: ClientContext): void {
 
   // Single slot: a compact name + version chip shadows the official wordmark
   // (priority 0). Lowest priority renders; never touch sidebar.brand.mark.
-  ctx.slots.inject('sidebar.brand.name', () => ctx.slots.register(
-    { name: 'sidebar.brand.name', priority: -10 },
-    () => BrandName({ ui }),
-  ))
+  //
+  // The registration itself is conditional, and that is not a detail: a single
+  // slot arbitrates by PRIORITY, not by what the component renders. A component
+  // that returns null still OCCUPIES the cell, so the official occupant
+  // (@deepseek-ai/dsh-client-ui-brand-official) and the shell's own fallback can
+  // never come back. Turning the preference off therefore disposes our entry —
+  // the previous winner leaves the ledger and the next-lowest occupant renders
+  // again — and turning it back on registers a fresh one.
+  ctx.slots.inject('sidebar.brand.name', () => {
+    let registration: (() => void) | undefined
+    const syncRegistration = (): void => {
+      const enabled = preferences.getSnapshot().sidebarEnabled
+      if (enabled && registration === undefined) {
+        registration = ctx.slots.register({ name: 'sidebar.brand.name', priority: -10 }, () => BrandName({ ui }))
+      } else if (!enabled && registration !== undefined) {
+        registration()
+        registration = undefined
+      }
+    }
+    syncRegistration()
+    const unsubscribe = preferences.subscribe(syncRegistration)
+    return () => {
+      unsubscribe()
+      registration?.()
+      registration = undefined
+    }
+  })
 
   // additive frame overlay for click/tap panel and narrow-view bottom sheet.
   ctx.slots.inject('shell.overlay', () => ctx.slots.register(
