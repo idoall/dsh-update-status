@@ -1,93 +1,5 @@
 import { Context } from "@deepseek-ai/cordis";
 import z from "@deepseek-ai/schemastery";
-//#region src/shared/types.d.ts
-declare const RELEASE_CHANNELS: readonly ['latest', 'next', 'alpha'];
-type ReleaseChannel = (typeof RELEASE_CHANNELS)[number];
-type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible';
-/**
- * Severity of `warning`, so a surface can tell "the plugin could not determine
- * the update state" from "here is something worth knowing".
- *
- * - `failure`: no usable answer — a failed registry read, a channel the registry
- *   does not publish, or a version SemVer cannot compare. This is what justifies
- *   repainting the sidebar chip.
- * - `notice`: the answer is complete and usable; the text is advisory, e.g. a
- *   preview channel whose release this bundle has not been verified against.
- *   The chip must NOT repaint for this — an operator upgrading DSH ahead of the
- *   plugin would otherwise see the chip turn red for a plugin-side bookkeeping
- *   fact.
- *
- * Optional on purpose: a Host older than this field leaves it `undefined`, and
- * the client then falls back to treating any warning as a failure.
- */
-type UpdateWarningKind = 'failure' | 'notice';
-type InstallKind = 'npm-global' | 'pnpm-global' | 'source-checkout' | 'unknown';
-/** Language-neutral warning facts; the browser renders them in its own locale. */
-type UpdateWarning = {
-  code: 'registry-unavailable';
-  detail: string;
-} | {
-  code: 'channel-unavailable';
-  channel: ReleaseChannel;
-} | {
-  code: 'version-incomparable';
-  currentVersion: string;
-  channel: ReleaseChannel;
-  selectedVersion: string;
-} | {
-  code: 'preview-unverified';
-  channel: ReleaseChannel;
-  version: string;
-} |
-/**
- * The Host resolved a `@deepseek-ai/schemastery` that DSH does not ship, so the
- * Loader's volatile projection is unavailable and the preference fields cannot
- * be marked volatile. Advisory: the version answer itself is complete, and the
- * text carries the exact directory to remove. See `host/schemastery.ts`.
- */
-{
-  code: 'stale-schemastery';
-  version: string | null;
-  path: string;
-  nodeModulesDir: string | null;
-};
-interface ChannelRelease {
-  channel: ReleaseChannel;
-  version: string | null;
-  publishedAt: string | null;
-  compatibility: ReleaseCompatibility;
-}
-/**
- * A lossless, JSON-serializable snapshot used by both browser surfaces.
- * Nulls are intentional: a failed first check must still render a truthful
- * current-version card instead of an empty or malformed UI.
- */
-interface UpdateStatus {
-  currentVersion: string;
-  latestVersion: string | null;
-  hasUpdate: boolean;
-  cached: boolean;
-  checkedAt: string | null;
-  /** English fallback for older clients; current clients localize `warnings`. */
-  warning: string | null;
-  /** Severity of `warning`; absent from a Host older than the field. */
-  warningKind?: UpdateWarningKind | null;
-  /** Structured warning facts; absent from a Host older than this field. */
-  warnings?: UpdateWarning[];
-  installKind: InstallKind;
-  upgradeCommand: string;
-  releaseUrl: string;
-  changelogUrl: string;
-  publishedAt: string | null;
-  packageName: string;
-  /** Selected npm dist-tag used for comparison and command generation. */
-  channel: ReleaseChannel;
-  /** All supported dist-tags returned by the same cached registry request. */
-  channels: ChannelRelease[];
-  /** Phase 1 is informational only; the GUI must never apply an update. */
-  canApplyInPlace: false;
-}
-//#endregion
 //#region src/host/settings.d.ts
 /** Deployment config (ordinary) plus the volatile user preferences the form edits. */
 interface UpdateStatusConfig {
@@ -99,8 +11,6 @@ interface UpdateStatusConfig {
   autoCheckOnMount?: boolean;
   /** Preference: show the sidebar version chip and its update panel. */
   sidebarEnabled?: boolean;
-  /** Preference: release channel followed for comparison and commands. */
-  channel?: ReleaseChannel;
   /** Preference: on-demand registry cache duration, in minutes. */
   cacheTtlMinutes?: number;
 }
@@ -115,19 +25,97 @@ interface UpdateStatusConfig {
  */
 export declare const Config: z<UpdateStatusConfig, Record<string, unknown>>;
 //#endregion
+//#region src/shared/types.d.ts
+type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible';
+/**
+ * Severity of `warning`, so a surface can tell "the plugin could not determine
+ * the update state" from "here is something worth knowing".
+ *
+ * - `failure`: no usable answer — a failed registry read, or a version SemVer
+ *   cannot compare. This is what justifies repainting the sidebar chip.
+ * - `notice`: the answer is complete and usable; the text is advisory, e.g. a
+ *   newer release this bundle has not been verified against. The chip must NOT
+ *   repaint for this — an operator upgrading DSH ahead of the plugin would
+ *   otherwise see the chip turn red for a plugin-side bookkeeping fact.
+ *
+ * Optional on purpose: a Host older than this field leaves it `undefined`, and
+ * the client then falls back to treating any warning as a failure.
+ */
+type UpdateWarningKind = 'failure' | 'notice';
+type InstallKind = 'npm-global' | 'pnpm-global' | 'source-checkout' | 'unknown';
+/** Language-neutral warning facts; the browser renders them in its own locale. */
+type UpdateWarning = {
+  code: 'registry-unavailable';
+  detail: string;
+} | {
+  code: 'version-incomparable';
+  currentVersion: string;
+  latestVersion: string;
+} |
+/** A newer release exists, but this bundle has not been tested against it. */
+{
+  code: 'version-unverified';
+  version: string;
+} |
+/**
+ * The Host resolved a `@deepseek-ai/schemastery` that DSH does not ship, so the
+ * Loader's volatile projection is unavailable and the preference fields cannot
+ * be marked volatile. Advisory: the version answer itself is complete, and the
+ * text carries the exact directory to remove. See `host/schemastery.ts`.
+ */
+{
+  code: 'stale-schemastery';
+  version: string | null;
+  path: string;
+  nodeModulesDir: string | null;
+};
+/**
+ * A lossless, JSON-serializable snapshot used by both browser surfaces.
+ * Nulls are intentional: a failed first check must still render a truthful
+ * current-version card instead of an empty or malformed UI.
+ */
+interface UpdateStatus {
+  currentVersion: string;
+  /** Newest version the registry publishes under any dist-tag; null when unknown. */
+  latestVersion: string | null;
+  hasUpdate: boolean;
+  /** Whether this bundle was verified against `latestVersion`. */
+  compatibility: ReleaseCompatibility;
+  cached: boolean;
+  checkedAt: string | null;
+  /** English fallback for older clients; current clients localize `warnings`. */
+  warning: string | null;
+  /** Severity of `warning`; absent from a Host older than the field. */
+  warningKind?: UpdateWarningKind | null;
+  /** Structured warning facts; absent from a Host older than this field. */
+  warnings?: UpdateWarning[];
+  installKind: InstallKind;
+  upgradeCommand: string;
+  releaseUrl: string;
+  changelogUrl: string;
+  publishedAt: string | null;
+  packageName: string;
+  /** Phase 1 is informational only; the GUI must never apply an update. */
+  canApplyInPlace: false;
+}
+//#endregion
 //#region src/host/installation.d.ts
 interface InstallationInfo {
   currentVersion: string;
   packageName: string;
-  channel: string;
   installKind: InstallKind;
   packageRoot?: string;
-  upgradeCommand: string;
 }
 //#endregion
 //#region src/host/update-status.d.ts
+/** The newest release the registry publishes, with everything the UI shows. */
+interface RegistryLatest {
+  version: string;
+  publishedAt: string | null;
+  compatibility: ReleaseCompatibility;
+}
 interface RegistryRelease {
-  channels: ChannelRelease[];
+  latest: RegistryLatest | null;
 }
 type RegistryFetcher = () => Promise<RegistryRelease>;
 interface UpdateStatusServiceOptions {
@@ -152,9 +140,9 @@ export declare class UpdateStatusService {
   private cache;
   private inFlight;
   constructor(options: UpdateStatusServiceOptions);
-  getStatus(channel?: ReleaseChannel, cacheTtlMinutes?: number): Promise<UpdateStatus>;
+  getStatus(cacheTtlMinutes?: number): Promise<UpdateStatus>;
   /** `force` bypasses TTL but still joins any registry check already in flight. */
-  check(force?: boolean, channel?: ReleaseChannel, cacheTtlMinutes?: number): Promise<UpdateStatus>;
+  check(force?: boolean, cacheTtlMinutes?: number): Promise<UpdateStatus>;
   private refreshRelease;
   private statusAfterFailure;
   private statusFromCache;

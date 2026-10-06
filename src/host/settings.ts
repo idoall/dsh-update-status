@@ -15,11 +15,16 @@
  *   ordinary Config, set by the operator in the profile patch and *not*
  *   projected into the form. They are not `.volatile()` on purpose — changing
  *   them is a composition change, and a form edit must not rewrite them.
- * - **User preferences** (`sidebarEnabled`, `channel`, `cacheTtlMinutes`): all
+ * - **User preferences** (`sidebarEnabled`, `cacheTtlMinutes`): both
  *   `.volatile()`, so a preference edit commits into the running references and
  *   emits one `loader/volatile-update` instead of remounting the plugin
  *   (`docs/cordis-tutorial/05-config.md`, "Volatile fields"). A remount on
  *   every toggle would restart the status read and drop the open panel.
+ *
+ * `channel` was a preference up to `0.1.12`. There is one release line now, so
+ * the field is gone from the schema and a `channel` value left in an older
+ * profile's patch is simply dropped by the Loader's schema resolution — no
+ * migration step is required of the operator.
  *
  * The preferences persist as this entry's `config` in the active profile's
  * `cordis.patch.yml`, which is DSH 0.1.7's official plugin-preference model —
@@ -35,7 +40,6 @@
 import type {} from '@deepseek-ai/dsh-settings'
 import type { Context } from '@deepseek-ai/cordis'
 import type z from '@deepseek-ai/schemastery'
-import type { ReleaseChannel } from '../shared/types.ts'
 import { DEFAULT_CACHE_TTL_MINUTES } from '../shared/types.ts'
 import { schemaRuntime } from './schemastery.ts'
 import { DEFAULT_TIMEOUT_MS } from './update-status.ts'
@@ -50,8 +54,6 @@ export interface UpdateStatusConfig {
   autoCheckOnMount?: boolean
   /** Preference: show the sidebar version chip and its update panel. */
   sidebarEnabled?: boolean
-  /** Preference: release channel followed for comparison and commands. */
-  channel?: ReleaseChannel
   /** Preference: on-demand registry cache duration, in minutes. */
   cacheTtlMinutes?: number
 }
@@ -81,7 +83,6 @@ export function buildConfigSchema(
     timeoutMs: factory.number().step(1).min(1_000).max(30_000).default(DEFAULT_TIMEOUT_MS),
     autoCheckOnMount: factory.boolean().default(true),
     sidebarEnabled: volatile(factory.boolean().default(true)),
-    channel: volatile(factory.union(['latest', 'next', 'alpha']).default('latest').loose()),
     cacheTtlMinutes: volatile(factory.number().min(30).max(1_440).default(DEFAULT_CACHE_TTL_MINUTES)),
   }) as unknown as z<UpdateStatusConfig, Record<string, unknown>>
 }

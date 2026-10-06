@@ -1,6 +1,6 @@
 /** Small observable stores shared by the independent sidebar and overlay slots. */
 
-import { DEFAULT_CACHE_TTL_MINUTES, isCacheTtlMinutes, isReleaseChannel, PLUGIN_ID, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL, type ReleaseChannel, type UpdateStatus } from '../shared/types.ts'
+import { DEFAULT_CACHE_TTL_MINUTES, isCacheTtlMinutes, PLUGIN_ID, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL, type UpdateStatus } from '../shared/types.ts'
 import type { ConnectionClient, Observable } from './contract.ts'
 import { errorMessage, updateStatusOf } from './contract.ts'
 import type { SettingsScopeLike } from './settings/scopeFaces.ts'
@@ -30,25 +30,26 @@ export class StatusStore implements Observable<StatusSnapshot> {
 
   /** First mount reads the Host's cached status; it never starts a browser timer. */
   async load(cacheTtlMinutes: number = DEFAULT_CACHE_TTL_MINUTES): Promise<void> {
-    await this.request(false, this.snapshot.status?.channel ?? 'latest', cacheTtlMinutes)
+    await this.request(false, cacheTtlMinutes)
   }
 
   /** User gesture only: force the Host to bypass TTL (while retaining single-flight). */
-  async refresh(channel: ReleaseChannel = this.snapshot.status?.channel ?? 'latest', cacheTtlMinutes: number = DEFAULT_CACHE_TTL_MINUTES): Promise<void> {
-    await this.request(true, channel, cacheTtlMinutes)
+  async refresh(cacheTtlMinutes: number = DEFAULT_CACHE_TTL_MINUTES): Promise<void> {
+    await this.request(true, cacheTtlMinutes)
   }
 
-  /** Channel selection re-projects the Host cache; it is not a forced refresh. */
-  async selectChannel(channel: ReleaseChannel, cacheTtlMinutes: number = DEFAULT_CACHE_TTL_MINUTES): Promise<void> {
-    // A persisted preference or a newer selection can arrive while another
-    // channel is in flight. Keep checking after every joined request until the
-    // requested projection is actually the published snapshot.
-    for (let attempts = 0; attempts < 3 && !this.stopped && this.snapshot.status?.channel !== channel; attempts += 1) {
-      const pending = this.inFlight
-      if (pending !== undefined && !await pending) return
-      if (this.stopped || this.snapshot.status?.channel === channel) return
-      if (!await this.request(false, channel, cacheTtlMinutes)) return
-    }
+  /**
+   * Ordinary read that waits out an in-flight request first.
+   *
+   * Used once per mount, when the stored cache policy arrives after the first
+   * read already started: joining that request would keep the default policy, so
+   * the follow-up read has to come after it settles.
+   */
+  async reload(cacheTtlMinutes: number): Promise<void> {
+    const pending = this.inFlight
+    if (pending !== undefined) await pending
+    if (this.stopped) return
+    await this.request(false, cacheTtlMinutes)
   }
 
   stop(): void {
@@ -62,7 +63,7 @@ export class StatusStore implements Observable<StatusSnapshot> {
     for (const listener of this.listeners) listener()
   }
 
-  private request(force: boolean, channel: ReleaseChannel, cacheTtlMinutes: number): Promise<boolean> {
+  private request(force: boolean, cacheTtlMinutes: number): Promise<boolean> {
     if (this.inFlight !== undefined) return this.inFlight
     const rpc = this.connection.rpc
     if (rpc === undefined || typeof rpc.call !== 'function') {
@@ -76,8 +77,8 @@ export class StatusStore implements Observable<StatusSnapshot> {
         const endpoint = force ? UPDATE_ENDPOINTS.checkUpdate : UPDATE_ENDPOINTS.getStatus
         const ttl = isCacheTtlMinutes(cacheTtlMinutes) ? cacheTtlMinutes : DEFAULT_CACHE_TTL_MINUTES
         const raw = await rpc.call(UPDATE_STATUS_CHANNEL, endpoint, force
-          ? { force: true, channel, cacheTtlMinutes: ttl }
-          : { channel, cacheTtlMinutes: ttl })
+          ? { force: true, cacheTtlMinutes: ttl }
+          : { cacheTtlMinutes: ttl })
         if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('invalid update-status RPC response')
         const envelope = raw as { ok?: unknown; value?: unknown; error?: { message?: unknown } }
         if (envelope.ok !== true) throw new Error(typeof envelope.error?.message === 'string' ? envelope.error.message : 'update-status RPC failed')
@@ -100,7 +101,6 @@ export class StatusStore implements Observable<StatusSnapshot> {
 
 export interface PreferencesSnapshot {
   sidebarEnabled: boolean
-  channel: ReleaseChannel
   cacheTtlMinutes: number
   writable: boolean
   status: 'loading' | 'ready' | 'unavailable'
@@ -108,7 +108,6 @@ export interface PreferencesSnapshot {
 
 const INITIAL_PREFERENCES: PreferencesSnapshot = {
   sidebarEnabled: true,
-  channel: 'latest',
   cacheTtlMinutes: DEFAULT_CACHE_TTL_MINUTES,
   writable: false,
   status: 'loading',
@@ -136,7 +135,6 @@ export class PreferencesStore implements Observable<PreferencesSnapshot> {
       const status = raw.status === 'ready' || raw.status === 'unavailable' ? raw.status : 'loading'
       this.publish({
         sidebarEnabled: value.sidebarEnabled !== false,
-        channel: isReleaseChannel(value.channel) ? value.channel : 'latest',
         cacheTtlMinutes: isCacheTtlMinutes(value.cacheTtlMinutes) ? value.cacheTtlMinutes : DEFAULT_CACHE_TTL_MINUTES,
         writable: raw.writable === true,
         status,
@@ -160,7 +158,6 @@ export class PreferencesStore implements Observable<PreferencesSnapshot> {
           : {}
         this.publish({
           sidebarEnabled: value.sidebarEnabled !== false,
-          channel: isReleaseChannel(value.channel) ? value.channel : 'latest',
           cacheTtlMinutes: isCacheTtlMinutes(value.cacheTtlMinutes) ? value.cacheTtlMinutes : DEFAULT_CACHE_TTL_MINUTES,
           writable: raw.writable === true,
           status: raw.status === 'ready' || raw.status === 'unavailable' ? raw.status : 'loading',
@@ -169,14 +166,6 @@ export class PreferencesStore implements Observable<PreferencesSnapshot> {
         this.publish(previous)
       }
     })
-  }
-
-  setChannel(channel: ReleaseChannel): void {
-    const previous = this.snapshot
-    this.publish({ ...previous, channel })
-    const scope = this.scope
-    if (scope === undefined || !previous.writable) return
-    void scope.set('channel', channel).catch(() => { this.publish(previous) })
   }
 
   setCacheTtlMinutes(cacheTtlMinutes: number): void {
@@ -190,7 +179,7 @@ export class PreferencesStore implements Observable<PreferencesSnapshot> {
 
   private publish(next: PreferencesSnapshot): void {
     const previous = this.snapshot
-    if (previous.sidebarEnabled === next.sidebarEnabled && previous.channel === next.channel
+    if (previous.sidebarEnabled === next.sidebarEnabled
       && previous.cacheTtlMinutes === next.cacheTtlMinutes
       && previous.writable === next.writable && previous.status === next.status) return
     this.snapshot = next

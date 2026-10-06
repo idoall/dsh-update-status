@@ -19,23 +19,19 @@ const DICTIONARY: Record<string, Entry> = {
   'panel.cacheHint': { zh: '到期后在下次打开或读取状态时检查；不会后台轮询。点击“检查更新”会立即检查。', en: 'After expiry, DSH checks only on the next status read; there is no background polling. “Check for updates” checks immediately.' },
   'panel.cacheReadonly': { zh: '此连接的缓存设置为只读。', en: 'This connection’s cache setting is read-only.' },
   'panel.current': { zh: '当前运行版本', en: 'Current running version' },
-  'panel.latest': { zh: '所选通道版本', en: 'Selected channel version' },
-  'panel.channels': { zh: '可用发布通道', en: 'Available release channels' },
+  'panel.newer': { zh: '可更新至', en: 'Newer version available' },
   'panel.compatVerified': { zh: '已验证兼容', en: 'Verified compatible' },
   'panel.compatUnverified': { zh: '尚未验证兼容', en: 'Compatibility unverified' },
   'panel.compatIncompatible': { zh: '已知不兼容', en: 'Known incompatible' },
-  'panel.selectChannel': { zh: '选择此通道', en: 'Select channel' },
-  'panel.selectedChannel': { zh: '已选择', en: 'Selected' },
   'panel.notChecked': { zh: '尚未取得', en: 'Not available yet' },
   'panel.available': { zh: '发现新版本', en: 'Update available' },
-  'panel.currentState': { zh: '未发现可用更新', en: 'No update found' },
+  'panel.currentState': { zh: '已是最新', en: 'Up to date' },
   'panel.cached': { zh: '来自 Host 缓存', en: 'From Host cache' },
   'panel.live': { zh: '刚从 npm registry 检查', en: 'Checked npm registry now' },
   'panel.checkedAt': { zh: '上次检查', en: 'Last checked' },
   'panel.publishedAt': { zh: '发布时间', en: 'Published' },
   'panel.check': { zh: '检查更新', en: 'Check for updates' },
   'panel.checking': { zh: '检查中…', en: 'Checking…' },
-  'panel.switchingChannel': { zh: '正在切换通道…', en: 'Switching channel…' },
   'panel.releaseNotes': { zh: '发布说明', en: 'Release notes' },
   'panel.command': { zh: '升级命令', en: 'Upgrade command' },
   'panel.copy': { zh: '复制命令', en: 'Copy command' },
@@ -45,30 +41,15 @@ const DICTIONARY: Record<string, Entry> = {
   'panel.readOnly': { zh: '阶段 1 仅提示：本插件不会安装、重启、回滚或替换任何文件。', en: 'Phase 1 is advisory only: this plugin never installs, restarts, rolls back, or replaces files.' },
   'panel.error': { zh: '检查提示', en: 'Check notice' },
   'warning.registryUnavailable': { zh: '无法检查 npm registry：{detail}', en: 'Unable to check the npm registry: {detail}' },
-  'warning.channelUnavailable': { zh: 'npm registry 未发布 {channel} 通道。', en: 'The npm registry does not publish a {channel} channel.' },
-  'warning.versionIncomparable': { zh: '无法按 SemVer 比较当前版本 {currentVersion} 与 {channel} 通道版本 {selectedVersion}。', en: 'Unable to compare the current version {currentVersion} with {channel} channel version {selectedVersion} using SemVer.' },
-  'warning.previewUnverified': { zh: '{channel} 是预览通道，版本 {version} 尚未验证与本插件兼容。', en: '{channel} is a preview channel; version {version} has not been verified as compatible with this plugin.' },
+  'warning.versionIncomparable': { zh: '无法按 SemVer 比较当前版本 {currentVersion} 与线上版本 {latestVersion}。', en: 'Unable to compare the current version {currentVersion} with the published version {latestVersion} using SemVer.' },
+  'warning.versionUnverified': { zh: '线上版本 {version} 尚未验证与本插件兼容。', en: 'Version {version} has not been verified as compatible with this plugin.' },
   'warning.staleSchemastery': { zh: '本插件解析到的 @deepseek-ai/schemastery（版本 {version}）来自 {path}，不是 DSH 自带的那份，偏好字段无法标记为 volatile。请删除该残留目录并重启 DSH：rm -rf {nodeModulesDir}', en: 'This plugin resolved @deepseek-ai/schemastery {version} from {path} instead of the copy DSH provides, so preference fields cannot be marked volatile. Remove the stale directory and restart DSH: rm -rf {nodeModulesDir}' },
   'warning.staleSchemasteryNoPath': { zh: '本插件解析到的 @deepseek-ai/schemastery（版本 {version}）来自 {path}，不是 DSH 自带的那份，偏好字段无法标记为 volatile。请删除该处残留的 @deepseek-ai/schemastery 目录并重启 DSH。', en: 'This plugin resolved @deepseek-ai/schemastery {version} from {path} instead of the copy DSH provides, so preference fields cannot be marked volatile. Remove the stale @deepseek-ai/schemastery directory there and restart DSH.' },
   'guidance.sourceCheckout': { zh: '请更新 DSH 源码 checkout、安装依赖并重新构建；本插件无法从 GUI 原地替换。', en: 'Update the DSH source checkout, install its dependencies, and rebuild it; this plugin cannot replace it in place from the GUI.' },
   'guidance.unknownInstall': { zh: '升级前请先确认 DSH 的安装方式；本插件无法代为执行升级。', en: 'Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you.' },
-  'panel.static': { zh: '此连接只显示静态版本；请在运行 DSH 的本机打开侧栏查看完整更新信息。', en: 'This connection shows only the static version. Open the sidebar on the computer running DSH for full update details.' },
-  'preview.open': { zh: '查看预览版升级方式', en: 'View preview upgrade instructions' },
-  'preview.close': { zh: '收起升级说明', en: 'Hide upgrade instructions' },
-  'preview.follow': { zh: '关注通道只影响检查结果，不代表已安装或已切换版本。', en: 'Following a channel only changes update checks, not the installed version.' },
-  'preview.target': { zh: '目标版本', en: 'Target version' },
-  'preview.risk': { zh: '预览版本可能不稳定，插件兼容性尚需确认。执行前请保存工作、备份配置并结束运行中的任务；安装后需手动重启 DSH。此页面不会安装或重启。', en: 'Preview builds may be unstable and plugin compatibility needs checking. Save work, back up configuration and finish active tasks before executing. Restart DSH manually afterwards. This page never installs or restarts.' },
-  'preview.unavailable': { zh: '暂无可确认的预览目标，请先检查更新。', en: 'No confirmed preview target. Check for updates first.' },
-  'preview.manual': { zh: '当前安装方式无法安全生成命令，请先确认安装来源；源码安装需按其构建说明操作。', en: 'Cannot safely generate a command for this installation. Confirm its source; source checkouts require their build instructions.' },
-  'preview.same': { zh: '此目标与当前运行版本相同，无需重复安装。', en: 'This target is already running; no reinstall is needed.' },
   'settings.title': { zh: '版本与更新', en: 'Version & updates' },
   'settings.sidebar': { zh: '在侧栏显示版本状态入口', en: 'Show the version-status entry in the sidebar' },
   'settings.sidebarHint': { zh: '关闭后不再渲染品牌行里的版本芯片。不会执行或安排升级。', en: 'When off, the version chip in the brand row is not rendered. No update is run or scheduled.' },
-  'settings.channel': { zh: '关注发布通道', en: 'Release channel to follow' },
-  'settings.channelLatest': { zh: '稳定版（latest，推荐）', en: 'Stable (latest, recommended)' },
-  'settings.channelNext': { zh: '候选版（next）', en: 'Release candidate (next)' },
-  'settings.channelAlpha': { zh: '预览版（alpha）', en: 'Preview (alpha)' },
-  'settings.channelHint': { zh: '预览通道可能包含未稳定接口或插件兼容性变化。这里只检查并生成命令，不会安装。', en: 'Preview channels may contain unstable APIs or plugin compatibility changes. This only checks and generates a command; it never installs.' },
   'settings.readonly': { zh: '此连接的设置为只读；显示状态不受影响。', en: 'Settings are read-only on this connection; status display is unchanged.' },
 }
 
@@ -90,13 +71,11 @@ export function t(key: keyof typeof DICTIONARY, params: Record<string, string> =
 export function warningText(warning: UpdateWarning, language: Language = languageOf()): string {
   switch (warning.code) {
     case 'registry-unavailable': return t('warning.registryUnavailable', { detail: warning.detail }, language)
-    case 'channel-unavailable': return t('warning.channelUnavailable', { channel: warning.channel }, language)
     case 'version-incomparable': return t('warning.versionIncomparable', {
       currentVersion: warning.currentVersion,
-      channel: warning.channel,
-      selectedVersion: warning.selectedVersion,
+      latestVersion: warning.latestVersion,
     }, language)
-    case 'preview-unverified': return t('warning.previewUnverified', { channel: warning.channel, version: warning.version }, language)
+    case 'version-unverified': return t('warning.versionUnverified', { version: warning.version }, language)
     case 'stale-schemastery': {
       const params = { version: warning.version ?? '—', path: warning.path }
       // Only print a removal command when the Host could name the directory to

@@ -120,20 +120,27 @@ function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const disposeStyles = installStyles()
     const detach = preferences.attach(channel)
-    // Changing cache policy deliberately does not issue a network request. Its
-    // value is sent on the next ordinary status read or manual check.
-    let selected = status.getSnapshot().status?.channel ?? 'latest'
-    const syncPreferences = () => {
-      const next = preferences.getSnapshot()
-      if (next.channel !== selected) {
-        selected = next.channel
-        void status.selectChannel(selected, next.cacheTtlMinutes)
-      }
+    // The mount read uses the cache policy the profile stored. The settings
+    // document usually arrives one tick after the effect, so the first
+    // authoritative value issues that read; later edits deliberately do not —
+    // changing the duration never starts a request of its own. A profile that
+    // stores the default policy costs no second read.
+    let usedCacheTtl = preferences.getSnapshot().cacheTtlMinutes
+    let storedPolicyApplied = false
+    const applyStoredPolicyOnce = () => {
+      if (storedPolicyApplied) return
+      const snapshot = preferences.getSnapshot()
+      if (snapshot.status === 'loading') return
+      storedPolicyApplied = true
+      if (snapshot.cacheTtlMinutes === usedCacheTtl) return
+      usedCacheTtl = snapshot.cacheTtlMinutes
+      void status.reload(snapshot.cacheTtlMinutes)
     }
-    syncPreferences()
-    const unsubscribe = preferences.subscribe(syncPreferences)
+    applyStoredPolicyOnce()
+    const unsubscribe = preferences.subscribe(applyStoredPolicyOnce)
     // Every mount reads the Host's cached status, whichever page it is on; the
-    // transport is authenticated and the Host route is the plugin's own.
+    // transport is authenticated and the Host route is the plugin's own. There is
+    // no channel to project: the Host always answers with the newest release.
     void status.load(preferences.getSnapshot().cacheTtlMinutes)
     return () => {
       stopped = true

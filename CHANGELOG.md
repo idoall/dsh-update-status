@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## 0.2.0 — 2026-10-06
+
+Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.2.0.md`](docs/releases/v0.2.0.md).
+
+- **One release line replaces the channel catalogue.** The registry read now reduces the document to a single newest release: every dist-tag contributes, `newestSemver` picks the highest (prereleases included), and a tag this plugin has never heard of still counts. `ReleaseChannel`, `ChannelRelease`, `RELEASE_CHANNELS`, `isReleaseChannel`, `visibleChannelReleases` and `preview-guidance.ts` are gone with it.
+- **The `channel` preference is retired.** `Config` keeps `sidebarEnabled` and `cacheTtlMinutes` as its two volatile fields. A profile patch that still carries `channel: next` keeps loading: schemastery resolves object schemas non-strictly, so the stale key rides along inert — verified against a disposable profile, in `--dump-config` and in a live `dsh web`.
+- **The panel reports the running version, and only offers something to run when a newer release exists.** The channel list, its select buttons and the per-row compatibility labels are removed; the newer release is shown with its publish date and a verified/unverified label, and the upgrade command is pinned to that exact version instead of a dist-tag that can move between the check and the terminal.
+- **The settings section follows the same model** — running version, verdict, newer version and the same command — and keeps the sidebar toggle.
+- **rc.2 → 0.2.1-alpha.1 interface audit.** `dsh-client-ui-layout` adds the additive `shell.bottom` slot and a `minmax(0, 1fr) auto` frame grid; `dsh-boot/app-boot` changes plugin-icon resolution and profile-resolution refresh. Nothing this plugin binds to moved: `sidebar.brand.name`, `shell.overlay`, `settings.section`, `remote.settings`, the `configForms` channel and the authenticated Connection RPC all stand, and the compatibility gate itself is unchanged.
+- **Verified live on 0.2.1-alpha.1** in a disposable profile and a real browser: the up-to-date chip, the channel-free panel, the channel-free settings section, the amber-dot update prompt with its pinned command, and the stale-`channel` migration all behave as described above. 127 tests pass (typecheck + vitest).
+
 ## 0.1.12 — 2026-09-30
 
 Verified DeepSeek Harness: `0.2.0-rc.2` (the current release, and the one this profile runs), also `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.1.12.md`](docs/releases/v0.1.12.md).

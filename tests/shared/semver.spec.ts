@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareSemver, hasSemverUpdate, parseSemver } from '../../src/shared/semver.ts'
+import { compareSemver, hasSemverUpdate, newestSemver, parseSemver } from '../../src/shared/semver.ts'
 
 describe('SemVer comparison', () => {
   it('parses current prerelease versions', () => {
@@ -17,5 +17,22 @@ describe('SemVer comparison', () => {
     expect(parseSemver('latest')).toBeUndefined()
     expect(compareSemver('not-a-version', '1.0.0')).toBeUndefined()
     expect(hasSemverUpdate('not-a-version', '1.0.0')).toBe(false)
+  })
+})
+
+describe('newestSemver', () => {
+  it('picks the highest tagged release, not the tag name', () => {
+    // The registry's own answer for this plugin's use case: `latest` is behind
+    // `alpha`, and the alpha is what a user can actually update to.
+    expect(newestSemver(['0.2.0-rc.2', '0.2.0-rc.2', '0.2.1-alpha.1'])).toBe('0.2.1-alpha.1')
+    // A stable release outranks its own prereleases.
+    expect(newestSemver(['0.2.0-rc.2', '0.2.0'])).toBe('0.2.0')
+    expect(newestSemver(['0.1.7-rc.2', '0.2.0-rc.1'])).toBe('0.2.0-rc.1')
+  })
+
+  it('skips what it cannot parse and keeps the winner spelling', () => {
+    expect(newestSemver(['nightly', 'v0.2.1-alpha.1', '0.1.0'])).toBe('v0.2.1-alpha.1')
+    expect(newestSemver(['nightly', ''])).toBeUndefined()
+    expect(newestSemver([])).toBeUndefined()
   })
 })

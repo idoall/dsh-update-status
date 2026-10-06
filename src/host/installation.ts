@@ -14,10 +14,8 @@ import { PACKAGE_NAME } from '../shared/types.ts'
 export interface InstallationInfo {
   currentVersion: string
   packageName: string
-  channel: string
   installKind: InstallKind
   packageRoot?: string
-  upgradeCommand: string
 }
 
 interface Manifest {
@@ -113,9 +111,15 @@ export function classifyInstallRoot(packageRoot: string | undefined, nodePrefix:
   return 'unknown'
 }
 
-/** Generate guidance only; this package never invokes the string it returns. */
-export function upgradeCommandFor(installKind: InstallKind, packageName: string = PACKAGE_NAME, channel: string = 'latest'): string {
-  const specifier = `${packageName}@${channel}`
+/**
+ * Generate guidance only; this package never invokes the string it returns.
+ *
+ * The target is the exact version the check found, not a dist-tag: with a single
+ * release line there is no followed tag left to name, and `@0.2.1-alpha.1` cannot
+ * be re-pointed between the check and the terminal.
+ */
+export function upgradeCommandFor(installKind: InstallKind, packageName: string = PACKAGE_NAME, version: string | null = null): string {
+  const specifier = version === null ? packageName : `${packageName}@${version}`
   switch (installKind) {
     case 'npm-global': return `npm install -g ${specifier}`
     case 'pnpm-global': return `pnpm add -g ${specifier}`
@@ -136,14 +140,11 @@ export function detectInstallation(ctx: unknown, selfUrl: string = import.meta.u
   const local = own === undefined ? undefined : manifestFromResolver(own)
   const found = argvEntry ?? home ?? local
   const installKind = classifyInstallRoot(found?.root)
-  const channel = 'latest'
   return {
     currentVersion: found?.version ?? 'unknown',
     packageName: PACKAGE_NAME,
-    channel,
     installKind,
     ...(found?.root === undefined ? {} : { packageRoot: found.root }),
-    upgradeCommand: upgradeCommandFor(installKind, PACKAGE_NAME, channel),
   }
 }
 

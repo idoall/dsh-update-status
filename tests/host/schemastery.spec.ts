@@ -149,7 +149,7 @@ describe('schema resolution', () => {
     // The wrapper cannot build a schema, so choosing it would throw while the
     // entry loads — the exact failure this resolution exists to avoid.
     expect(runtime.volatile).toBe(false)
-    expect(Object.keys(buildConfigSchema(runtime.z as typeof realSchema, false).dict ?? {})).toHaveLength(6)
+    expect(Object.keys(buildConfigSchema(runtime.z as typeof realSchema, false).dict ?? {})).toHaveLength(5)
   })
 
   it('skips a module that exports no factory at all', () => {
@@ -203,17 +203,16 @@ describe('degraded Config form', () => {
 
   it('marks exactly the preferences volatile when the capability is present', () => {
     expect(volatileFields(buildConfigSchema(realSchema, true)))
-      .toEqual(['cacheTtlMinutes', 'channel', 'sidebarEnabled'])
+      .toEqual(['cacheTtlMinutes', 'sidebarEnabled'])
   })
 
   it('builds the same fields as ordinary ones instead of throwing without it', () => {
     const degraded = buildConfigSchema(realSchema, false)
     expect(volatileFields(degraded)).toEqual([])
     expect(Object.keys(degraded.dict ?? {}).sort()).toEqual([
-      'autoCheckOnMount', 'cacheTtlHours', 'cacheTtlMinutes', 'channel', 'sidebarEnabled', 'timeoutMs',
+      'autoCheckOnMount', 'cacheTtlHours', 'cacheTtlMinutes', 'sidebarEnabled', 'timeoutMs',
     ])
-    const field = degraded.dict?.channel?.meta as { default?: unknown }
-    expect(field.default).toBe('latest')
+    expect(degraded.dict?.sidebarEnabled?.meta.default).toBe(true)
     expect(degraded.dict?.cacheTtlMinutes?.meta.default).toBe(360)
   })
 
@@ -226,7 +225,7 @@ describe('degraded Config form', () => {
     // A degraded resolution must still produce a Config the Loader can read.
     const degraded = buildConfigSchema(runtime.z as typeof realSchema, runtime.volatile)
     expect(Object.keys(degraded.dict ?? {}).sort()).toEqual([
-      'autoCheckOnMount', 'cacheTtlHours', 'cacheTtlMinutes', 'channel', 'sidebarEnabled', 'timeoutMs',
+      'autoCheckOnMount', 'cacheTtlHours', 'cacheTtlMinutes', 'sidebarEnabled', 'timeoutMs',
     ])
     expect(volatileFields(degraded)).toEqual([])
   })

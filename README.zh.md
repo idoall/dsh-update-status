@@ -1,6 +1,6 @@
 <h1 align="center">DSH Update Status</h1>
 
-<p align="center">DeepSeek Harness Web 侧栏中的只读版本状态 Badge 与发布通道指南。</p>
+<p align="center">DeepSeek Harness Web 侧栏中的只读版本状态 Badge 与升级提示。</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/dsh-update-status"><img src="https://img.shields.io/npm/v/dsh-update-status?label=npm&color=CB3837" alt="npm 版本"></a>
@@ -14,7 +14,7 @@
   <a href="#功能">功能</a> ·
   <a href="#安装">安装</a> ·
   <a href="#使用">使用</a> ·
-  <a href="#发布通道">发布通道</a> ·
+  <a href="#更新检查">更新检查</a> ·
   <a href="#局域网非回环页面访问">局域网访问</a> ·
   <a href="#兼容性">兼容性</a> ·
   <a href="#配置">配置</a> ·
@@ -26,10 +26,10 @@
 
 > DSH Update Status 是 DeepSeek Harness 社区插件。它不修改 DSH 核心，也绝不会安装、重启、回滚、下载或替换 DSH 文件。
 
-插件只把展开侧栏中的品牌名称换成适配 24px 品牌行的 `DeepSeek + 版本芯片`，官方鱼标保持不变。版本号旁的**绿点**表示无事可做，**橙色呼吸圆点**表示线上有新版本。点击芯片可查看 npm 发布通道、兼容性状态，以及与所选通道对应的“仅复制”命令。
+插件只把展开侧栏中的品牌名称换成适配 24px 品牌行的 `DeepSeek + 版本芯片`，官方鱼标保持不变。版本号旁的**绿点**表示正在运行的版本就是 npm 上最新的那一版；**橙色呼吸圆点**表示线上有更新的版本——无论是稳定版、RC 还是 Alpha。点击芯片即可看到当前运行版本、更新的版本、本插件是否验证过它，以及钉在该确切版本上的“仅复制”升级命令。
 
 <p align="center">
-  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status 面板：缓存时长、正在运行的 0.1.7-rc.1（latest 通道）、与所选通道不一致的 next 行、兼容性标签和仅复制的升级命令">
+  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status 面板：缓存时长、正在运行的 0.2.0-rc.2、更新的 0.2.1-alpha.1（标注已验证兼容与发布时间），以及钉在该版本上的仅复制升级命令">
 </p>
 
 ## 功能
@@ -39,11 +39,10 @@
 - **一眼三态**：没有可做的事时，版本号旁是**纯绿色小圆圈**（取主题 success 色，不再跟随文字色——暗色外壳下不会再出现一个看起来像「熄灭」的深色点）；检查中是中性灰呼吸点；有新版本才是橙色光晕呼吸点。只有更新态会动、会发光，也只有状态读取失败才会把 Badge 重绘成红色。
 - **中性版本底框**：Badge 在明暗两套主题下都用灰色二级面（浅色 `#f1f3f5` / 深色 `#353638`）配主题常规文字色，所以暗色下是「深灰底 + 白字」，不再是会把橙色光晕吃掉的白框；只有状态读取失败时才会重绘成红色。
 - **浅色 / 深色 / 跟随系统，自动适配**：插件渲染的每个颜色都是 DSH 语义令牌，Badge、圆点、光晕与面板都按 DSH 当前外观解析。DSH 设为浅色、深色或跟随系统，插件就跟着切换——插件侧没有自己的主题开关，也没有需要同步的媒体查询。hover 在两个方向上都是「抬起」：浅色下压深、深色下提亮（把主题文字色按比例混进底色实现）。
-- **稳定版与预览版发现**：一次 registry 请求读取 npm dist-tags `latest`、`next`、`alpha`，默认选择 `latest`。
-- **只展示有意义的选择**：按版本号去重；`latest` 与你当前跟随的通道始终保留，并且**不会隐藏与你正在运行的版本相符的那条通道**。
-- **弹窗内直接选择通道**：可直接选择有价值的稳定版、候选版或预览版；偏好由 DSH Host 持久化。
-- **兼容性标识**：明确验证过的版本显示“已验证兼容”；未知预览版显示“尚未验证兼容”，不冒充安全升级。
-- **仅复制命令**：根据安装来源和通道生成 `@latest`、`@next` 或 `@alpha` 命令，但从不执行。
+- **只有一条发布线、零配置**：一次 registry 请求读取 npm 的全部 dist-tags，只保留其中最新的版本——稳定版、RC、Alpha 一视同仁。没有需要关注的通道，也没有需要做的选择。
+- **诚实的预发布比较**：运行版本与线上最新版本按 SemVer 排序，因此 `0.2.1-alpha.1` 高于 `0.2.0-rc.2`，而 RC 仍然低于它自己的正式版。
+- **兼容性标识**：本插件验证过的版本显示“已验证兼容”；没验证过的更新版本显示“尚未验证兼容”，不冒充安全升级，而且这条提示永远不会重绘芯片。
+- **仅复制命令**：根据安装来源，为**找到的那个确切版本**生成命令，不用会移动的 dist-tag，也从不执行。
 - **缓存但不轮询**：Host 挂载时检查一次，缓存可设为 30–1,440 分钟并合并并发请求；前端没有轮询，只有“检查更新”按钮绕过缓存。
 - **移动端可靠**：详情使用浏览器 modal top layer；底部 sheet 可滚动、适配 safe area，并保持在 DSH 抽屉上方。
 
@@ -53,7 +52,7 @@
 
 - 带 Web profile 的 DeepSeek Harness
 - Node.js 20 或更新版本
-- 已验证的 DSH 版本：`0.2.0-rc.2`（当前）、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1` 与 `0.1.7-alpha.2`
+- 已验证的 DSH 版本：`0.2.1-alpha.1`（当前）、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1` 与 `0.1.7-alpha.2`
 
 已经安装 `dsh` 命令：
 
@@ -83,20 +82,18 @@ dsh plugin --profile web add "link:$(pwd)"
 
 1. 打开 DSH 左侧抽屉。官方鱼标仍在；名称行显示 `DeepSeek + 当前版本 Badge`。
 2. 点击 Badge。面板打开时不会触发外层“新建会话”按钮。
-3. 查看可选的通道。列表按版本号去重，`latest` 与你当前跟随的通道始终在列，且与你正在运行的版本相符的那条通道一定可选。
-4. 想跟随某个通道（例如 `alpha`）就在面板里直接选它。该选择由 DSH Host 持久化，只影响后续检查；未验证兼容的预览版仍会明确标注。
-5. 复制生成的命令，在**运行 DSH 的那台电脑**的终端中自行执行。
+3. 看当前运行版本。当它就是 npm 上最新的那一版时，面板会直接说明，并且不提供任何要执行的命令。
+4. 当线上有更新的版本——稳定版、RC 或 Alpha 都一样——面板会给出它的版本号、发布时间，以及本插件是否验证过它。
+5. 复制生成的命令（已钉在该确切版本上），在**运行 DSH 的那台电脑**的终端中自行执行。
 6. 包管理器命令完成后，由你自行重启 DSH。
 
 全局安装时可能生成：
 
 ```sh
-npm install -g @deepseek-ai/dsh@latest
-npm install -g @deepseek-ai/dsh@next
-npm install -g @deepseek-ai/dsh@alpha
+npm install -g @deepseek-ai/dsh@0.2.1-alpha.1
 ```
 
-插件只显示与检测到的安装方式和所选通道匹配的一条命令，不会运行这些命令。
+插件只显示一条与检测到的安装方式匹配、并写明所查到确切版本号的命令，不会运行它。
 
 ### 圆点含义
 
@@ -104,10 +101,10 @@ npm install -g @deepseek-ai/dsh@alpha
 
 | 圆点 | 状态 | 含义 |
 | --- | --- | --- |
-| 绿色小圆圈 | 已是最新 | 你跟随的通道指向正在运行的版本，芯片保持原底色。 |
-| 灰点呼吸 | 检查中 | 状态读取正在进行（首次挂载、切换通道，或点了**检查更新**）。 |
-| 橙色圆点 + 光晕 | 有更新 | 你跟随的通道指向更新的版本。自行复制命令、执行，然后重启 DSH。 |
-| 芯片变红 | 读取失败 | 插件无法判定状态：registry 读取失败、该通道未发布，或两个版本无法按 SemVer 比较。**未验证兼容**不属于这一档——它只是面板里的提示。 |
+| 绿色小圆圈 | 已是最新 | 正在运行的版本就是 npm 上最新的那一版，芯片保持原底色。 |
+| 灰点呼吸 | 检查中 | 状态读取正在进行（首次挂载，或点了**检查更新**）。 |
+| 橙色圆点 + 光晕 | 有更新 | 线上有更新的版本。自行复制命令、执行，然后重启 DSH。 |
+| 芯片变红 | 读取失败 | 插件无法判定状态：registry 读取失败，或两个版本无法按 SemVer 比较。**未验证兼容**的更新版本不属于这一档——它只是面板里的提示。 |
 
 <p align="center">
   <img src="./assets/sidebar-chip.png" width="300" alt="版本芯片在浅色外壳（浅灰底、深色字）与深色外壳（深灰底、白字）下的样子，右侧都是表示已是最新的绿点">
@@ -115,25 +112,17 @@ npm install -g @deepseek-ai/dsh@alpha
 
 芯片本身是中性二级面——两套主题都是灰色，文字用主题常规色——所以橙色光晕始终看得清，而且它绝不会为了宣布更新而改变颜色。
 
-## 发布通道
+## 更新检查
 
-| 通道 | 用途 | 兼容性处理 |
-| --- | --- | --- |
-| `latest` | DSH npm 包推荐的默认稳定/候选版本 | 只有本插件明确声明过才显示已验证 |
-| `next` | 与当前运行版/稳定版确实不同时的候选版本 | 可能尚未验证 |
-| `alpha` | 用户主动选择的早期预览版 | 除非明确声明，否则显示尚未验证 |
+插件按缓存周期向 npm registry 请求一次 `@deepseek-ai/dsh`，取出**所有 dist-tag 指向的最新版本**，再与正在运行的版本比较。`latest`、`next`、`alpha` 是 npm 自己的记账方式，不是需要用户做的选择：哪个 tag 上挂着更新的版本，就报哪个。
 
-插件严格遵循 npm dist-tag，不会从 registry 历史版本中自行挑选 SemVer 最大值。
+- 取 SemVer 最高者（含预发布）：因此跑到稳定版前面的 `alpha` 会被提示，而不是被藏起来。
+- 比较是精确的：`0.2.1-alpha.1` 比 `0.2.0-rc.2` 新，两者都低于 `0.2.1`。
+- 插件没听说过的 dist-tag 同样计入——读取的是 npm 返回的全部 tag，不是写死的三个。
+- 只有本插件验证过的版本才标注“已验证兼容”；没验证过的更新版本会带上“尚未验证兼容”的提示（`notice`，永远不会重绘芯片）。
+- 面板与设置区块渲染同一个答案；升级命令写明所查到的确切版本。
 
-### 面板里会出现哪些行
-
-详情面板与设置页下拉框渲染的是同一份列表：
-
-- `latest` 与你当前跟随的通道始终保留。
-- 其它通道只有在版本号与它上面的每一行都不同时才出现，因此多个 dist-tag 指向同一版本时仍然只呈现为一个选择。
-- 与你**正在运行的版本**相符的那条通道一定可选。在 `0.1.4` 之前，版本号等于运行版本的通道会被隐藏：运行 `alpha` 构建的人因此无法关注 `alpha` 线——那行只有在他已关注之后才存在，剩下能点的只有 `latest`。
-
-跟随通道是对**将来**的声明：它决定本插件用哪个 dist-tag 做比较、生成哪条升级命令；它不会改变已安装的版本，也不会安装任何东西。
+这里不会安装任何东西。跟随某条通道——以及保存它的 `channel` 偏好——已在 `0.2.0` 移除。
 
 ## 局域网（非回环页面）访问
 
@@ -142,19 +131,20 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 从 `0.1.2` 起，本插件在局域网页面同样可用：
 
 - **版本/更新状态**照常读取。早先的版本把整个功能压在 `connection.isLoopback === true` 上，于是经局域网转发（`dsh-bridge`、`dsh-lan-proxy` 等）打开的页面从不发送 `POST /api/dsh-update-status.get-status`、详情面板打不开，还会把本包声明的兼容版本当成"当前运行版本"显示。该判断已移除——Connection RPC 本身是已认证的，Host 路由也是本插件自己的路由。
-- **偏好设置**（`sidebarEnabled`、`channel`、`cacheTtlMinutes`）继续读写 Host 上共享的那一份 `dsh-update-status` 设置条目，走的是与官方设置表单相同的公开 Remote（`settings.describe` / `settings.mutate`）。写入仍受 revision 栅栏保护，被拒时明确提示冲突而不会静默覆盖。直连通道只在官方表单报 `unavailable` 时才打开，所以回环页面仍走官方路径，不会多发一次线上读取。
+- **偏好设置**（`sidebarEnabled`、`cacheTtlMinutes`）继续读写 Host 上共享的那一份 `dsh-update-status` 设置条目，走的是与官方设置表单相同的公开 Remote（`settings.describe` / `settings.mutate`）。写入仍受 revision 栅栏保护，被拒时明确提示冲突而不会静默覆盖。直连通道只在官方表单报 `unavailable` 时才打开，所以回环页面仍走官方路径，不会多发一次线上读取。
 
 若你希望保持 DSH 官方策略（非回环页面完全不落地设置），可以让转发侧声明宿主身份：在返回的 HTML 中、`__DSH_BOOT__` 之前注入 `window.__DSH_TRANSPORT__ = { fetch: (input, init) => window.fetch(input, init), ownsHost: true }`。DSH 的 `ctx.connection.isLoopback` 会据此为真，所有依赖设置的界面（含官方「设置」页）一并恢复；`dsh-mobile` 网关正是这么做的。
 
 ## 兼容性
 
-当前发布：插件 **`0.1.12`** 已针对 DeepSeek Harness **`0.2.0-rc.2`**（当前发布版）、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
+当前发布：插件 **`0.2.0`** 已针对 DeepSeek Harness **`0.2.1-alpha.1`**（当前发布版）、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.1.12`** | `0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 声明兼容正在运行的 `0.2.0-rc.2`：逐包核对 `dsh.client.inject` 里 7 个包在 rc.1 → rc.2 之间的差异（仅 3 个文件有实质改动，本插件用到的接口面无一变化），把 `0.2.0-rc.2` 加入已验证清单，消除跟随 `latest` 时的「尚未验证兼容」提示；并在一次性 profile + 真实浏览器里实测芯片、面板与设置区块；代码零改动 |
+| **`0.2.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 从「通道目录」改为「一条发布线」：Host 只保留 npm 全部 dist-tag 里最新的那个版本（稳定版、RC、Alpha 一视同仁），面板直接显示当前运行版本；有更新时给出更新版本号与钉在它上面的命令。`channel` 偏好、通道列表与通道下拉框全部移除，设置区块显示同一份结论 |
+| **`0.1.12`** | `0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 声明兼容正在运行的 `0.2.0-rc.2`：逐包核对 `dsh.client.inject` 里 7 个包在 rc.1 → rc.2 之间的差异（仅 3 个文件有实质改动，本插件用到的接口面无一变化），把 `0.2.0-rc.2` 加入已验证清单，消除跟随 `latest` 时的「尚未验证兼容」提示；并在一次性 profile + 真实浏览器里实测芯片、面板与设置区块；代码零改动 |
 | **`0.1.11`** | `0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | DSH `0.2.0` 线的声明发布：逐包核对 `dsh.client.inject` 里每个宿主包在 `0.1.7-rc.2` → `0.2.0-rc.1` 之间的差异（仅版本号与两处纯增量的客户端改动，本插件用到的接口面无一变化），把正在运行的 `0.2.0-rc.1` 加入已验证清单，并把两处承重范围放宽到 `<0.3.0`，避免 DSH `0.2.0` 正式版发布当天插件被静默丢弃；代码零改动 |
 | **`0.1.10`** | `0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 取消收起轨道的兜底入口：官方 `sidebar.footer.action` 那一行在轨道里只有 36px，第二个注册者会把相邻插件的入口挤出屏幕、把自己的按钮顶到边框上；入口改为只在展开侧栏的品牌行 |
 | `0.1.9` | `0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 显式解析 `@deepseek-ai/schemastery`，安装目录里残留的旧副本不再能遮蔽 DSH 自带的那份、把宿主半整个带走；缺少 `volatile()` 时改为降级设置表单并给出 `stale-schemastery` 提示，而不是抛错 |
@@ -174,6 +164,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 需要精确对应时显式指定版本：
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.2.0   # DSH 0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.12 # DSH 0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.11 # DSH 0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.10  # DSH 0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
@@ -187,21 +178,20 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
   ```
 
 - 有两处声明让已验证的版本线能正常加载，并由测试守住：
-  - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.3.0`，五个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。上界在 `0.1.11` 从 `<0.2.0` 放宽到 `<0.3.0` 是同一件事的镜像：DSH 会在 profile 加载时拒绝不兼容的 bundle，而裸的 `<0.2.0` 恰好排除 `0.2.0` 正式版——DSH `0.2.0` 发布当天插件就会被静默丢弃。DSH 判定时使用 `includePrerelease: true`，所以 `0.2.0-rc.2` 本来就在这个范围内，`0.1.12` 无需再动范围；反过来说，把范围写成 `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` 这类枚举的插件会因为 `>=0.2.0` 不接纳 `0.2.0` 预发布而被 rc.2 拒载。
+  - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.3.0`，六个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。上界在 `0.1.11` 从 `<0.2.0` 放宽到 `<0.3.0` 是同一件事的镜像：DSH 会在 profile 加载时拒绝不兼容的 bundle，而裸的 `<0.2.0` 恰好排除 `0.2.0` 正式版——DSH `0.2.0` 发布当天插件就会被静默丢弃。DSH 判定时使用 `includePrerelease: true`，所以 `0.2.0-rc.2` 本来就在这个范围内，`0.1.12` 无需再动范围；反过来说，把范围写成 `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` 这类枚举的插件会因为 `>=0.2.0` 不接纳 `0.2.0` 预发布而被 rc.2 拒载。
   - `@deepseek-ai/schemastery` 是 **peer**，不是普通依赖：DSH 0.1.7 只从运行安装解析 link 插件的 peer 依赖，否则 `link:` 安装会连 Host 半边都 import 失败。
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 
 | 选项 | 默认值 | 范围 / 行为 |
 | --- | --- | --- |
 | `cacheTtlMinutes` | `360` | 30–1,440 分钟；仅在下一次按需读取时判断是否到期，绝不启动后台定时器 |
-| `channel` | `latest` | `latest`、`next` 或 `alpha` |
 | `sidebarEnabled` | `true` | 只隐藏本插件自己的侧栏入口 |
 
-**设置 → 版本与更新** 可隐藏本插件侧栏入口和选择发布通道；详情面板中也能直接切换通道和填写缓存时长。修改缓存时长不会请求网络；只在之后普通读取且缓存已到期时更新，“检查更新”始终是立即手动检查。
+**设置 → 版本与更新** 显示当前运行版本、检查结论与升级命令，并可隐藏本插件侧栏入口；详情面板中另可填写缓存时长。修改缓存时长不会请求网络；只在之后普通读取且缓存已到期时更新，“检查更新”始终是立即手动检查。
 
-偏好只会在你于面板或该设置区块中主动选择时写入。插件没有任何自动写入路径——没有 effect、定时器，也不在挂载时写入，并由 `tests/client/entry.spec.ts` 挂载真实客户端入口长期守住这一点。在 DSH 0.1.7 上，上面三个偏好就是本插件条目 `Config` 的 **volatile** 字段，因此以该条目的 `config` 落在当前 profile 的 patch 里（`~/.dsh/profiles/<profile>/cordis.patch.yml`）；要重置某个偏好，直接修改或删除该段即可，DSH 会在下次变更时重新加载 profile。`Config` 的其余字段只用于部署、不会出现在表单中：`cacheTtlHours`（默认 `6`）、`timeoutMs`（默认 `15000`）与 `autoCheckOnMount`（默认 `true`），同样写在同一份 profile patch 中。
+偏好只会在你于面板或该设置区块中主动选择时写入。插件没有任何自动写入路径——没有 effect、定时器，也不在挂载时写入，并由 `tests/client/entry.spec.ts` 挂载真实客户端入口长期守住这一点。在 DSH 0.1.7 上，上面两个偏好就是本插件条目 `Config` 的 **volatile** 字段，因此以该条目的 `config` 落在当前 profile 的 patch 里（`~/.dsh/profiles/<profile>/cordis.patch.yml`）；要重置某个偏好，直接修改或删除该段即可，DSH 会在下次变更时重新加载 profile。`Config` 的其余字段只用于部署、不会出现在表单中：`cacheTtlHours`（默认 `6`）、`timeoutMs`（默认 `15000`）与 `autoCheckOnMount`（默认 `true`），同样写在同一份 profile patch 中。
 
 ## 故障排查
 
@@ -214,16 +204,13 @@ dsh plugin --profile web add dsh-update-status@latest
 ```
 
 **升级 DSH 之后芯片变红了。**
-在 `0.1.5` 及更新版本上，红色只代表一件事：插件无法判定状态——registry 读取失败、该通道未发布，或两个版本无法按 SemVer 比较。`0.1.4` 及更早版本的判定更宽：客户端把**任何**警告都当成故障，而「这个预览版尚未验证与本插件兼容」正是 DSH 版本比插件清单更新时必然产生的警告。所以「DSH 先升级、插件还没跟上」就会把芯片涂红，哪怕读取其实成功了。`0.1.5` 把两者分开——`failure` 仍然重绘，提示只留在面板——因此长期让 DSH 领先的用法请升级：
+在 `0.1.5` 及更新版本上，红色只代表一件事：插件无法判定状态——registry 读取失败，或两个版本无法按 SemVer 比较。`0.1.4` 及更早版本的判定更宽：客户端把**任何**警告都当成故障，而「这个预览版尚未验证与本插件兼容」正是 DSH 版本比插件清单更新时必然产生的警告。所以「DSH 先升级、插件还没跟上」就会把芯片涂红，哪怕读取其实成功了。`0.1.5` 把两者分开——`failure` 仍然重绘，提示只留在面板——因此长期让 DSH 领先的用法请升级：
 
 ```sh
 dsh plugin --profile web add dsh-update-status@latest
 ```
 
-在那之前，跟随一个发布版在已验证清单里的通道即可避免该警告。
-
-**想要的通道不在列表里。**
-列表按版本号去重：两个 dist-tag 指向同一版本时只渲染第一个。先选一次 `latest` 会重新投影缓存，可能让被折叠在后面的预览行出现。另外 `0.1.4` 起，与运行版本相符的那条通道不再被隐藏。
+在那之前这条提示无害：它只出现在面板里，等后续插件版本把你正在使用的 DSH 版本列入已验证清单后就会自动消失。
 
 **版本一直不变。**
 Host 会缓存一次 registry 响应，默认 360 分钟，且只有普通读取才会判断到期。点**检查更新**可立即刷新，或调小 `cacheTtlMinutes`。检查失败时会保留上一次成功缓存，并在版本号旁显示警告。

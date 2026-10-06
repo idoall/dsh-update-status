@@ -90,18 +90,10 @@ export const UPDATE_STATUS_CSS = `
 .dus-settings-card{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:12px}
 .dus-settings-toggle{align-items:flex-start;cursor:pointer;display:flex;gap:10px;font-size:13px;line-height:1.4}
 .dus-settings-toggle input{accent-color:var(--dsw-alias-state-business-primary);height:18px;margin:0;min-height:18px;min-width:18px;width:18px}
-.dus-settings-field{display:grid;font-size:13px;font-weight:600;gap:8px}
-.dus-channel-select{background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;color:inherit;font:inherit;min-height:40px;padding:0 10px;width:100%}
-.dus-channel-list{border-top:1px solid var(--dsw-alias-border-l2);margin:12px 0 0;padding-top:2px}
-.dus-channel-row{align-items:center;display:grid;font-size:11px;gap:8px;grid-template-columns:minmax(0,1fr) auto;line-height:1.4;padding:6px 0}
-.dus-channel-row[data-selected=true]{color:var(--dsw-alias-state-business-primary)}
-.dus-channel-row code{font-size:11px}
-.dus-channel-compat{color:var(--dsw-alias-label-secondary)}
-.dus-channel-action{background:transparent;border:1px solid var(--dsw-alias-border-l2);border-radius:7px;color:inherit;cursor:pointer;font-size:11px;justify-self:end;min-height:32px;padding:0 9px}
-.dus-channel-action:disabled{cursor:default;opacity:.55}
-.dus-channel-action:not(:disabled):hover{background:var(--dsw-alias-button-floating-hover)}
-.dus-channel-compat[data-compatibility=verified]{color:var(--dsw-alias-state-success-primary)}
-.dus-channel-compat[data-compatibility=incompatible]{color:var(--dsw-alias-state-error-primary)}
 .dus-settings-hint{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.45;margin:8px 0 0}
+.dus-compat{color:var(--dsw-alias-label-secondary)}
+.dus-compat[data-compatibility=verified]{color:var(--dsw-alias-state-success-primary)}
+.dus-compat[data-compatibility=incompatible]{color:var(--dsw-alias-state-error-primary)}
+.dus-command-actions{align-items:center;margin:8px 0 0}
 @media (max-width:640px),(hover:none) and (pointer:coarse){.dus-panel{border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;bottom:0;left:0;right:0;max-height:min(78dvh,calc(100dvh - env(safe-area-inset-top)));padding:16px max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));position:fixed;top:auto;width:100vw}.dus-action{min-height:40px;line-height:38px}.dus-close{height:40px;min-height:40px;min-width:40px;width:40px}}
 `

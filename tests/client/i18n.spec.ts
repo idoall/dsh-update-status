@@ -2,33 +2,38 @@ import { describe, expect, it } from 'vitest'
 import { localizedUpgradeGuidance, localizedWarning, warningText } from '../../src/client/i18n.ts'
 import type { UpdateWarning } from '../../src/shared/types.ts'
 
-const previewWarning: UpdateWarning = {
-  code: 'preview-unverified',
-  channel: 'alpha',
-  version: '0.1.6-alpha.2',
+const unverifiedWarning: UpdateWarning = {
+  code: 'version-unverified',
+  version: '0.2.1-alpha.1',
 }
 
 describe('runtime message localization', () => {
   it('renders structured Host warnings in English', () => {
-    expect(warningText(previewWarning, 'en')).toBe(
-      'alpha is a preview channel; version 0.1.6-alpha.2 has not been verified as compatible with this plugin.',
+    expect(warningText(unverifiedWarning, 'en')).toBe(
+      'Version 0.2.1-alpha.1 has not been verified as compatible with this plugin.',
     )
     expect(warningText({ code: 'registry-unavailable', detail: 'offline' }, 'en')).toBe(
       'Unable to check the npm registry: offline',
     )
+    expect(warningText({ code: 'version-incomparable', currentVersion: 'nightly', latestVersion: '0.2.1-alpha.1' }, 'en')).toBe(
+      'Unable to compare the current version nightly with the published version 0.2.1-alpha.1 using SemVer.',
+    )
   })
 
   it('renders the same Host warnings in Chinese', () => {
-    expect(warningText(previewWarning, 'zh')).toBe(
-      'alpha 是预览通道，版本 0.1.6-alpha.2 尚未验证与本插件兼容。',
+    expect(warningText(unverifiedWarning, 'zh')).toBe(
+      '线上版本 0.2.1-alpha.1 尚未验证与本插件兼容。',
     )
     expect(warningText({ code: 'registry-unavailable', detail: 'offline' }, 'zh')).toBe(
       '无法检查 npm registry：offline',
     )
+    expect(warningText({ code: 'version-incomparable', currentVersion: 'nightly', latestVersion: '0.2.1-alpha.1' }, 'zh')).toBe(
+      '无法按 SemVer 比较当前版本 nightly 与线上版本 0.2.1-alpha.1。',
+    )
   })
 
   it('prefers structured warnings and falls back for an older Host', () => {
-    expect(localizedWarning({ warning: 'legacy fallback', warnings: [previewWarning] }, 'zh')).toContain('预览通道')
+    expect(localizedWarning({ warning: 'legacy fallback', warnings: [unverifiedWarning] }, 'zh')).toContain('尚未验证')
     expect(localizedWarning({ warning: 'legacy fallback' }, 'zh')).toBe('legacy fallback')
   })
 
@@ -57,8 +62,8 @@ describe('runtime message localization', () => {
     expect(localizedUpgradeGuidance({ installKind: 'unknown', upgradeCommand: 'fallback' }, 'en')).toBe(
       'Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you.',
     )
-    expect(localizedUpgradeGuidance({ installKind: 'npm-global', upgradeCommand: 'npm install -g package@alpha' }, 'zh')).toBe(
-      'npm install -g package@alpha',
+    expect(localizedUpgradeGuidance({ installKind: 'npm-global', upgradeCommand: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1' }, 'zh')).toBe(
+      'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
     )
   })
 })

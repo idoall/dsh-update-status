@@ -114,6 +114,16 @@ describe('update indicator styling', () => {
     expect(CSS).not.toContain('.dus-footer')
   })
 
+  it('carries no release-channel picker styling', () => {
+    // One release line means no channel list, no channel select and no per-channel
+    // action button. A selector outliving its markup is dead weight, so their
+    // absence is asserted rather than assumed.
+    expect(CSS).not.toContain('.dus-channel')
+    expect(CSS).not.toContain('.dus-settings-field')
+    // The single compatibility line keeps its own hook.
+    expect(line('.dus-compat[data-compatibility=verified]')).toContain('state-success-primary')
+  })
+
   it('binds the narrow-view bottom sheet to the panel itself', () => {
     // The sheet used to hang off `.dus-panel[data-origin]`; the trigger origin is
     // gone, so the selector must match the bare panel or the phone layout would

@@ -555,7 +555,7 @@ describe('settingsChannel (official form vs direct Host channel)', () => {
 describe('LAN regression: preferences are usable on a non-loopback page', () => {
   it('becomes ready, editable and writable over the direct Host channel', async () => {
     const remote = makeRemote({
-      rows: [{ ns: NS, value: prefs({ channel: 'next', cacheTtlMinutes: 120 }), revision: 21 }],
+      rows: [{ ns: NS, value: prefs({ cacheTtlMinutes: 120 }), revision: 21 }],
     })
     // Exactly what DSH answers on a LAN page: an inert, process-local scope.
     const official = makeOfficial({ status: 'unavailable', writable: false, mode: 'memory' })
@@ -567,21 +567,20 @@ describe('LAN regression: preferences are usable on a non-loopback page', () => 
     expect(preferences.getSnapshot()).toMatchObject({ status: 'loading', writable: false })
 
     await flush()
-    // The host's configured channel survives instead of silently falling back.
+    // The host's stored preferences survive instead of silently falling back.
     expect(preferences.getSnapshot()).toMatchObject({
       status: 'ready',
       writable: true,
       sidebarEnabled: true,
-      channel: 'next',
       cacheTtlMinutes: 120,
     })
 
     // And the settings page can persist an edit back to the shared Host document.
-    preferences.setChannel('alpha')
+    preferences.setCacheTtlMinutes(60)
     await flush()
     expect(remote.mutateCalls).toHaveLength(1)
     expect(remote.mutateCalls[0]!.ns).toBe(NS)
     expect(remote.mutateCalls[0]!.expectedRevision).toBe(21)
-    expect(remote.mutateCalls[0]!.ops).toEqual([{ op: 'set', path: ['channel'], value: 'alpha' }])
+    expect(remote.mutateCalls[0]!.ops).toEqual([{ op: 'set', path: ['cacheTtlMinutes'], value: 60 }])
   })
 })

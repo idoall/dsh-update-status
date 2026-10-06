@@ -7,8 +7,10 @@
  * halves of that contract, because either one silently breaking detaches the
  * preferences from their storage:
  *
- * - exactly `sidebarEnabled`, `channel` and `cacheTtlMinutes` are volatile, so
- *   the form exposes the user preferences and never the deployment fields;
+ * - exactly `sidebarEnabled` and `cacheTtlMinutes` are volatile, so the form
+ *   exposes the user preferences and never the deployment fields;
+ * - the retired `channel` preference disappears from the schema without
+ *   breaking a profile whose patch still carries it;
  * - `installSettings` suppresses the auto-generated generic page for this
  *   entry, and stays contained when the settings service is absent or refuses.
  */
@@ -59,7 +61,7 @@ describe('Host Config form (DSH 0.1.7 volatile projection)', () => {
       .filter(([, schema]) => schema.meta.volatile === true)
       .map(([name]) => name)
       .sort()
-    expect(volatileFields).toEqual(['cacheTtlMinutes', 'channel', 'sidebarEnabled'])
+    expect(volatileFields).toEqual(['cacheTtlMinutes', 'sidebarEnabled'])
   })
 
   it('keeps the deployment fields out of the form', () => {
@@ -70,8 +72,22 @@ describe('Host Config form (DSH 0.1.7 volatile projection)', () => {
 
   it('supplies the preference defaults the form shows on a fresh profile', () => {
     expect(field('sidebarEnabled').default).toBe(true)
-    expect(field('channel').default).toBe('latest')
     expect(field('cacheTtlMinutes').default).toBe(360)
+  })
+
+  it('drops the retired channel preference a profile patch still carries', () => {
+    // A profile written before 0.2.0 has `config: { channel: next }`. Schemastery
+    // resolves an object schema non-strictly, so the stale key rides along in the
+    // resolved value — harmlessly, because `channel` is no longer a declared
+    // field: not in the form, not in the defaults, and never read by the Host
+    // half. The load must still succeed, which is what this locks.
+    expect(Config.dict?.channel).toBeUndefined()
+    const parsed = Config({ channel: 'next', autoCheckOnMount: false, cacheTtlMinutes: 120 } as never) as unknown as Record<string, unknown>
+    expect(Object.keys(parsed).sort()).toEqual([
+      'autoCheckOnMount', 'cacheTtlHours', 'cacheTtlMinutes', 'channel', 'sidebarEnabled', 'timeoutMs',
+    ])
+    expect(parsed.autoCheckOnMount).toBe(false)
+    expect('channel' in (Config.dict ?? {})).toBe(false)
   })
 
   it('uses the Loader entry id as the storage namespace', () => {

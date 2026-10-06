@@ -1,6 +1,6 @@
 /** Minimal structural client faces — runtime services stay owned by DSH. */
 
-import { isReleaseChannel, type ChannelRelease, type UpdateStatus, type UpdateWarning } from '../shared/types.ts'
+import type { UpdateStatus, UpdateWarning } from '../shared/types.ts'
 
 export interface Observable<T> {
   getSnapshot(): T
@@ -64,20 +64,16 @@ function warningOf(value: unknown): UpdateWarning | undefined {
   if (record.code === 'registry-unavailable' && typeof record.detail === 'string') {
     return { code: record.code, detail: record.detail }
   }
-  if (record.code === 'channel-unavailable' && isReleaseChannel(record.channel)) {
-    return { code: record.code, channel: record.channel }
-  }
   if (record.code === 'version-incomparable' && typeof record.currentVersion === 'string'
-    && isReleaseChannel(record.channel) && typeof record.selectedVersion === 'string') {
+    && typeof record.latestVersion === 'string') {
     return {
       code: record.code,
       currentVersion: record.currentVersion,
-      channel: record.channel,
-      selectedVersion: record.selectedVersion,
+      latestVersion: record.latestVersion,
     }
   }
-  if (record.code === 'preview-unverified' && isReleaseChannel(record.channel) && typeof record.version === 'string') {
-    return { code: record.code, channel: record.channel, version: record.version }
+  if (record.code === 'version-unverified' && typeof record.version === 'string') {
+    return { code: record.code, version: record.version }
   }
   if (record.code === 'stale-schemastery') {
     const version = record.version === null ? null : stringOrNull(record.version)
@@ -99,10 +95,11 @@ export function updateStatusOf(value: unknown): UpdateStatus | undefined {
     || typeof record.cached !== 'boolean' || typeof record.installKind !== 'string'
     || typeof record.upgradeCommand !== 'string' || typeof record.releaseUrl !== 'string'
     || typeof record.changelogUrl !== 'string' || typeof record.packageName !== 'string'
-    || !isReleaseChannel(record.channel) || !Array.isArray(record.channels) || record.canApplyInPlace !== false) return undefined
+    || record.canApplyInPlace !== false) return undefined
   const validKind = record.installKind === 'npm-global' || record.installKind === 'pnpm-global'
     || record.installKind === 'source-checkout' || record.installKind === 'unknown'
   if (!validKind) return undefined
+  if (record.compatibility !== 'verified' && record.compatibility !== 'unverified' && record.compatibility !== 'incompatible') return undefined
   const latestVersion = record.latestVersion === null ? null : stringOrNull(record.latestVersion)
   const checkedAt = record.checkedAt === null ? null : stringOrNull(record.checkedAt)
   const warning = record.warning === null ? null : stringOrNull(record.warning)
@@ -121,21 +118,11 @@ export function updateStatusOf(value: unknown): UpdateStatus | undefined {
       warnings.push(parsed)
     }
   }
-  const channels: ChannelRelease[] = []
-  for (const raw of record.channels) {
-    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
-    const item = raw as Record<string, unknown>
-    const version = item.version === null ? null : stringOrNull(item.version)
-    const channelPublishedAt = item.publishedAt === null ? null : stringOrNull(item.publishedAt)
-    if (!isReleaseChannel(item.channel) || (item.version !== null && version === null)
-      || (item.publishedAt !== null && channelPublishedAt === null)
-      || (item.compatibility !== 'verified' && item.compatibility !== 'unverified' && item.compatibility !== 'incompatible')) return undefined
-    channels.push({ channel: item.channel, version, publishedAt: channelPublishedAt, compatibility: item.compatibility })
-  }
   return {
     currentVersion: record.currentVersion,
     latestVersion,
     hasUpdate: record.hasUpdate,
+    compatibility: record.compatibility,
     cached: record.cached,
     checkedAt,
     warning,
@@ -147,8 +134,6 @@ export function updateStatusOf(value: unknown): UpdateStatus | undefined {
     changelogUrl: record.changelogUrl,
     publishedAt,
     packageName: record.packageName,
-    channel: record.channel,
-    channels,
     canApplyInPlace: false,
   }
 }

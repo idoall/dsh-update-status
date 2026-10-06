@@ -38,25 +38,20 @@ interface Mounted {
 }
 
 const status: UpdateStatus = {
-  currentVersion: '0.1.6-alpha.1',
-  latestVersion: '0.1.5-rc.1',
-  hasUpdate: false,
+  currentVersion: '0.2.0-rc.2',
+  latestVersion: '0.2.1-alpha.1',
+  hasUpdate: true,
+  compatibility: 'unverified',
   cached: true,
   checkedAt: '2026-09-16T13:33:37.470Z',
   warning: null,
   warnings: [],
   installKind: 'npm-global',
-  upgradeCommand: 'npm install -g @deepseek-ai/dsh@latest',
+  upgradeCommand: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
   releaseUrl: 'https://example.test/releases',
   changelogUrl: 'https://example.test/releases',
   publishedAt: '2026-09-10T03:12:53.293Z',
   packageName: '@deepseek-ai/dsh',
-  channel: 'latest',
-  channels: [
-    { channel: 'latest', version: '0.1.5-rc.1', publishedAt: null, compatibility: 'verified' },
-    { channel: 'next', version: '0.1.5-rc.2', publishedAt: null, compatibility: 'unverified' },
-    { channel: 'alpha', version: '0.1.6-alpha.1', publishedAt: null, compatibility: 'verified' },
-  ],
   canApplyInPlace: false,
 }
 
@@ -82,7 +77,7 @@ function connectionRpc(isLoopback: boolean, calls: RpcCall[], payload: UpdateSta
  * Host accepted the write.
  */
 function configForms(
-  initial: { channel: string; sidebarEnabled: boolean; cacheTtlMinutes: number },
+  initial: { sidebarEnabled: boolean; cacheTtlMinutes: number },
   writes: SettingsWrite[],
   requestedIds: string[] = [],
 ) {
@@ -168,7 +163,7 @@ describe('client entry wiring', () => {
     const mounted = await mount(connectionRpc(false, calls))
 
     expect(calls).toEqual([
-      { channel: '/api', endpoint: 'dsh-update-status.get-status', payload: { channel: 'latest', cacheTtlMinutes: 360 } },
+      { channel: '/api', endpoint: 'dsh-update-status.get-status', payload: { cacheTtlMinutes: 360 } },
     ])
     mounted.teardown()
   })
@@ -199,21 +194,21 @@ describe('client entry wiring', () => {
   })
 
   it('applies a persisted preference by reading, never by writing it back', async () => {
-    // A stored `channel: next` must reach the status read as a read only: the
+    // A stored `cacheTtlMinutes` must reach the status read as a read only: the
     // plugin has no business rewriting a preference on mount, on load, or after
     // a Host read. Only a user gesture may call set().
     const calls: RpcCall[] = []
     const writes: SettingsWrite[] = []
     const mounted = await mount(
       connectionRpc(false, calls),
-      configForms({ channel: 'next', sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
+      configForms({ sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
     )
 
     expect(writes).toEqual([])
     // The persisted preference wins: every read stays on the plugin's own route
-    // and the last one follows the stored channel and cache policy.
+    // and the last one follows the stored cache policy.
     expect(calls.every(call => call.channel === '/api' && call.endpoint === 'dsh-update-status.get-status')).toBe(true)
-    expect(calls.at(-1)?.payload).toEqual({ channel: 'next', cacheTtlMinutes: 120 })
+    expect(calls.at(-1)?.payload).toEqual({ cacheTtlMinutes: 120 })
     mounted.teardown()
   })
 
@@ -225,7 +220,7 @@ describe('client entry wiring', () => {
     const requestedIds: string[] = []
     const mounted = await mount(
       connectionRpc(false, calls),
-      configForms({ channel: 'latest', sidebarEnabled: true, cacheTtlMinutes: 360 }, [], requestedIds),
+      configForms({ sidebarEnabled: true, cacheTtlMinutes: 360 }, [], requestedIds),
     )
 
     expect(requestedIds).toEqual(['dsh-update-status'])
@@ -236,7 +231,7 @@ describe('client entry wiring', () => {
     const writes: SettingsWrite[] = []
     const mounted = await mount(
       connectionRpc(false, []),
-      configForms({ channel: 'next', sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
+      configForms({ sidebarEnabled: true, cacheTtlMinutes: 120 }, writes),
     )
 
     mounted.teardown()

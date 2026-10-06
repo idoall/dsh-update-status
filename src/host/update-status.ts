@@ -1,22 +1,24 @@
 /**
  * Read-only npm-registry update checker with process-local TTL cache and
- * single-flight coordination. One registry response captures every supported
- * dist-tag; selecting a channel only re-projects the cached document.
+ * single-flight coordination.
+ *
+ * ONE release line, not a channel catalogue: the registry read keeps only the
+ * newest version published under any dist-tag, so the whole plugin has a single
+ * answer to render and a single version to name in the upgrade command. Whether
+ * that newest release is stable, a release candidate or an alpha is npm's
+ * bookkeeping — a newer release is a newer release, and it is reported.
  */
 
 import type { InstallationInfo } from './installation.ts'
 import { upgradeCommandFor } from './installation.ts'
 import { SCHEMASTERY_NAME } from './schemastery.ts'
-import { compareSemver } from '../shared/semver.ts'
+import { compareSemver, newestSemver } from '../shared/semver.ts'
 import {
   PACKAGE_NAME,
   RELEASES_URL,
-  RELEASE_CHANNELS,
   DEFAULT_CACHE_TTL_MINUTES,
   isCacheTtlMinutes,
   VERIFIED_DSH_VERSIONS,
-  type ChannelRelease,
-  type ReleaseChannel,
   type ReleaseCompatibility,
   type UpdateStatus,
   type UpdateWarning,
@@ -27,8 +29,15 @@ export const REGISTRY_URL = 'https://registry.npmjs.org/@deepseek-ai%2Fdsh'
 export const DEFAULT_TTL_MS = DEFAULT_CACHE_TTL_MINUTES * 60 * 1000
 export const DEFAULT_TIMEOUT_MS = 15_000
 
+/** The newest release the registry publishes, with everything the UI shows. */
+export interface RegistryLatest {
+  version: string
+  publishedAt: string | null
+  compatibility: ReleaseCompatibility
+}
+
 export interface RegistryRelease {
-  channels: ChannelRelease[]
+  latest: RegistryLatest | null
 }
 
 export type RegistryFetcher = () => Promise<RegistryRelease>
@@ -61,9 +70,8 @@ function boundedMessage(error: unknown): string {
 export function describeWarning(warning: UpdateWarning): string {
   switch (warning.code) {
     case 'registry-unavailable': return `Unable to check the npm registry: ${warning.detail}`
-    case 'channel-unavailable': return `The npm registry does not publish a ${warning.channel} channel.`
-    case 'version-incomparable': return `Unable to compare the current version ${warning.currentVersion} with ${warning.channel} channel version ${warning.selectedVersion} using SemVer.`
-    case 'preview-unverified': return `${warning.channel} is a preview channel; version ${warning.version} has not been verified as compatible with this plugin.`
+    case 'version-incomparable': return `Unable to compare the current version ${warning.currentVersion} with the published version ${warning.latestVersion} using SemVer.`
+    case 'version-unverified': return `Version ${warning.version} is newer than this plugin has been verified against.`
     case 'stale-schemastery': {
       const version = warning.version === null ? '' : ` ${warning.version}`
       // Only name a removal command when the directory is known; `rm -rf` on the
@@ -87,7 +95,7 @@ function warningFallback(warnings: UpdateWarning[]): string | null {
  * and only the settings form is degraded, so repainting the brand row would
  * misreport a plugin-runtime fact as a failed update check.
  */
-const ADVISORY_CODES: readonly UpdateWarning['code'][] = ['preview-unverified', 'stale-schemastery']
+const ADVISORY_CODES: readonly UpdateWarning['code'][] = ['version-unverified', 'stale-schemastery']
 
 function warningKindOf(warnings: UpdateWarning[]): UpdateWarningKind | null {
   if (warnings.length === 0) return null
@@ -100,32 +108,32 @@ function dateOrNull(value: unknown): string | null {
   return Number.isFinite(time) ? new Date(time).toISOString() : null
 }
 
-function compatibilityOf(version: string | null): ReleaseCompatibility {
-  return version !== null && VERIFIED_DSH_VERSIONS.includes(version) ? 'verified' : 'unverified'
+function compatibilityOf(version: string): ReleaseCompatibility {
+  return VERIFIED_DSH_VERSIONS.includes(version) ? 'verified' : 'unverified'
 }
 
+/**
+ * Reduce one registry document to the single newest release.
+ *
+ * Every dist-tag contributes, not a fixed `latest`/`next`/`alpha` triple: npm
+ * tags are the registry's own vocabulary, and a version published under a tag
+ * this plugin has never heard of is still a version users can install.
+ */
 export function registryReleaseOf(value: unknown): RegistryRelease {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('npm registry returned an invalid document')
   const record = value as Record<string, unknown>
   const tags = record['dist-tags']
   if (tags === null || typeof tags !== 'object' || Array.isArray(tags)) throw new Error('npm registry response has no dist-tags')
-  const tagRecord = tags as Record<string, unknown>
+  const tagged = Object.values(tags as Record<string, unknown>)
+    .filter((version): version is string => typeof version === 'string' && version.trim() !== '')
+    .map(version => version.trim())
+  const version = newestSemver(tagged)
+  if (version === undefined) throw new Error('npm registry response has no comparable dist-tags')
   const time = record.time
   const timeRecord = time !== null && typeof time === 'object' && !Array.isArray(time)
     ? time as Record<string, unknown>
     : {}
-  const channels = RELEASE_CHANNELS.map((channel): ChannelRelease => {
-    const raw = tagRecord[channel]
-    const version = typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : null
-    return {
-      channel,
-      version,
-      publishedAt: version === null ? null : dateOrNull(timeRecord[version]),
-      compatibility: compatibilityOf(version),
-    }
-  })
-  if (channels.every(release => release.version === null)) throw new Error('npm registry response has no supported dist-tags')
-  return { channels }
+  return { latest: { version, publishedAt: dateOrNull(timeRecord[version]), compatibility: compatibilityOf(version) } }
 }
 
 /** Only the explicitly approved HTTPS npm Registry authority may be contacted. */
@@ -150,7 +158,7 @@ export function createRegistryFetcher(timeoutMs: number = DEFAULT_TIMEOUT_MS): R
         redirect: 'error',
         signal: controller.signal,
         // npm's install-v1 abbreviated packument omits the `time` map. The
-        // complete JSON document is required to display per-channel publish dates.
+        // complete JSON document is required to display the publish date.
         headers: { accept: 'application/json' },
       })
       if (!response.ok) throw new Error(`npm registry returned HTTP ${response.status}`)
@@ -183,31 +191,31 @@ export class UpdateStatusService {
     this.runtimeWarnings = options.runtimeWarnings ?? []
   }
 
-  getStatus(channel: ReleaseChannel = 'latest', cacheTtlMinutes?: number): Promise<UpdateStatus> {
-    return this.check(false, channel, cacheTtlMinutes)
+  getStatus(cacheTtlMinutes?: number): Promise<UpdateStatus> {
+    return this.check(false, cacheTtlMinutes)
   }
 
   /** `force` bypasses TTL but still joins any registry check already in flight. */
-  async check(force: boolean = false, channel: ReleaseChannel = 'latest', cacheTtlMinutes?: number): Promise<UpdateStatus> {
+  async check(force: boolean = false, cacheTtlMinutes?: number): Promise<UpdateStatus> {
     const ttlMs = isCacheTtlMinutes(cacheTtlMinutes) ? cacheTtlMinutes * 60 * 1000 : this.ttlMs
     const cached = this.cache
     if (!force && cached !== undefined && this.now() - cached.checkedAtMs < ttlMs) {
-      return this.statusFromCache(cached, channel, true, [])
+      return this.statusFromCache(cached, true, [])
     }
     if (this.inFlight !== undefined) {
       try {
-        return this.statusFromCache(await this.inFlight, channel, false, [])
+        return this.statusFromCache(await this.inFlight, false, [])
       } catch (error) {
-        return this.statusAfterFailure(channel, error)
+        return this.statusAfterFailure(error)
       }
     }
 
     const run = this.refreshRelease()
     this.inFlight = run
     try {
-      return this.statusFromCache(await run, channel, false, [])
+      return this.statusFromCache(await run, false, [])
     } catch (error) {
-      return this.statusAfterFailure(channel, error)
+      return this.statusAfterFailure(error)
     } finally {
       if (this.inFlight === run) this.inFlight = undefined
     }
@@ -219,71 +227,70 @@ export class UpdateStatusService {
     return cache
   }
 
-  private statusAfterFailure(channel: ReleaseChannel, error: unknown): UpdateStatus {
+  private statusAfterFailure(error: unknown): UpdateStatus {
     const warnings: UpdateWarning[] = [{ code: 'registry-unavailable', detail: boundedMessage(error) }]
     return this.cache === undefined
-      ? this.statusWithoutRemoteRelease(channel, warnings)
-      : this.statusFromCache(this.cache, channel, true, warnings)
+      ? this.statusWithoutRemoteRelease(warnings)
+      : this.statusFromCache(this.cache, true, warnings)
   }
 
-  private statusFromCache(cache: CachedRelease, channel: ReleaseChannel, cached: boolean, initialWarnings: UpdateWarning[]): UpdateStatus {
-    const selected = cache.release.channels.find(release => release.channel === channel)
-      ?? { channel, version: null, publishedAt: null, compatibility: 'unverified' as const }
-    const comparison = selected.version === null ? undefined : compareSemver(this.installation.currentVersion, selected.version)
+  private statusFromCache(cache: CachedRelease, cached: boolean, initialWarnings: UpdateWarning[]): UpdateStatus {
+    const selected = cache.release.latest
+    const comparison = selected === null ? undefined : compareSemver(this.installation.currentVersion, selected.version)
+    const hasUpdate = comparison !== undefined && comparison < 0
     const warnings: UpdateWarning[] = [...initialWarnings]
-    if (selected.version === null) warnings.push({ code: 'channel-unavailable', channel })
-    if (selected.version !== null && comparison === undefined) {
+    if (selected !== null && comparison === undefined) {
       warnings.push({
         code: 'version-incomparable',
         currentVersion: this.installation.currentVersion,
-        channel,
-        selectedVersion: selected.version,
+        latestVersion: selected.version,
       })
     }
-    if (channel !== 'latest' && selected.version !== null && selected.compatibility !== 'verified') {
-      warnings.push({ code: 'preview-unverified', channel, version: selected.version })
+    // Only a version this plugin is RECOMMENDING is worth an advisory: when the
+    // running release is simply ahead of the verified list, saying so would be
+    // noise about a choice the operator already made.
+    if (hasUpdate && selected !== null && selected.compatibility !== 'verified') {
+      warnings.push({ code: 'version-unverified', version: selected.version })
     }
     warnings.push(...this.runtimeWarnings)
     return {
       currentVersion: this.installation.currentVersion,
-      latestVersion: selected.version,
-      hasUpdate: comparison !== undefined && comparison < 0,
+      latestVersion: selected?.version ?? null,
+      hasUpdate,
+      compatibility: selected?.compatibility ?? 'unverified',
       cached,
       checkedAt: new Date(cache.checkedAtMs).toISOString(),
       warning: warningFallback(warnings),
       warningKind: warningKindOf(warnings),
       warnings,
       installKind: this.installation.installKind,
-      upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, channel),
+      upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, selected?.version ?? null),
       releaseUrl: this.releaseUrl,
       changelogUrl: this.releaseUrl,
-      publishedAt: selected.publishedAt,
+      publishedAt: selected?.publishedAt ?? null,
       packageName: this.installation.packageName || PACKAGE_NAME,
-      channel,
-      channels: cache.release.channels,
       canApplyInPlace: false,
     }
   }
 
-  private statusWithoutRemoteRelease(channel: ReleaseChannel, warnings: UpdateWarning[]): UpdateStatus {
+  private statusWithoutRemoteRelease(warnings: UpdateWarning[]): UpdateStatus {
     const combined = [...warnings, ...this.runtimeWarnings]
     return {
       currentVersion: this.installation.currentVersion,
       latestVersion: null,
       hasUpdate: false,
+      compatibility: 'unverified',
       cached: false,
       checkedAt: null,
       warning: warningFallback(combined),
       warningKind: warningKindOf(combined),
       warnings: combined,
       installKind: this.installation.installKind,
-      upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, channel),
+      upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, null),
       releaseUrl: this.releaseUrl,
       changelogUrl: this.releaseUrl,
       publishedAt: null,
       packageName: this.installation.packageName || PACKAGE_NAME,
-      channel,
-      channels: RELEASE_CHANNELS.map(item => ({ channel: item, version: null, publishedAt: null, compatibility: 'unverified' })),
       canApplyInPlace: false,
     }
   }
