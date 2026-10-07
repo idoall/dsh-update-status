@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.3.2 — 2026-10-07
+
+Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.3.2.md`](docs/releases/v0.3.2.md).
+
+- **Documentation-only release.** No source, test, or build change; the tarball differs from `0.3.1` only in `README.md`, `README.zh.md`, `CHANGELOG.md` and `docs/releases/`.
+- **Every release note rewritten to the project's plain-language rule** (bilingual anchors → one-sentence summary → one-line compatibility conclusion → 2–4 user-facing bullets → upgrade command). Total 1407 → 740 lines; the longest (`v0.1.6`) went 266 → 53. Zero internal identifiers, measured values, test counts, or tables in any of them; the `cn-`/`en-` anchors release.yml greps for are preserved verbatim in all 16.
+- **`docs/releases/v0.1.0.md` and `v0.1.1.md` added** — those two releases only had GitHub's auto-generated one-line body, so the set is now uniform. All 16 live GitHub Release bodies were updated to match their files.
+- **README compatibility descriptions rewritten in both languages**: the `0.1.12` cell went from 425 characters to 61, `0.2.0` from 393 to 138, and every row is now one sentence a reader can act on.
+
 ## 0.3.1 — 2026-10-07
 
 Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.3.1.md`](docs/releases/v0.3.1.md).

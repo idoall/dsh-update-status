@@ -170,13 +170,14 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 ## 兼容性
 
-当前发布：插件 **`0.3.1`** 已针对 DeepSeek Harness **`0.2.1-alpha.1`**（当前发布版）、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
+当前发布：插件 **`0.3.2`** 已针对 DeepSeek Harness **`0.2.1-alpha.1`**（当前发布版）、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.3.1`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 小补丁：设置页也说明了重启前提，长任务名不再把按钮挤走。 |
+| **`0.3.2`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 只改文档：版本对照表和历史发布说明都改成人话。功能与 `0.3.1` 完全一样 |
+| **`0.3.1`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 小补丁：设置页也说明了重启前提，长任务名不再把按钮挤走。 |
 | **`0.3.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 面板新增**重启**，以及它需要的那条服务安装命令；没装服务时按钮保持禁用并说明原因。 |
 | **`0.2.1`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 隐藏版本芯片后，品牌行恢复成 DSH 官方的名称与鱼标，而不是变成空白。 |
 | **`0.2.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 从「通道目录」改成「一条发布线」：面板只报 npm 上最新的版本，没有需要配置的东西。 |
@@ -200,7 +201,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 需要精确对应时显式指定版本：
 
   ```sh
-  dsh plugin --profile web add dsh-update-status@0.3.1   # DSH 0.2.1-alpha.1
+  dsh plugin --profile web add dsh-update-status@0.3.2   # DSH 0.2.1-alpha.1
   dsh plugin --profile web add dsh-update-status@0.2.0   # DSH 0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.12 # DSH 0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.11 # DSH 0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
@@ -217,7 +218,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 有两处声明让已验证的版本线能正常加载，并由测试守住：
   - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.3.0`，六个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。上界在 `0.1.11` 从 `<0.2.0` 放宽到 `<0.3.0` 是同一件事的镜像：DSH 会在 profile 加载时拒绝不兼容的 bundle，而裸的 `<0.2.0` 恰好排除 `0.2.0` 正式版——DSH `0.2.0` 发布当天插件就会被静默丢弃。DSH 判定时使用 `includePrerelease: true`，所以 `0.2.0-rc.2` 本来就在这个范围内，`0.1.12` 无需再动范围；反过来说，把范围写成 `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` 这类枚举的插件会因为 `>=0.2.0` 不接纳 `0.2.0` 预发布而被 rc.2 拒载。
   - `@deepseek-ai/schemastery` 是 **peer**，不是普通依赖：DSH 0.1.7 只从运行安装解析 link 插件的 peer 依赖，否则 `link:` 安装会连 Host 半边都 import 失败。
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [v0.3.0](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [v0.3.1](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [v0.3.0](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 
