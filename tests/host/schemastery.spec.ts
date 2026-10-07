@@ -17,7 +17,7 @@
  */
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import realSchema from '@deepseek-ai/schemastery'
@@ -179,7 +179,10 @@ describe('schema resolution', () => {
     const candidates = defaultSchemaCandidates()
     expect(candidates.at(-1)?.source).toBe('plugin-local')
     expect(new Set(candidates.map(candidate => candidate.source)).size).toBe(candidates.length)
-    for (const candidate of candidates) expect(candidate.anchor.startsWith('/')).toBe(true)
+    // The property is ABSOLUTENESS, not a leading slash: `createRequire` must never
+    // anchor on the process's working directory, and on Windows an absolute path
+    // starts with a drive letter. Asserting `/` made this spec macOS/Linux-only.
+    for (const candidate of candidates) expect(isAbsolute(candidate.anchor)).toBe(true)
   })
 
   it('describes a resolution in one line for the Host log', () => {
