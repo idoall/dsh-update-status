@@ -2,13 +2,16 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 0.3.0 — 2026-10-07
+
+Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.3.0.md`](docs/releases/v0.3.0.md).
 
 - **Opt-in, supervised DSH Web restart.** The update panel and settings page gain a guarded Restart control. It is disabled unless the current Host proves it is running under an explicitly installed user-level supervisor; the Host independently checks that fact, lists active agents/jobs/terminals, requires force confirmation for interruption, and exits only after its authenticated RPC response is sent. The browser waits for a different process instance ID before refreshing.
 - **Explicit cross-platform user-service CLI.** `dsh-update-status-service` renders/stages user-level launchd, systemd-user, or Windows Task Scheduler definitions from absolute Node/DSH paths. `plan --dry-run` writes nothing; `install` preflights without starting; `activate` refuses an occupied port and never kills an existing DSH. Full setup and removal guidance lives in [`docs/service-supervision.md`](docs/service-supervision.md).
 - **The activity gate no longer refuses on an isolate-scoped terminal registry.** On a real macOS host the first Restart click reported *active work could not be inspected* and disabled itself. `dsh-terminal` is composed **inside each agent** with `isolate: terminals`, so a root-level `ctx.get('terminals')` is `undefined` by construction — not a failed inspection. Terminals are now enumerated through each live agent's own context; a registry a Host simply does not provide means that Host owns no such work, while an unreadable or throwing one still fails closed. Five host specs cover the real-machine shape, including the live-PTY-of-an-idle-agent case.
 - **The README illustrations show the current panel**, in the language of each README: the running `0.2.1-alpha.1` reported up to date, its last-checked time, and the new guarded **Restart** action beside Check for updates and Release notes.
-- **No release is implied.** The user-service handoff and first genuine DSH restart remain explicit user actions; no tag, publish, or profile/service activation is performed by this development change.
+- **The suite now runs on macOS and Windows in CI**, which required dropping POSIX path assumptions from the service-plan specs and the shadowed-peer guard's symlink privilege dependency.
+- **Public promise updated**: from "read-only, never restarts" to "read-only plus one guarded restart after you explicitly install a user-level service".
 
 ## 0.2.1 — 2026-10-06
 
