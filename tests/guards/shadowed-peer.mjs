@@ -99,6 +99,20 @@ function makeWork() {
   return work
 }
 
+/**
+ * Plant a real directory at `target`. A symlink is the cheap form, but creating
+ * one on Windows needs a privilege the guard must not depend on, so a plain copy
+ * is the fallback. Module resolution sees the same directory either way, which is
+ * all this guard needs.
+ */
+function plantPlatformCopy(source, target) {
+  try {
+    symlinkSync(source, target, 'dir')
+  } catch {
+    cpSync(source, target, { recursive: true })
+  }
+}
+
 function run(entry, env) {
   const output = execFileSync(process.execPath, [script, '--scenario', entry], {
     encoding: 'utf8',
@@ -165,7 +179,7 @@ if (!existsSync(realSchemastery)) {
     const home = join(workB, '.dsh')
     const peers = join(home, 'profiles', 'node_modules', '@deepseek-ai')
     mkdirSync(peers, { recursive: true })
-    symlinkSync(realSchemastery, join(peers, 'schemastery'), 'dir')
+    plantPlatformCopy(realSchemastery, join(peers, 'schemastery'))
     const result = run(entry, {
       DSH_HOME: home,
       DSH_PROFILE: 'web',

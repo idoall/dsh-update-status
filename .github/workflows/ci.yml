@@ -10,11 +10,16 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (Node ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    name: Verify (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        # The service CLI renders OS-native definitions (launchd plist, systemd
+        # unit, Task Scheduler XML + PowerShell wrapper), so the same suite must
+        # run on all three platforms: it is the only regression coverage those
+        # renderers get without a real Windows/Linux host in the loop.
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node: [24.x]
     steps:
       - uses: actions/checkout@v7
