@@ -27,10 +27,10 @@
 
 > DSH Update Status is a community plugin for DeepSeek Harness. It does not modify DSH core, install or upgrade DSH, roll back DSH packages, download releases, or replace DSH files. It can request a **safe restart only after you explicitly install a verified user-level service** to supervise the current DSH Web process.
 
-It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact version chip that fits the 24px brand row, leaving the official fish mark untouched. A green dot next to the version means the running release is the newest one npm publishes; a breathing amber dot means a newer release exists — stable, release candidate or alpha. Tap the chip for the running version, the newer release, whether this plugin was verified against it, and a copy-only upgrade command pinned to that exact version.
+It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact version chip that fits the 24px brand row, leaving the official fish mark untouched. A green dot next to the version means the running release is the newest one npm publishes; a breathing amber dot means a newer release exists — stable, release candidate or alpha. Tap the chip for the running version, the newer release, whether this plugin was verified against it, a copy-only upgrade command pinned to that exact version, and the guarded **Restart** control that appears once you have installed user-level supervision.
 
 <p align="center">
-  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status panel: cache duration, the running 0.2.0-rc.2, a newer 0.2.1-alpha.1 marked verified compatible with its publish date, and a copy-only upgrade command pinned to that version">
+  <img src="./assets/update-panel.png" width="400" alt="DSH Update Status panel: cache duration, the running 0.2.1-alpha.1 reported up to date with its last-checked time, the actions Check for updates, Release notes and Restart, and a note that restart is available only under a user-installed service">
 </p>
 
 ## Features

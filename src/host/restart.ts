@@ -133,24 +133,25 @@ export function restartStatusOf(options: RestartControllerOptions = {}): Restart
 
 /** Same facts dsh-service lists before allowing its force-restart control. */
 export function collectActiveWork(ctx: ContextLike): RestartActivity {
+  const unavailable = (): RestartActivity => ({ available: false, hasActive: false, items: [] })
   const getter = typeof ctx.get === 'function' ? ctx.get.bind(ctx) : undefined
+  if (getter === undefined) return unavailable()
+
   let agentsFace: { list?: () => AgentLike[] } | undefined
   let jobsFace: { list?: (caller?: unknown) => JobLike[] } | undefined
-  let sharedTerminals: { list?: (owner: AgentLike) => TerminalLike[] } | undefined
   try {
-    agentsFace = getter?.('agents') as typeof agentsFace
-    jobsFace = getter?.('jobs') as typeof jobsFace
-    sharedTerminals = getter?.('terminals') as typeof sharedTerminals
+    agentsFace = getter('agents') as typeof agentsFace
+    jobsFace = getter('jobs') as typeof jobsFace
   } catch {
-    return { available: false, hasActive: false, items: [] }
+    return unavailable()
   }
-  // A "safe restart" must not quietly treat a broken activity registry as an
-  // empty one. We fail closed rather than silently cutting unseen work.
-  if (typeof agentsFace?.list !== 'function' || typeof jobsFace?.list !== 'function' || typeof sharedTerminals?.list !== 'function') {
-    return { available: false, hasActive: false, items: [] }
-  }
+  // The agent registry is the primary work unit: with it unreadable nothing can
+  // be enumerated by category, so that stays a refused restart. A registry this
+  // Host does not provide at all is a different fact and is handled per kind
+  // below, because such a kind cannot own any work in this process.
+  if (typeof agentsFace?.list !== 'function') return unavailable()
   let agents: AgentLike[]
-  try { agents = agentsFace.list() } catch { return { available: false, hasActive: false, items: [] } }
+  try { agents = agentsFace.list() } catch { return unavailable() }
   const items: RestartActivityItem[] = []
 
   for (const agent of agents) {
@@ -159,7 +160,11 @@ export function collectActiveWork(ctx: ContextLike): RestartActivity {
     items.push({ type: 'agent', id, label: id, status: 'running' })
   }
 
-  {
+  // A job registry owns every job, so a Host that provides none cannot have
+  // any; a registry that exists but fails to answer is precisely the incomplete
+  // inspection this gate refuses on.
+  if (jobsFace !== undefined) {
+    if (typeof jobsFace.list !== 'function') return unavailable()
     const byId = new Map<string, JobLike>()
     for (const caller of [undefined, ...agents.map(agent => agent.id)]) {
       try {
@@ -168,7 +173,7 @@ export function collectActiveWork(ctx: ContextLike): RestartActivity {
           byId.set(String(job.id), job)
         }
       } catch {
-        return { available: false, hasActive: false, items: [] }
+        return unavailable()
       }
     }
     for (const job of byId.values()) {
@@ -182,33 +187,40 @@ export function collectActiveWork(ctx: ContextLike): RestartActivity {
     }
   }
 
-  const terminals = new Map<string, { terminal: TerminalLike; owner: AgentLike }>()
+  // Terminals are deliberately NOT a root service: the PTY registry is composed
+  // inside each agent's own tree with `isolate: terminals`, so a root-level
+  // lookup is undefined by construction. The only correct path is that agent's
+  // context. No registry in that scope means the scope cannot own a PTY at all;
+  // an unreadable context or a throwing list is an incomplete inspection.
+  const terminals = new Map<string, TerminalLike>()
   for (const owner of agents) {
-    let face = sharedTerminals
+    const ownerCtx = owner.ctx
+    if (ownerCtx === undefined || typeof ownerCtx.get !== 'function') return unavailable()
+    let face: { list?: (owner: AgentLike) => TerminalLike[] } | undefined
     try {
-      const owned = typeof owner.ctx?.get === 'function' ? owner.ctx.get('terminals') : undefined
-      if (owned !== undefined) face = owned as typeof sharedTerminals
+      face = ownerCtx.get('terminals') as typeof face
     } catch {
-      // Keep the root service fallback.
+      return unavailable()
     }
-    if (typeof face?.list !== 'function') return { available: false, hasActive: false, items: [] }
+    if (face === undefined) continue
+    if (typeof face.list !== 'function') return unavailable()
     try {
       for (const terminal of face.list(owner)) {
         if (terminal.status?.kind !== 'running') continue
-        terminals.set(String(terminal.sessionId), { terminal, owner })
+        terminals.set(String(terminal.sessionId), terminal)
       }
     } catch {
-      return { available: false, hasActive: false, items: [] }
+      return unavailable()
     }
   }
-  for (const { terminal, owner } of terminals.values()) {
+  for (const terminal of terminals.values()) {
     const id = String(terminal.sessionId)
     items.push({
       type: 'terminal', id,
       label: typeof terminal.name === 'string' && terminal.name !== ''
         ? terminal.name
         : `${typeof terminal.type === 'string' ? terminal.type : 'terminal'} terminal`,
-      status: 'running', ownerSession: String(owner.id),
+      status: 'running',
     })
   }
   return { available: true, hasActive: items.length > 0, items }

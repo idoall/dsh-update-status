@@ -5,3 +5,5 @@ coverage/
 .tmp/
 *.tgz
 .DS_Store
+.playwright-mcp/
+.dsh-code-index/
