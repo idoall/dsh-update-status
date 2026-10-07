@@ -114,6 +114,15 @@ describe('update indicator styling', () => {
     expect(CSS).not.toContain('.dus-footer')
   })
 
+  it('marks the restart action and wraps its active-work list', () => {
+    // The destructive action keeps the theme warn token, and a real work list can
+    // contain an unbroken absolute path, so the list must break anywhere instead
+    // of widening the 390px panel.
+    expect(line('.dus-restart')).toContain('color:var(--dsw-alias-state-warn-primary)')
+    expect(line('.dus-restart-work')).toContain('overflow-wrap:anywhere')
+    expect(line('.dus-restart-message')).toContain('flex-basis:100%')
+  })
+
   it('carries no release-channel picker styling', () => {
     // One release line means no channel list, no channel select and no per-channel
     // action button. A selector outliving its markup is dead weight, so their
