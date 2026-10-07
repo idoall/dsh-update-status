@@ -121,6 +121,9 @@ describe('update indicator styling', () => {
     expect(line('.dus-restart')).toContain('color:var(--dsw-alias-state-warn-primary)')
     expect(line('.dus-restart-work')).toContain('overflow-wrap:anywhere')
     expect(line('.dus-restart-message')).toContain('flex-basis:100%')
+    // A job label is a whole shell command; two lines is all the card can spend on
+    // it before the confirm buttons get pushed out of the panel.
+    expect(line('.dus-restart-work li')).toContain('-webkit-line-clamp:2')
   })
 
   it('carries no release-channel picker styling', () => {

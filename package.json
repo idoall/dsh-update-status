@@ -1,6 +1,6 @@
 {
   "name": "dsh-update-status",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "DeepSeek Harness Web plugin for version status, copy-only upgrade guidance, and safe restart when an explicit user-level supervisor is installed.",
   "type": "module",
   "main": "lib/index.js",
@@ -32,7 +32,8 @@
     "assets/update-panel.zh.png",
     "assets/sidebar-chip.png",
     "docs/RELEASING.md",
-    "docs/service-supervision.md"
+    "docs/service-supervision.md",
+    "docs/platform-acceptance.md"
   ],
   "engines": {
     "node": ">=20"

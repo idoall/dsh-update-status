@@ -83,6 +83,9 @@ export const UPDATE_STATUS_CSS = `
 .dus-restart{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-primary)}
 .dus-restart-message{color:var(--dsw-alias-label-secondary);flex-basis:100%;font-size:11px;line-height:1.45;margin:0}
 .dus-restart-work{color:var(--dsw-alias-label-secondary);flex-basis:100%;font-size:11px;line-height:1.5;margin:0;overflow-wrap:anywhere;padding-left:18px}
+/* A job label is a whole shell command: clamp it so one long command cannot push
+   the panel's buttons off a 390px card. */
+.dus-restart-work li{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .dus-command-label{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:600;margin:0 0 6px}
 .dus-command{background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;display:block;font-family:var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:11px;line-height:1.5;margin:0;overflow-wrap:anywhere;padding:9px;tab-size:2;user-select:text;white-space:pre-wrap}
 .dus-command:focus{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}

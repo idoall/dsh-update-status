@@ -46,7 +46,7 @@
 - **仅复制命令**：根据安装来源，为**找到的那个确切版本**生成命令，不用会移动的 dist-tag，也从不执行。
 - **缓存但不轮询**：Host 挂载时检查一次，缓存可设为 30–1,440 分钟并合并并发请求；前端没有轮询，只有“检查更新”按钮绕过缓存。
 - **移动端可靠**：详情使用浏览器 modal top layer；底部 sheet 可滚动、适配 safe area，并保持在 DSH 抽屉上方。
-- **受监督的安全重启**：只有你显式完成用户级后台服务接管后，面板才可检查正在运行的 Agent/Job/Terminal、在会中断工作时要求二次强制确认、请求当前 Host 退出、等待新实例并自动刷新。终端直启、桌面版或未验证的 DSH 一律拒绝退出。
+- **受监督的安全重启**：一次性装好后台服务后，面板就能替你重启 DSH——它会先提醒会中断哪些工作，而终端直启或桌面应用托管的 DSH 会被直接拒绝。
 ## 安装
 
 要求：
@@ -127,7 +127,7 @@ npm install -g @deepseek-ai/dsh@0.2.1-alpha.1
 
 ## 受监督的重启
 
-Web 插件运行在它要重启的 `dsh web` 进程**内部**：它可以请求当前进程退出，却不能自行拉起替代进程。因此只有当前 Host 已证明自己由用户级服务管理器拥有时，重启按钮才会启用。
+插件没法自己重启 DSH：它就住在那个要被换掉的进程里。所以只有让操作系统来托管这个进程，按钮才有意义——而每个系统本来就自带这个能力。
 
 最短且安全的接管流程是显式在终端执行：
 
@@ -145,17 +145,17 @@ dsh plugin --profile web exec dsh-update-status-service activate \
   --workspace "$PWD"
 ```
 
-`activate` 发现目标端口仍被占用就会拒绝，**绝不会杀掉已有进程**，以避免 `EADDRINUSE` 循环。完成这一次接管后，红框中的**重启**按钮会先检查活动任务、必要时要求二次确认，再让当前 Host 退出；原生用户服务负责拉起新 Host，浏览器等到不同的进程实例 ID 后自动刷新。
+`activate` 发现端口还被占着就停手，绝不去杀进程，所以你正在用的 DSH 不会被突然掐掉。这之后就交给**重启**按钮：它先列出正在跑的东西，有东西在跑时再问一次，然后才让 DSH 退出；服务把新的拉起来，页面自己回来。
 
 | 平台 | 用户级拥有者 | 启动时机 | 接管后页面重启 | 说明 |
 | --- | --- | --- | --- | --- |
-| macOS | `launchd` LaunchAgent | 用户登录 | 可以 | 首个真机验证目标；不需要管理员。 |
-| Linux | `systemd --user` | 用户登录 | 已实现；请在你的机器上验证 | 登出后仍运行需可选的 `loginctl enable-linger`；CLI 不会自动启用。unit 模板有渲染测试，但尚未在真实 Linux 主机上跑过。 |
-| Windows | Task Scheduler + 当前用户 wrapper | 用户登录 | 提供模板；上线前须 Windows 真机验证 | 不需要管理员。 |
+| macOS | `launchd` LaunchAgent | 用户登录 | 可以 | 已真机验证；不需要管理员。 |
+| Linux | `systemd --user` | 用户登录 | 已实现；请在你自己机器上验证 | 想在登出后继续运行，可自行开启 `loginctl enable-linger`（本插件不会替你开）。 |
+| Windows | 任务计划程序 + 当前用户 wrapper | 用户登录 | 已实现；请在你自己机器上验证 | 不需要管理员。 |
 
-生成的服务定义使用绝对 Node/DSH 路径和最小、非敏感环境；不会复制终端里的 API key、npm token、cookie 或代理凭据。原生文件、日志、状态、修复和卸载见[用户服务监督说明](docs/service-supervision.md)。
+生成的服务文件里只有绝对路径，**没有密钥**——不会带上你终端里的 API key、npm token、cookie 或代理凭据。原生文件、日志、状态与卸载见[用户服务监督说明](docs/service-supervision.md)；想在 Linux 或 Windows 上自己确认，见[跨平台验收步骤](docs/platform-acceptance.md)。
 
-重启会中断运行中的工作，并不会保存或续跑它。按钮会列出活动 Agent、Job 与 Terminal，并在展示后才允许**强制重启**。如果无法完整读取活动工作、DSH Desktop 管理当前 Host，或当前进程仍是终端启动，Host 会拒绝请求——即使浏览器伪造了 RPC 也一样。
+重启会中断正在跑的工作，且不会保存。如果 DSH 列不出正在跑什么，或者它本来就是终端直启、桌面应用托管的，它会直接拒绝重启——网页端说什么都没用。
 
 ## 局域网（非回环页面）访问
 
@@ -170,13 +170,14 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 ## 兼容性
 
-当前发布：插件 **`0.3.0`** 已针对 DeepSeek Harness **`0.2.1-alpha.1`**（当前发布版）、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
+当前发布：插件 **`0.3.1`** 已针对 DeepSeek Harness **`0.2.1-alpha.1`**（当前发布版）、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.3.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 新增受监督的**重启**按钮与跨平台用户级服务 CLI（`plan`/`install`/`activate`/`status`/`stop`/`uninstall`）。没有用户级服务接管时按钮保持禁用；Host 会自行复核监督标记与平台身份、列出正在运行的 Agent/Job/终端，读不完整就拒绝。已在 macOS 真机跑通闭环：强制重启 → 退出码 `42` → launchd 拉起 → 页面自动刷新。公开承诺从「只读、绝不重启」变为「只读 + 安装用户级服务后的一次受限重启」 |
+| **`0.3.1`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 小补丁：设置页也说明重启前提，会中断的任务列表不再把按钮挤走；新增 Linux/Windows 自验步骤 |
+| **`0.3.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 新增受监督的**重启**按钮与跨平台用户级服务 CLI（`plan`/`install`/`activate`/`status`/`stop`/`uninstall`）。没有用户级服务接管时按钮保持禁用；Host 会自行复核监督标记与平台身份、列出正在运行的 Agent/Job/终端，读不完整就拒绝。已在 macOS 真机跑通闭环：强制重启 → 退出码 `42` → launchd 拉起 → 页面自动刷新。公开承诺从「只读、绝不重启」变为「只读 + 安装用户级服务后的一次受限重启」 |
 | **`0.2.1`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 修复「取消勾选后品牌行空白」：隐藏版本芯片时改为注销 `sidebar.brand.name` 注册，而不是留一个空白占用者，DSH 官方的鱼标与字标因此会回来；设置里的说明同步更新 |
 | **`0.2.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 从「通道目录」改为「一条发布线」：Host 只保留 npm 全部 dist-tag 里最新的那个版本（稳定版、RC、Alpha 一视同仁），面板直接显示当前运行版本；有更新时给出更新版本号与钉在它上面的命令。`channel` 偏好、通道列表与通道下拉框全部移除，设置区块显示同一份结论 |
 | **`0.1.12`** | `0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 声明兼容正在运行的 `0.2.0-rc.2`：逐包核对 `dsh.client.inject` 里 7 个包在 rc.1 → rc.2 之间的差异（仅 3 个文件有实质改动，本插件用到的接口面无一变化），把 `0.2.0-rc.2` 加入已验证清单，消除跟随 `latest` 时的「尚未验证兼容」提示；并在一次性 profile + 真实浏览器里实测芯片、面板与设置区块；代码零改动 |
@@ -199,7 +200,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 需要精确对应时显式指定版本：
 
   ```sh
-  dsh plugin --profile web add dsh-update-status@0.3.0   # DSH 0.2.1-alpha.1
+  dsh plugin --profile web add dsh-update-status@0.3.1   # DSH 0.2.1-alpha.1
   dsh plugin --profile web add dsh-update-status@0.2.0   # DSH 0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.12 # DSH 0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.11 # DSH 0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
@@ -216,7 +217,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 有两处声明让已验证的版本线能正常加载，并由测试守住：
   - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.3.0`，六个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。上界在 `0.1.11` 从 `<0.2.0` 放宽到 `<0.3.0` 是同一件事的镜像：DSH 会在 profile 加载时拒绝不兼容的 bundle，而裸的 `<0.2.0` 恰好排除 `0.2.0` 正式版——DSH `0.2.0` 发布当天插件就会被静默丢弃。DSH 判定时使用 `includePrerelease: true`，所以 `0.2.0-rc.2` 本来就在这个范围内，`0.1.12` 无需再动范围；反过来说，把范围写成 `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` 这类枚举的插件会因为 `>=0.2.0` 不接纳 `0.2.0` 预发布而被 rc.2 拒载。
   - `@deepseek-ai/schemastery` 是 **peer**，不是普通依赖：DSH 0.1.7 只从运行安装解析 link 插件的 peer 依赖，否则 `link:` 安装会连 Host 半边都 import 失败。
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [v0.3.0](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 

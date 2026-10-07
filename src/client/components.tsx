@@ -378,6 +378,7 @@ export function UpdateSettings({ ui }: { ui: SharedUi }): ReactNS.ReactElement {
           {status !== null && <a className="dus-action" href={status.changelogUrl} target="_blank" rel="noreferrer">{t('panel.releaseNotes')}</a>}
           <RestartControl restart={ui.restart} />
         </div>
+        <p className="dus-settings-hint">{t('panel.readOnly')}</p>
       </div>
     </section>
   )

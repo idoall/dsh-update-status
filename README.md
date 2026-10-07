@@ -46,7 +46,7 @@ It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact v
 - **Copy-only guidance** — generates an installation-kind-aware command for the exact newer version it found, never a dist-tag that can move, and never executes it.
 - **Cache without polling** — one Host check on mount, a configurable 30–1,440 minute cache, single-flight registry access, and no frontend polling. Only the Check for updates button bypasses the cache.
 - **Mobile-safe panel** — uses a modal browser top layer so the scrollable, safe-area-aware bottom sheet stays above the DSH drawer.
-- **Supervised safe restart** — after an explicit user-level service setup, the panel can check active agents/jobs/terminals, demand a second confirmation for interruption, ask the current Host to exit, wait for a distinct Host instance, and refresh itself. A terminal-started, desktop, or unverified DSH is refused rather than shut down.
+- **Supervised safe restart** — after a one-time service setup, the panel can restart DSH for you: it warns about the work it would interrupt, and refuses outright when DSH was started by hand or by the desktop app.
 
 ## Install
 
@@ -128,7 +128,7 @@ Nothing here installs anything. Choosing to follow a channel — and the `channe
 
 ## Supervised restart
 
-A Web plugin runs **inside** the `dsh web` process it is asking to restart: it can end that process, but cannot relaunch itself. The Restart button is consequently disabled unless the currently running Host proves it is owned by a user-level service manager.
+A plugin cannot restart DSH on its own: it lives inside the very process it would have to replace. So the button only works once your operating system owns that process — and every OS already ships a way to do that.
 
 The shortest safe setup is explicit and terminal-driven:
 
@@ -146,7 +146,7 @@ dsh plugin --profile web exec dsh-update-status-service activate \
   --workspace "$PWD"
 ```
 
-`activate` refuses to take over an occupied port and never kills a process. After the one-time handoff, the red-box **Restart** button checks activity, waits for a second confirmation where necessary, and only then exits the Host. The native user service returns it; the browser waits for a changed process instance ID and refreshes.
+`activate` stops if the port is still busy instead of killing anything, so the DSH you are already using is never taken down by surprise. From then on, **Restart** lists what is running, asks for a second confirmation when something is, and lets DSH exit; the service starts it again and the page comes back on its own.
 
 | Platform | User-level owner | Starts | Restart works after setup | Notes |
 | --- | --- | --- | --- | --- |
@@ -154,9 +154,9 @@ dsh plugin --profile web exec dsh-update-status-service activate \
 | Linux | `systemd --user` | at user login | Implemented; verify on your host | `loginctl enable-linger` is optional for running after logout and is never enabled automatically. The unit template is render-tested but has not been run on a real Linux host yet. |
 | Windows | Task Scheduler + current-user wrapper | at user logon | Template supplied; verify on Windows before production use | No administrator account required. |
 
-The generated definitions use absolute Node/DSH paths and a minimal, non-secret environment. They do **not** copy your terminal's API keys, npm tokens, cookies, or proxy credentials. See [user-service supervision](docs/service-supervision.md) for native files, logs, status, repair, and removal.
+The generated service files contain absolute paths and **no secrets** — never your API keys, npm tokens, cookies or proxy credentials. Native files, logs, status and removal: [user-service supervision](docs/service-supervision.md). To check Linux or Windows on your own machine: [platform acceptance](docs/platform-acceptance.md).
 
-A restart can interrupt running work; it does not save or resume it. The button lists active agents, jobs, and terminals and requires **Force restart** after showing them. If activity cannot be inspected, if DSH Desktop owns the Host, or if the current process was launched from a terminal, the Host refuses the request even if a browser sends a forged RPC.
+A restart interrupts running work and does not save it. If DSH cannot list what is running, or was started by hand or by the desktop app, it refuses to restart at all — a web page cannot talk it into it.
 
 ## LAN / non-loopback pages
 
@@ -171,13 +171,14 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current release: plugin **`0.3.0`** is verified against DeepSeek Harness **`0.2.1-alpha.1`** (the current release), **`0.2.0-rc.2`**, **`0.2.0-rc.1`**, **`0.1.7-rc.2`**, **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
+Current release: plugin **`0.3.1`** is verified against DeepSeek Harness **`0.2.1-alpha.1`** (the current release), **`0.2.0-rc.2`**, **`0.2.0-rc.1`**, **`0.1.7-rc.2`**, **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| **`0.3.0`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Adds the guarded **Restart** control and the cross-platform user-service CLI (`plan`/`install`/`activate`/`status`/`stop`/`uninstall`). Restart stays disabled until a user-level service supervises this Host; the Host re-checks the supervision marker and the platform identity, lists active agents/jobs/terminals, and refuses when it cannot inspect them. Verified end to end on a real macOS host: force restart → exit `42` → launchd relaunch → automatic page refresh. The public promise moves from "read-only, never restarts" to "read-only plus one guarded restart after you install a user-level service" |
+| **`0.3.1`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Small patch: the settings page explains restart too, long job labels can no longer push the buttons away, and there is now a Linux/Windows check page |
+| **`0.3.0`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Adds **Restart** to the panel, plus the one-command service setup it requires (`dsh-update-status-service`). Without that service the button stays disabled and says why. Verified end to end on macOS |
 | **`0.2.1`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Fixes the blank brand row: hiding the version chip disposes the `sidebar.brand.name` registration instead of leaving an empty occupant, so DSH's own fish mark and wordmark come back; the settings hint says so |
 | **`0.2.0`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | One release line instead of a channel catalogue: the Host keeps only the newest version any npm dist-tag points at (stable, release candidate or alpha) and the panel simply reports the running version, or names the newer release with a command pinned to it; the `channel` preference, the channel list and the per-channel select are gone, and the settings section shows the same single answer |
 | **`0.1.12`** | `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Declares compatibility with the running `0.2.0-rc.2`: audits all 7 packages in `dsh.client.inject` across rc.1 → rc.2 (only three files differ, and no surface this plugin uses is among them), adds `0.2.0-rc.2` to the verified list so following `latest` no longer shows the *not verified compatible* advisory, and re-verifies the chip, panel and settings section in a real browser on a disposable profile; zero code change |
@@ -200,7 +201,7 @@ Current release: plugin **`0.3.0`** is verified against DeepSeek Harness **`0.2.
 - Match them explicitly when it matters:
 
   ```sh
-  dsh plugin --profile web add dsh-update-status@0.3.0   # DSH 0.2.1-alpha.1
+  dsh plugin --profile web add dsh-update-status@0.3.1   # DSH 0.2.1-alpha.1
   dsh plugin --profile web add dsh-update-status@0.2.0   # DSH 0.2.1-alpha.1, 0.2.0-rc.2, 0.2.0-rc.1, 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.12 # DSH 0.2.0-rc.2, 0.2.0-rc.1, 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.1.11 # DSH 0.2.0-rc.1, 0.1.7-rc.2, 0.1.7-rc.1 or 0.1.7-alpha.2
@@ -217,7 +218,7 @@ Current release: plugin **`0.3.0`** is verified against DeepSeek Harness **`0.2.
 - Two declarations make the verified lines load at all, and a test keeps them honest:
   - `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` both declare `>=0.1.7-alpha.2 <0.3.0`, which admits all six verified releases. The lower bound names the alpha on purpose — under node-semver's default prerelease rule a range like `>=0.1.6-0 <0.2.0` does **not** admit `0.1.7-alpha.2`. The upper bound moved from `<0.2.0` to `<0.3.0` in `0.1.11` for the mirror-image reason: DSH refuses an incompatible bundle at profile load, and a plain `<0.2.0` excludes the `0.2.0` stable, so the day DSH `0.2.0` shipped the plugin would have been silently dropped. DSH evaluates the range with `includePrerelease: true`, so `0.2.0-rc.2` was already inside it and `0.1.12` needed no range change; conversely, a bundle that enumerates `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` is refused on rc.2, because `>=0.2.0` does not admit a `0.2.0` prerelease.
   - `@deepseek-ai/schemastery` is a **peer**, not a plain dependency: DSH 0.1.7 resolves only a linked plugin's peer dependencies from the running installation, so a `link:` install of this directory would otherwise fail to import the Host half.
-- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [v0.3.0](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
 
 ## Configuration
 
@@ -270,7 +271,7 @@ rm -rf ~/.dsh/profiles/<profile>/node_modules/dsh-update-status/node_modules
 - No package-manager process is spawned by plugin code.
 - `canApplyInPlace` is always `false`.
 - The plugin never installs, upgrades, rolls back, or replaces DSH files. Its separate, explicitly invoked service CLI stages only current-user service definitions; it never kills an occupied DSH port.
-- Restart is a POST-only authenticated Connection RPC, server-gated by an explicit native-service marker plus a platform identity check. Terminal, Desktop, unknown, and incomplete-activity environments refuse to exit.
+- Restart requests travel over DSH's authenticated channel and are re-checked by the Host itself: a hand-started, desktop, or un-inspectable DSH refuses to exit even when a page asks it to.
 - A failed refresh retains the last good cache and displays a warning; a cold failure still shows the local version.
 
 ## Uninstall

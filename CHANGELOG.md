@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## 0.3.1 — 2026-10-07
+
+Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.3.1.md`](docs/releases/v0.3.1.md).
+
+- **The settings page states the restart precondition.** `UpdateSettings` rendered the shared `RestartControl` but not the promise note that the panel carries, so an enabled button there had no explanation; it now reuses `panel.readOnly` under the action row.
+- **Long work labels no longer push the confirm buttons out of the card.** A job label is an entire shell command; `.dus-restart-work li` is clamped to two lines (`-webkit-line-clamp: 2`) while keeping full text selectable in the DOM, and `tests/client/styles.spec.ts` locks the rule.
+- **New `docs/platform-acceptance.md`**: the three-step real-machine check for Linux and Windows (plan → install → user-stops-DSH → activate), with the status commands to consult and the uninstall path. Linked from both READMEs.
+- **Both READMEs de-AI-ified** (per the project's writing rule): the 0.3.0 compatibility description went from a ~400-character paragraph of internals to one user-facing sentence, and the supervised-restart section now reads as instructions rather than mechanism.
+- **`docs/releases/v0.3.0.md` rewritten and the published GitHub Release body updated to match**: bilingual, one-line compatibility conclusion, three user-facing bullets, no internal identifiers or test counts.
+
 ## 0.3.0 — 2026-10-07
 
 Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.3.0.md`](docs/releases/v0.3.0.md).
