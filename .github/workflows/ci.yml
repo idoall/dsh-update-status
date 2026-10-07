@@ -10,7 +10,11 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (${{ matrix.os }}, Node ${{ matrix.node }})
+    # Each leg names its own check. The ubuntu leg deliberately keeps the exact
+    # legacy string: the repository's branch protection lists `Verify (Node 24.x)`
+    # as a required status check, so renaming it would leave that gate waiting for
+    # a check that can never report again.
+    name: ${{ matrix.check }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -19,8 +23,16 @@ jobs:
         # unit, Task Scheduler XML + PowerShell wrapper), so the same suite must
         # run on all three platforms: it is the only regression coverage those
         # renderers get without a real Windows/Linux host in the loop.
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node: [24.x]
+        include:
+          - os: ubuntu-latest
+            node: 24.x
+            check: Verify (Node 24.x)
+          - os: macos-latest
+            node: 24.x
+            check: Verify (macOS, Node 24.x)
+          - os: windows-latest
+            node: 24.x
+            check: Verify (Windows, Node 24.x)
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
