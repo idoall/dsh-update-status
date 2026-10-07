@@ -29,7 +29,7 @@
 
 import type { ClientContext, ConnectionClient } from './contract.ts'
 import { BrandName, type SharedUi, UpdatePanel, UpdateSettings } from './components.tsx'
-import { SETTINGS_NAMESPACE, PanelStore, PreferencesStore, StatusStore } from './stores.ts'
+import { SETTINGS_NAMESPACE, PanelStore, PreferencesStore, RestartStore, StatusStore } from './stores.ts'
 import { configFormScope, configFormsOf } from './settings/configFormScope.ts'
 import {
   createHostDirectScope,
@@ -74,7 +74,8 @@ function apply(ctx: ClientContext): void {
   const status = new StatusStore(connection)
   const preferences = new PreferencesStore()
   const panel = new PanelStore()
-  const ui: SharedUi = { status, preferences, panel }
+  const restart = new RestartStore(connection)
+  const ui: SharedUi = { status, preferences, panel, restart }
 
   const disposers: Array<() => void> = []
   let stopped = false
@@ -154,6 +155,7 @@ function apply(ctx: ClientContext): void {
         }
       }
       channel.dispose()
+      restart.stop()
       status.stop()
       disposeStyles()
     }
@@ -203,7 +205,7 @@ function apply(ctx: ClientContext): void {
   }
   if (typeof ctx.on === 'function') {
     try {
-      own(ctx.on('connection/reset', () => channel.reload()))
+      own(ctx.on('connection/reset', () => { channel.reload(); void restart.refresh() }))
     } catch {
       // No lifecycle event seam on this host.
     }

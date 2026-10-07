@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createUpdateStatusRpcHandler } from '../../src/host/rpc.ts'
+import { RestartController } from '../../src/host/restart.ts'
 import type { UpdateStatusService } from '../../src/host/update-status.ts'
 
 const status = {
@@ -31,6 +32,24 @@ describe('private update-status RPC shape', () => {
     await expect(handler('dsh-update-status.check-update', { force: 'yes' }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
     await expect(handler('dsh-update-status.get-status', { cacheTtlMinutes: 29 }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
     await expect(handler('anything-else', {}, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/unknown-endpoint' } })
+  })
+
+  it('serves restart status/check/request only through its controller and validates its trigger payload', async () => {
+    const fake = { getStatus: async () => status } as unknown as UpdateStatusService
+    const restart = new RestartController({
+      platform: 'darwin',
+      env: { DSH_WEB_SUPERVISOR: 'dsh-update-status', XPC_SERVICE_NAME: 'com.idoall.dsh-update-status.web' },
+      instanceId: 'host-one', schedule: () => {}, exit: () => {},
+    })
+    const host = { get: (name: string) => ({
+      agents: { list: () => [] }, jobs: { list: () => [] }, terminals: { list: () => [] }, timer: { timeout: () => {} },
+    })[name] }
+    const handler = createUpdateStatusRpcHandler(fake, restart, host as never)
+    const signal = new AbortController().signal
+    await expect(handler('dsh-update-status.restart-status', {}, signal)).resolves.toMatchObject({ ok: true, value: { instanceId: 'host-one', available: true } })
+    await expect(handler('dsh-update-status.restart-check', {}, signal)).resolves.toMatchObject({ ok: true, value: { kind: 'ready' } })
+    await expect(handler('dsh-update-status.restart', { force: false }, signal)).resolves.toMatchObject({ ok: false, error: { code: 'dsh-update-status/bad-request' } })
+    await expect(handler('dsh-update-status.restart', { force: false, expectedInstanceId: 'host-one' }, signal)).resolves.toEqual({ ok: true, value: { kind: 'scheduled', instanceId: 'host-one' } })
   })
 
   it('ignores an unknown payload key instead of rejecting the read', async () => {

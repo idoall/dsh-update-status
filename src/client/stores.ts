@@ -1,8 +1,8 @@
 /** Small observable stores shared by the independent sidebar and overlay slots. */
 
-import { DEFAULT_CACHE_TTL_MINUTES, isCacheTtlMinutes, PLUGIN_ID, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL, type UpdateStatus } from '../shared/types.ts'
-import type { ConnectionClient, Observable } from './contract.ts'
-import { errorMessage, updateStatusOf } from './contract.ts'
+import { DEFAULT_CACHE_TTL_MINUTES, isCacheTtlMinutes, PLUGIN_ID, RESTART_ENDPOINTS, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL, type UpdateStatus } from '../shared/types.ts'
+import type { ConnectionClient, Observable, RestartActivityItemValue, RestartPhase, RestartStatusValue } from './contract.ts'
+import { errorMessage, restartCheckOf, restartRequestOf, restartStatusOf, updateStatusOf } from './contract.ts'
 import type { SettingsScopeLike } from './settings/scopeFaces.ts'
 
 export interface StatusSnapshot {
@@ -211,6 +211,219 @@ export class PanelStore implements Observable<PanelSnapshot> {
 
   private set(next: PanelSnapshot): void {
     if (this.snapshot.open === next.open) return
+    this.snapshot = next
+    for (const listener of this.listeners) listener()
+  }
+}
+
+export interface RestartSnapshot {
+  phase: RestartPhase
+  status: RestartStatusValue | null
+  activity: readonly RestartActivityItemValue[]
+  elapsedMs: number
+  error: string | null
+}
+
+export interface RestartStoreOptions {
+  /** Injected by tests; defaults to browser timers. */
+  readonly schedule?: (callback: () => void, delay: number) => unknown
+  readonly cancel?: (handle: unknown) => void
+  /** Per-RPC safety timeout used only while the Host is restarting. */
+  readonly requestTimeout?: (callback: () => void, delay: number) => unknown
+  readonly cancelRequestTimeout?: (handle: unknown) => void
+  /** Same-origin liveness fallback when a new Host lacks this plugin route. */
+  readonly liveness?: () => Promise<boolean>
+  readonly reload?: () => void
+}
+
+const INITIAL_RESTART: RestartSnapshot = {
+  phase: 'unknown', status: null, activity: [], elapsedMs: 0, error: null,
+}
+
+/**
+ * Restart state belongs to the client entry, not a modal component, so closing
+ * the update panel cannot strand a confirmed restart half-way through recovery.
+ * It starts no timer until the user confirms a restart request.
+ */
+export class RestartStore implements Observable<RestartSnapshot> {
+  private snapshot: RestartSnapshot = INITIAL_RESTART
+  private readonly listeners = new Set<() => void>()
+  private timer: unknown
+  private generation = 0
+  private stopped = false
+  private readonly schedule: (callback: () => void, delay: number) => unknown
+  private readonly cancelTimer: (handle: unknown) => void
+  private readonly requestTimeout: (callback: () => void, delay: number) => unknown
+  private readonly cancelRequestTimeout: (handle: unknown) => void
+  private readonly liveness: () => Promise<boolean>
+  private readonly reload: () => void
+  private pendingAbort: AbortController | undefined
+  private reloaded = false
+
+  constructor(private readonly connection: ConnectionClient, options: RestartStoreOptions = {}) {
+    this.schedule = options.schedule ?? ((callback, delay) => window.setTimeout(callback, delay))
+    this.cancelTimer = options.cancel ?? (handle => { window.clearTimeout(handle as number) })
+    this.requestTimeout = options.requestTimeout ?? ((callback, delay) => window.setTimeout(callback, delay))
+    this.cancelRequestTimeout = options.cancelRequestTimeout ?? (handle => { window.clearTimeout(handle as number) })
+    this.liveness = options.liveness ?? (async () => {
+      try {
+        const response = await fetch(new URL('.', window.location.href), { method: 'HEAD', credentials: 'same-origin', cache: 'no-store' })
+        return response.status === 200 || response.status === 401
+      } catch { return false }
+    })
+    this.reload = options.reload ?? (() => window.location.reload())
+  }
+
+  getSnapshot = (): RestartSnapshot => this.snapshot
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+
+  stop(): void {
+    this.stopped = true
+    this.generation += 1
+    if (this.timer !== undefined) this.cancelTimer(this.timer)
+    this.timer = undefined
+    this.pendingAbort?.abort()
+    this.pendingAbort = undefined
+    this.listeners.clear()
+  }
+
+  /** Read capability on a visible surface; this is not a restart and never polls. */
+  async refresh(): Promise<void> {
+    if (this.snapshot.phase === 'waiting') return
+    const raw = await this.call(RESTART_ENDPOINTS.status, {})
+    if (raw === undefined) return
+    const status = restartStatusOf(raw)
+    if (status === undefined) {
+      this.publish({ ...this.snapshot, phase: 'error', error: 'invalid restart-status payload' })
+      return
+    }
+    this.publish({ phase: status.available ? 'idle' : 'idle', status, activity: [], elapsedMs: 0, error: null })
+  }
+
+  /** First click checks active work and arms the second, destructive action. */
+  async check(): Promise<void> {
+    this.publish({ ...this.snapshot, phase: 'checking', error: null })
+    const raw = await this.call(RESTART_ENDPOINTS.check, {})
+    if (raw === undefined) return
+    const checked = restartCheckOf(raw)
+    if (checked === undefined) {
+      this.publish({ ...this.snapshot, phase: 'error', error: 'invalid restart-check payload' })
+      return
+    }
+    if (checked.kind === 'unavailable') {
+      this.publish({ phase: 'idle', status: checked.status, activity: [], elapsedMs: 0, error: null })
+      return
+    }
+    this.publish({
+      phase: 'armed', status: checked.status,
+      activity: checked.activity?.items ?? [], elapsedMs: 0, error: null,
+    })
+  }
+
+  cancel(): void {
+    if (this.snapshot.phase !== 'armed' && this.snapshot.phase !== 'error' && this.snapshot.phase !== 'timeout') return
+    this.publish({ ...this.snapshot, phase: this.snapshot.status === null ? 'unknown' : 'idle', activity: [], elapsedMs: 0, error: null })
+  }
+
+  /** Second click emits the Host request; `force` is only true after the activity list was shown. */
+  async request(force: boolean): Promise<void> {
+    const current = this.snapshot
+    if (current.phase !== 'armed' || current.status === null || !current.status.available) return
+    this.publish({ ...current, phase: 'checking', error: null })
+    const raw = await this.call(RESTART_ENDPOINTS.request, { force, expectedInstanceId: current.status.instanceId })
+    if (raw === undefined) return
+    const result = restartRequestOf(raw)
+    if (result === undefined) {
+      this.publish({ ...this.snapshot, phase: 'error', error: 'invalid restart payload' })
+      return
+    }
+    if (result.kind === 'scheduled' || result.kind === 'in-progress') {
+      if (result.instanceId === undefined) {
+        this.publish({ ...this.snapshot, phase: 'error', error: 'restart response omitted instance identity' })
+        return
+      }
+      this.beginRecovery(result.instanceId)
+      return
+    }
+    if (result.kind === 'active-work' || result.kind === 'ready') {
+      this.publish({
+        phase: 'armed', status: result.status ?? current.status,
+        activity: result.activity?.items ?? [], elapsedMs: 0, error: null,
+      })
+      return
+    }
+    this.publish({ phase: 'idle', status: result.status ?? current.status, activity: [], elapsedMs: 0, error: null })
+  }
+
+  private beginRecovery(previousInstanceId: string): void {
+    const generation = ++this.generation
+    const startedAt = Date.now()
+    this.publish({ ...this.snapshot, phase: 'waiting', elapsedMs: 0, error: null })
+    const attempt = async (delay: number): Promise<void> => {
+      if (this.stopped || generation !== this.generation) return
+      const elapsedMs = Date.now() - startedAt
+      if (elapsedMs >= 60_000) {
+        this.publish({ ...this.snapshot, phase: 'timeout', elapsedMs, error: null })
+        return
+      }
+      this.timer = this.schedule(() => {
+        void (async () => {
+          if (this.stopped || generation !== this.generation) return
+          const raw = await this.call(RESTART_ENDPOINTS.status, {}, false, 4_000)
+          if (this.stopped || generation !== this.generation) return
+          const status = raw === undefined ? undefined : restartStatusOf(raw)
+          const nextElapsed = Date.now() - startedAt
+          if (status !== undefined && status.instanceId !== previousInstanceId) {
+            this.publish({ phase: 'waiting', status, activity: [], elapsedMs: nextElapsed, error: null })
+            if (!this.reloaded) { this.reloaded = true; this.reload() }
+            return
+          }
+          // A healthy carrier with no plugin route means the new DSH came back
+          // but this plugin did not load. Refresh so the page can show the real
+          // startup failure instead of claiming DSH is still down forever.
+          if (raw === undefined && await this.liveness()) {
+            if (!this.reloaded) { this.reloaded = true; this.reload() }
+            return
+          }
+          this.publish({ ...this.snapshot, phase: 'waiting', elapsedMs: nextElapsed })
+          await attempt(Math.min(delay * 2, 10_000))
+        })()
+      }, delay)
+    }
+    void attempt(1_000)
+  }
+
+  private async call(endpoint: string, payload: unknown, surfaceError: boolean = true, timeoutMs?: number): Promise<unknown | undefined> {
+    const rpc = this.connection.rpc
+    if (rpc === undefined || typeof rpc.call !== 'function') {
+      if (surfaceError) this.publish({ ...this.snapshot, phase: 'error', error: 'DSH connection RPC is unavailable' })
+      return undefined
+    }
+    const controller = timeoutMs === undefined ? undefined : new AbortController()
+    if (controller !== undefined) this.pendingAbort = controller
+    let timeout: unknown
+    if (controller !== undefined && timeoutMs !== undefined) timeout = this.requestTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const raw = await rpc.call(UPDATE_STATUS_CHANNEL, endpoint, payload, controller?.signal)
+      if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('invalid restart RPC response')
+      const envelope = raw as { ok?: unknown; value?: unknown; error?: { message?: unknown } }
+      if (envelope.ok !== true) throw new Error(typeof envelope.error?.message === 'string' ? envelope.error.message : 'restart RPC failed')
+      return envelope.value
+    } catch (error) {
+      if (surfaceError) this.publish({ ...this.snapshot, phase: 'error', error: errorMessage(error) })
+      return undefined
+    } finally {
+      if (timeout !== undefined) this.cancelRequestTimeout(timeout)
+      if (this.pendingAbort === controller) this.pendingAbort = undefined
+    }
+  }
+
+  private publish(next: RestartSnapshot): void {
+    if (this.stopped) return
     this.snapshot = next
     for (const listener of this.listeners) listener()
   }

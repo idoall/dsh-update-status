@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+- **Opt-in, supervised DSH Web restart.** The update panel and settings page gain a guarded Restart control. It is disabled unless the current Host proves it is running under an explicitly installed user-level supervisor; the Host independently checks that fact, lists active agents/jobs/terminals, requires force confirmation for interruption, and exits only after its authenticated RPC response is sent. The browser waits for a different process instance ID before refreshing.
+- **Explicit cross-platform user-service CLI.** `dsh-update-status-service` renders/stages user-level launchd, systemd-user, or Windows Task Scheduler definitions from absolute Node/DSH paths. `plan --dry-run` writes nothing; `install` preflights without starting; `activate` refuses an occupied port and never kills an existing DSH. Full setup and removal guidance lives in [`docs/service-supervision.md`](docs/service-supervision.md).
+- **No release is implied.** The user-service handoff and first genuine DSH restart remain explicit user actions; no tag, publish, or profile/service activation is performed by this development change.
+
 ## 0.2.1 — 2026-10-06
 
 Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Full bilingual release notes: [`docs/releases/v0.2.1.md`](docs/releases/v0.2.1.md).

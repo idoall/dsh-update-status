@@ -1,6 +1,6 @@
 <h1 align="center">DSH Update Status</h1>
 
-<p align="center">DeepSeek Harness Web 侧栏中的只读版本状态 Badge 与升级提示。</p>
+<p align="center">DeepSeek Harness Web 的版本状态、仅复制升级提示，以及需用户级服务监督的安全重启。</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/dsh-update-status"><img src="https://img.shields.io/npm/v/dsh-update-status?label=npm&color=CB3837" alt="npm 版本"></a>
@@ -15,6 +15,7 @@
   <a href="#安装">安装</a> ·
   <a href="#使用">使用</a> ·
   <a href="#更新检查">更新检查</a> ·
+  <a href="#受监督的重启">受监督的重启</a> ·
   <a href="#局域网非回环页面访问">局域网访问</a> ·
   <a href="#兼容性">兼容性</a> ·
   <a href="#配置">配置</a> ·
@@ -24,7 +25,7 @@
   <a href="docs/RELEASING.md">发布指南</a>
 </p>
 
-> DSH Update Status 是 DeepSeek Harness 社区插件。它不修改 DSH 核心，也绝不会安装、重启、回滚、下载或替换 DSH 文件。
+> DSH Update Status 是 DeepSeek Harness 社区插件。它不修改 DSH 核心，不会安装或升级 DSH、回滚 DSH 包、下载 release 或替换 DSH 文件；只有你显式安装并接管了当前 DSH Web 的用户级后台服务后，它才会请求一次受限的安全重启。
 
 插件只把展开侧栏中的品牌名称换成适配 24px 品牌行的 `DeepSeek + 版本芯片`，官方鱼标保持不变。版本号旁的**绿点**表示正在运行的版本就是 npm 上最新的那一版；**橙色呼吸圆点**表示线上有更新的版本——无论是稳定版、RC 还是 Alpha。点击芯片即可看到当前运行版本、更新的版本、本插件是否验证过它，以及钉在该确切版本上的“仅复制”升级命令。
 
@@ -45,7 +46,7 @@
 - **仅复制命令**：根据安装来源，为**找到的那个确切版本**生成命令，不用会移动的 dist-tag，也从不执行。
 - **缓存但不轮询**：Host 挂载时检查一次，缓存可设为 30–1,440 分钟并合并并发请求；前端没有轮询，只有“检查更新”按钮绕过缓存。
 - **移动端可靠**：详情使用浏览器 modal top layer；底部 sheet 可滚动、适配 safe area，并保持在 DSH 抽屉上方。
-
+- **受监督的安全重启**：只有你显式完成用户级后台服务接管后，面板才可检查正在运行的 Agent/Job/Terminal、在会中断工作时要求二次强制确认、请求当前 Host 退出、等待新实例并自动刷新。终端直启、桌面版或未验证的 DSH 一律拒绝退出。
 ## 安装
 
 要求：
@@ -85,7 +86,7 @@ dsh plugin --profile web add "link:$(pwd)"
 3. 看当前运行版本。当它就是 npm 上最新的那一版时，面板会直接说明，并且不提供任何要执行的命令。
 4. 当线上有更新的版本——稳定版、RC 或 Alpha 都一样——面板会给出它的版本号、发布时间，以及本插件是否验证过它。
 5. 复制生成的命令（已钉在该确切版本上），在**运行 DSH 的那台电脑**的终端中自行执行。
-6. 包管理器命令完成后，由你自行重启 DSH。
+6. 包管理器命令完成后，只有已完成[受监督的重启](#受监督的重启)接管时才使用面板里的**重启**；否则仍由你自行重启 DSH。
 
 全局安装时可能生成：
 
@@ -123,6 +124,38 @@ npm install -g @deepseek-ai/dsh@0.2.1-alpha.1
 - 面板与设置区块渲染同一个答案；升级命令写明所查到的确切版本。
 
 这里不会安装任何东西。跟随某条通道——以及保存它的 `channel` 偏好——已在 `0.2.0` 移除。
+
+## 受监督的重启
+
+Web 插件运行在它要重启的 `dsh web` 进程**内部**：它可以请求当前进程退出，却不能自行拉起替代进程。因此只有当前 Host 已证明自己由用户级服务管理器拥有时，重启按钮才会启用。
+
+最短且安全的接管流程是显式在终端执行：
+
+```sh
+# 1. 只预览完整的原生服务计划：不写文件，不启动服务。
+dsh plugin --profile web exec dsh-update-status-service plan \
+  --workspace "$PWD" --dry-run
+
+# 2. 只落盘用户服务定义：仍然不会启动它。
+dsh plugin --profile web exec dsh-update-status-service install \
+  --workspace "$PWD"
+
+# 3. 由你自己在旧终端停止直启的 dsh web，再激活服务。
+dsh plugin --profile web exec dsh-update-status-service activate \
+  --workspace "$PWD"
+```
+
+`activate` 发现目标端口仍被占用就会拒绝，**绝不会杀掉已有进程**，以避免 `EADDRINUSE` 循环。完成这一次接管后，红框中的**重启**按钮会先检查活动任务、必要时要求二次确认，再让当前 Host 退出；原生用户服务负责拉起新 Host，浏览器等到不同的进程实例 ID 后自动刷新。
+
+| 平台 | 用户级拥有者 | 启动时机 | 接管后页面重启 | 说明 |
+| --- | --- | --- | --- | --- |
+| macOS | `launchd` LaunchAgent | 用户登录 | 可以 | 首个真机验证目标；不需要管理员。 |
+| Linux | `systemd --user` | 用户登录 | 可以 | 登出后仍运行需可选的 `loginctl enable-linger`；CLI 不会自动启用。 |
+| Windows | Task Scheduler + 当前用户 wrapper | 用户登录 | 提供模板；上线前须 Windows 真机验证 | 不需要管理员。 |
+
+生成的服务定义使用绝对 Node/DSH 路径和最小、非敏感环境；不会复制终端里的 API key、npm token、cookie 或代理凭据。原生文件、日志、状态、修复和卸载见[用户服务监督说明](docs/service-supervision.md)。
+
+重启会中断运行中的工作，并不会保存或续跑它。按钮会列出活动 Agent、Job 与 Terminal，并在展示后才允许**强制重启**。如果无法完整读取活动工作、DSH Desktop 管理当前 Host，或当前进程仍是终端启动，Host 会拒绝请求——即使浏览器伪造了 RPC 也一样。
 
 ## 局域网（非回环页面）访问
 
@@ -234,7 +267,8 @@ rm -rf ~/.dsh/profiles/<profile>/node_modules/dsh-update-status/node_modules
 - 不注册公共 Remote Service，也不注册模型 Tool。
 - 插件代码不会启动 npm/pnpm 子进程。
 - `canApplyInPlace` 恒为 `false`。
-- 没有“立即更新”、自动安装、重启、回滚或 release 文件替换。
+- 插件不会安装、升级、回滚或替换 DSH 文件。单独、显式执行的服务 CLI 只会落盘当前用户的服务定义，绝不会杀掉占用端口的 DSH。
+- 重启是只接受 POST 的已认证 Connection RPC，并由服务端同时检查明确的原生服务标记与平台身份；终端直启、桌面版、未知环境或无法完整检查活动工作时均拒绝退出。
 - 刷新失败时保留最后一次成功缓存并显示警告；冷启动失败也会保留本地版本信息。
 
 ## 卸载

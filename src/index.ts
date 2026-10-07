@@ -3,6 +3,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { detectInstallation } from './host/installation.ts'
 import { installUpdateStatusRpc } from './host/rpc.ts'
+import { createRestartController } from './host/restart.ts'
 import { describeSchemaRuntime, schemaRuntime } from './host/schemastery.ts'
 import { Config, installSettings, type UpdateStatusConfig } from './host/settings.ts'
 import { createRegistryFetcher, DEFAULT_TIMEOUT_MS, describeWarning, UpdateStatusService } from './host/update-status.ts'
@@ -45,7 +46,9 @@ export function apply(ctx: Context, config: Config = {}): void {
   })
 
   installSettings(ctx)
-  installUpdateStatusRpc(ctx, service)
+  // One controller per Host generation supplies the instance identity the
+  // browser uses to distinguish a recovered process from a mere reconnect.
+  installUpdateStatusRpc(ctx, service, createRestartController())
 
   // One process-mount check, shared with every later browser request through
   // the service's single-flight promise and six-hour TTL. No interval exists.

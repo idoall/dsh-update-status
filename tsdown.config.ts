@@ -26,7 +26,7 @@ const NODE_ENV = process.env.NODE_ENV ?? 'production'
 export default defineConfig([
   {
     name: pkg.name,
-    entry: { index: 'src/index.ts' },
+    entry: { index: 'src/index.ts', 'service-cli': 'src/service/cli.ts' },
     outDir: 'lib',
     format: ['esm'],
     platform: 'node',

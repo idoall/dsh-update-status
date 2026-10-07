@@ -3,7 +3,7 @@
 import type * as ReactNS from 'react'
 import { isChipProblem, visualState } from '../shared/visual-state.ts'
 import { MAX_CACHE_TTL_MINUTES, MIN_CACHE_TTL_MINUTES, isCacheTtlMinutes, type ReleaseCompatibility, type UpdateStatus } from '../shared/types.ts'
-import type { PreferencesStore, PanelStore, StatusStore } from './stores.ts'
+import type { PreferencesStore, PanelStore, RestartStore, StatusStore } from './stores.ts'
 import { localizedUpgradeGuidance, localizedWarning, t } from './i18n.ts'
 import { React, h } from './react.ts'
 
@@ -84,6 +84,7 @@ export interface SharedUi {
   status: StatusStore
   preferences: PreferencesStore
   panel: PanelStore
+  restart: RestartStore
 }
 
 /** Occupies ONLY sidebar.brand.name; the official fish mark stays untouched. */
@@ -136,6 +137,54 @@ export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null
       </span>
     </span>
   )
+}
+
+function restartUnavailableText(reason: 'not-supervised' | 'desktop' | 'supervisor-mismatch' | 'activity-unavailable' | 'timer-unavailable' | 'stale-instance' | null | undefined): string {
+  if (reason === 'desktop') return t('restart.unavailableDesktop')
+  if (reason === 'supervisor-mismatch') return t('restart.unavailableMismatch')
+  if (reason === 'activity-unavailable') return t('restart.unavailableActivity')
+  if (reason === 'timer-unavailable') return t('restart.unavailableTimer')
+  if (reason === 'stale-instance') return t('restart.unavailableStale')
+  return t('restart.unavailable')
+}
+
+function RestartControl({ restart }: { restart: RestartStore }): ReactNS.ReactElement {
+  const snapshot = useObservable(restart)
+  React.useEffect(() => { void restart.refresh() }, [restart])
+  const unavailable = snapshot.status !== null && !snapshot.status.available
+  const hasActivity = snapshot.activity.length > 0
+  const waiting = snapshot.phase === 'waiting'
+  const label = snapshot.phase === 'unknown' ? t('restart.loading')
+    : snapshot.phase === 'checking' ? t('restart.checking')
+      : snapshot.phase === 'armed' ? (hasActivity ? t('restart.force') : t('restart.confirm'))
+        : waiting ? t('restart.waitingShort')
+          : snapshot.phase === 'timeout' ? t('restart.retry')
+            : snapshot.phase === 'error' ? t('restart.retry')
+              : t('restart.button')
+  const disabled = snapshot.phase === 'unknown' || snapshot.phase === 'checking' || waiting || unavailable
+  const click = (): void => {
+    if (snapshot.phase === 'armed') { void restart.request(hasActivity); return }
+    if (snapshot.phase === 'timeout' || snapshot.phase === 'error') { void restart.check(); return }
+    void restart.check()
+  }
+  return <>
+    <button
+      className="dus-action dus-restart"
+      type="button"
+      disabled={disabled}
+      title={unavailable ? restartUnavailableText(snapshot.status?.unavailableReason) : t('restart.title')}
+      onClick={click}
+    >{label}</button>
+    {snapshot.phase === 'armed' && <button className="dus-action" type="button" onClick={() => restart.cancel()}>{t('restart.cancel')}</button>}
+    {unavailable && <p className="dus-restart-message" role="status">{restartUnavailableText(snapshot.status?.unavailableReason)}</p>}
+    {snapshot.phase === 'armed' && <p className="dus-restart-message" role="status">
+      {hasActivity ? t('restart.activeWarning', { count: String(snapshot.activity.length) }) : t('restart.confirmHint')}
+    </p>}
+    {hasActivity && snapshot.phase === 'armed' && <ul className="dus-restart-work">{snapshot.activity.map(item => <li key={`${item.type}:${item.id}`}>{item.label} · {item.status}</li>)}</ul>}
+    {waiting && <p className="dus-restart-message" role="status">{t('restart.waiting', { seconds: String(Math.floor(snapshot.elapsedMs / 1000)) })}</p>}
+    {snapshot.phase === 'timeout' && <p className="dus-restart-message" role="alert">{t('restart.timeout')}</p>}
+    {snapshot.phase === 'error' && snapshot.error !== null && <p className="dus-restart-message" role="alert">{snapshot.error}</p>}
+  </>
 }
 
 function statusSummary(status: UpdateStatus | null, loading: boolean, error: string | null): { kind: 'update' | 'ok' | 'warning' | 'error'; text: string } {
@@ -282,6 +331,7 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
             {snapshot.loading ? t('panel.checking') : t('panel.check')}
           </button>
           {status !== null && <a className="dus-action" href={status.changelogUrl} target="_blank" rel="noreferrer">{t('panel.releaseNotes')}</a>}
+          <RestartControl restart={ui.restart} />
         </div>
 
         {hasUpdate && <CommandBlock command={command} disabled={snapshot.loading} />}
@@ -326,6 +376,7 @@ export function UpdateSettings({ ui }: { ui: SharedUi }): ReactNS.ReactElement {
             {snapshot.loading ? t('panel.checking') : t('panel.check')}
           </button>
           {status !== null && <a className="dus-action" href={status.changelogUrl} target="_blank" rel="noreferrer">{t('panel.releaseNotes')}</a>}
+          <RestartControl restart={ui.restart} />
         </div>
       </div>
     </section>

@@ -1,8 +1,9 @@
 /** Authenticated static-plugin RPC on Connection's shared `/api` Fetch channel. */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { isCacheTtlMinutes, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL } from '../shared/types.ts'
+import { RESTART_ENDPOINTS, UPDATE_ENDPOINTS, UPDATE_STATUS_CHANNEL, isCacheTtlMinutes } from '../shared/types.ts'
 import type { CheckUpdateRequest, UpdateStatus } from '../shared/types.ts'
+import type { RestartController } from './restart.ts'
 import type { UpdateStatusService } from './update-status.ts'
 
 export interface RpcFailure {
@@ -12,13 +13,12 @@ export interface RpcFailure {
 
 export interface RpcSuccess {
   ok: true
-  value: UpdateStatus
+  value: unknown
 }
 
 export type RpcResult = RpcSuccess | RpcFailure
 
 type ConnectionRpcHandler = (endpoint: string, payload: unknown, signal: AbortSignal) => Promise<RpcResult>
-
 type ConnectionFetchMethod = 'GET' | 'HEAD' | 'POST'
 
 interface ConnectionFetchRoute {
@@ -29,9 +29,7 @@ interface ConnectionFetchRoute {
 }
 
 interface ConnectionHostFace {
-  fetch?: {
-    register?: (route: ConnectionFetchRoute) => () => void | Promise<void>
-  }
+  fetch?: { register?: (route: ConnectionFetchRoute) => () => void | Promise<void> }
 }
 
 type ConnectionOwnerContext = Context & { connection: ConnectionHostFace }
@@ -52,12 +50,16 @@ function requestOf(value: unknown): CheckUpdateRequest | undefined {
   }
 }
 
+function restartRequestOf(value: unknown): { force: boolean; expectedInstanceId: string } | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  if (record.force !== undefined && typeof record.force !== 'boolean') return undefined
+  if (typeof record.expectedInstanceId !== 'string' || record.expectedInstanceId === '') return undefined
+  return { force: record.force === true, expectedInstanceId: record.expectedInstanceId }
+}
+
 function jsonResponse(rpcId: string, result: RpcResult): Response {
-  return Response.json({
-    type: 'server-response',
-    rpcId,
-    result,
-  })
+  return Response.json({ type: 'server-response', rpcId, result })
 }
 
 /** Envelope-compatible Fetch adapter for one namespaced `/api` endpoint. */
@@ -71,27 +73,23 @@ export async function dispatchUpdateStatusFetch(
     return new Response('content type must be application/json', { status: 415 })
   }
   let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return new Response('body is not JSON', { status: 400 })
-  }
-  const record = body !== null && typeof body === 'object' && !Array.isArray(body)
-    ? body as Record<string, unknown>
-    : {}
+  try { body = await request.json() } catch { return new Response('body is not JSON', { status: 400 }) }
+  const record = body !== null && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : {}
   const rpcId = typeof record.rpcId === 'string' ? record.rpcId : 'invalid-request'
   if (record.type !== 'client-request' || record.method !== endpoint) {
     return jsonResponse(rpcId, failure('gateway/bad-request', 'invalid client-request message'))
   }
-  try {
-    return jsonResponse(rpcId, await handler(endpoint, record.payload, request.signal))
-  } catch (error) {
+  try { return jsonResponse(rpcId, await handler(endpoint, record.payload, request.signal)) } catch (error) {
     return new Response(`handler failure: ${String(error)}`, { status: 500 })
   }
 }
 
 /** Endpoint dispatcher, exported to allow exact JSON-shape tests without a Host. */
-export function createUpdateStatusRpcHandler(service: UpdateStatusService): ConnectionRpcHandler {
+export function createUpdateStatusRpcHandler(
+  service: UpdateStatusService,
+  restart?: RestartController,
+  restartContext?: Context,
+): ConnectionRpcHandler {
   return async (endpoint, payload) => {
     try {
       if (endpoint === UPDATE_ENDPOINTS.getStatus) {
@@ -104,6 +102,20 @@ export function createUpdateStatusRpcHandler(service: UpdateStatusService): Conn
         if (request === undefined) return failure('dsh-update-status/bad-request', '`force` must be boolean and `cacheTtlMinutes` must be an integer from 30 to 1440')
         return { ok: true, value: await service.check(request.force === true, request.cacheTtlMinutes) }
       }
+      if (endpoint === RESTART_ENDPOINTS.status) {
+        if (restart === undefined) return failure('dsh-update-status/restart-unavailable', 'restart support is not configured')
+        return { ok: true, value: restart.status() }
+      }
+      if (endpoint === RESTART_ENDPOINTS.check) {
+        if (restart === undefined || restartContext === undefined) return failure('dsh-update-status/restart-unavailable', 'restart support is not configured')
+        return { ok: true, value: restart.check(restartContext) }
+      }
+      if (endpoint === RESTART_ENDPOINTS.request) {
+        const request = restartRequestOf(payload)
+        if (request === undefined) return failure('dsh-update-status/bad-request', '`force` must be boolean')
+        if (restart === undefined || restartContext === undefined) return failure('dsh-update-status/restart-unavailable', 'restart support is not configured')
+        return { ok: true, value: restart.request(restartContext, request.force, request.expectedInstanceId) }
+      }
       return failure('dsh-update-status/unknown-endpoint', `unknown endpoint: ${endpoint}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -114,25 +126,21 @@ export function createUpdateStatusRpcHandler(service: UpdateStatusService): Conn
 
 /**
  * Static packages do not receive dynamic Cordis's `harness.handle` closure.
- * DSH 0.1.5 serves browser unary RPC only on the shared `/api` channel; a
- * private prefix such as `/dsh-update-status` is answered by the SPA fallback
- * with HTTP 405. Exact Fetch routes on `/api/<endpoint>` are dispatched by
- * Connection before the Typert interceptor and do not need a new HTTP prefix.
+ * Exact Fetch routes on `/api/<endpoint>` are dispatched by Connection after
+ * its Host/Origin and cookie admission. Every destructive restart request is
+ * therefore authenticated before it reaches this plugin.
  */
-export function installUpdateStatusRpc(ctx: Context, service: UpdateStatusService): void {
-  const handler = createUpdateStatusRpcHandler(service)
+export function installUpdateStatusRpc(ctx: Context, service: UpdateStatusService, restart: RestartController): void {
+  const handler = createUpdateStatusRpcHandler(service, restart, ctx)
   ctx.inject(['connection'], (owned) => {
     const connection = (owned as ConnectionOwnerContext).connection
-    const register = typeof connection.fetch?.register === 'function'
-      ? connection.fetch.register.bind(connection.fetch)
-      : undefined
+    const register = typeof connection.fetch?.register === 'function' ? connection.fetch.register.bind(connection.fetch) : undefined
     if (register === undefined) return
     try {
-      for (const endpoint of Object.values(UPDATE_ENDPOINTS)) {
+      for (const endpoint of [...Object.values(UPDATE_ENDPOINTS), ...Object.values(RESTART_ENDPOINTS)]) {
         register({
           path: `${UPDATE_STATUS_CHANNEL}/${endpoint}`,
-          methods: ['POST'],
-          requestBody: 'buffered',
+          methods: ['POST'], requestBody: 'buffered',
           fetch: (request) => dispatchUpdateStatusFetch(endpoint, handler, request),
         })
       }
@@ -141,3 +149,5 @@ export function installUpdateStatusRpc(ctx: Context, service: UpdateStatusServic
     }
   })
 }
+
+export type { UpdateStatus }

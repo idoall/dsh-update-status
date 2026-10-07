@@ -2,6 +2,37 @@
 
 import type { UpdateStatus, UpdateWarning } from '../shared/types.ts'
 
+export type RestartPhase = 'unknown' | 'idle' | 'armed' | 'checking' | 'waiting' | 'timeout' | 'error'
+
+export interface RestartStatusValue {
+  instanceId: string
+  available: boolean
+  supervisor: 'launchd' | 'systemd' | 'task-scheduler' | 'unknown' | null
+  unavailableReason: 'not-supervised' | 'desktop' | 'supervisor-mismatch' | 'activity-unavailable' | 'timer-unavailable' | 'stale-instance' | null
+}
+
+export interface RestartActivityItemValue {
+  type: 'agent' | 'job' | 'terminal'
+  id: string
+  label: string
+  status: string
+  ownerSession?: string
+}
+
+export interface RestartCheckValue {
+  kind: 'ready' | 'active-work' | 'unavailable'
+  status: RestartStatusValue
+  activity?: { hasActive: boolean; items: RestartActivityItemValue[] }
+}
+
+export interface RestartRequestValue {
+  kind: 'ready' | 'active-work' | 'unavailable' | 'scheduled' | 'in-progress'
+  status?: RestartStatusValue
+  activity?: { hasActive: boolean; items: RestartActivityItemValue[] }
+  instanceId?: string
+}
+
+
 export interface Observable<T> {
   getSnapshot(): T
   subscribe(listener: () => void): () => void
@@ -52,6 +83,60 @@ export interface ClientContext {
 export function errorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error)
   return text.replace(/\s+/g, ' ').trim().slice(0, 220) || 'unknown error'
+}
+
+function objectOf(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+}
+
+export function restartStatusOf(value: unknown): RestartStatusValue | undefined {
+  const record = objectOf(value)
+  if (record === undefined || typeof record.instanceId !== 'string' || record.instanceId === '' || typeof record.available !== 'boolean') return undefined
+  const supervisor = record.supervisor === null ? null
+    : record.supervisor === 'launchd' || record.supervisor === 'systemd' || record.supervisor === 'task-scheduler' || record.supervisor === 'unknown'
+      ? record.supervisor : undefined
+  const unavailableReason = record.unavailableReason === null ? null
+    : record.unavailableReason === 'not-supervised' || record.unavailableReason === 'desktop' || record.unavailableReason === 'supervisor-mismatch' || record.unavailableReason === 'activity-unavailable' || record.unavailableReason === 'timer-unavailable' || record.unavailableReason === 'stale-instance'
+      ? record.unavailableReason : undefined
+  if (supervisor === undefined || unavailableReason === undefined) return undefined
+  if (record.available && (supervisor === null || unavailableReason !== null)) return undefined
+  if (!record.available && unavailableReason === null) return undefined
+  return { instanceId: record.instanceId, available: record.available, supervisor, unavailableReason }
+}
+
+function restartActivityOf(value: unknown): { hasActive: boolean; items: RestartActivityItemValue[] } | undefined {
+  const record = objectOf(value)
+  if (record === undefined || typeof record.hasActive !== 'boolean' || !Array.isArray(record.items)) return undefined
+  const items: RestartActivityItemValue[] = []
+  for (const raw of record.items) {
+    const item = objectOf(raw)
+    if (item === undefined || (item.type !== 'agent' && item.type !== 'job' && item.type !== 'terminal')
+      || typeof item.id !== 'string' || typeof item.label !== 'string' || typeof item.status !== 'string') return undefined
+    if (item.ownerSession !== undefined && typeof item.ownerSession !== 'string') return undefined
+    items.push({ type: item.type, id: item.id, label: item.label, status: item.status, ...(item.ownerSession === undefined ? {} : { ownerSession: item.ownerSession }) })
+  }
+  if (record.hasActive !== (items.length > 0)) return undefined
+  return { hasActive: record.hasActive, items }
+}
+
+export function restartCheckOf(value: unknown): RestartCheckValue | undefined {
+  const record = objectOf(value)
+  if (record === undefined || (record.kind !== 'ready' && record.kind !== 'active-work' && record.kind !== 'unavailable')) return undefined
+  const status = restartStatusOf(record.status)
+  if (status === undefined) return undefined
+  const activity = record.activity === undefined ? undefined : restartActivityOf(record.activity)
+  if (record.activity !== undefined && activity === undefined) return undefined
+  if (record.kind === 'active-work' && (activity === undefined || !activity.hasActive)) return undefined
+  if (record.kind !== 'active-work' && activity !== undefined) return undefined
+  return { kind: record.kind, status, ...(activity === undefined ? {} : { activity }) }
+}
+
+export function restartRequestOf(value: unknown): RestartRequestValue | undefined {
+  const record = objectOf(value)
+  if (record === undefined || (record.kind !== 'ready' && record.kind !== 'active-work' && record.kind !== 'unavailable' && record.kind !== 'scheduled' && record.kind !== 'in-progress')) return undefined
+  if (record.kind === 'scheduled' || record.kind === 'in-progress') return typeof record.instanceId === 'string' && record.instanceId !== '' ? { kind: record.kind, instanceId: record.instanceId } : undefined
+  const check = restartCheckOf(record)
+  return check === undefined ? undefined : check
 }
 
 function stringOrNull(value: unknown): string | null {

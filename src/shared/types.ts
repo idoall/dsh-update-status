@@ -38,7 +38,15 @@ export const UPDATE_ENDPOINTS = {
   checkUpdate: 'dsh-update-status.check-update',
 } as const
 
+/** Restart RPC remains on the same authenticated Connection `/api` channel. */
+export const RESTART_ENDPOINTS = {
+  status: 'dsh-update-status.restart-status',
+  check: 'dsh-update-status.restart-check',
+  request: 'dsh-update-status.restart',
+} as const
+
 export type UpdateEndpoint = (typeof UPDATE_ENDPOINTS)[keyof typeof UPDATE_ENDPOINTS]
+export type RestartEndpoint = (typeof RESTART_ENDPOINTS)[keyof typeof RESTART_ENDPOINTS]
 export type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible'
 /**
  * Severity of `warning`, so a surface can tell "the plugin could not determine

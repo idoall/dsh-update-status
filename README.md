@@ -1,6 +1,6 @@
 <h1 align="center">DSH Update Status</h1>
 
-<p align="center">A read-only version badge and upgrade prompt for the DeepSeek Harness Web sidebar.</p>
+<p align="center">A DSH Web version-status panel with copy-only upgrade guidance and opt-in, supervised safe restart.</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/dsh-update-status"><img src="https://img.shields.io/npm/v/dsh-update-status?label=npm&color=CB3837" alt="npm version"></a>
@@ -15,6 +15,7 @@
   <a href="#install">Install</a> ·
   <a href="#usage">Usage</a> ·
   <a href="#update-check">Update check</a> ·
+  <a href="#supervised-restart">Supervised restart</a> ·
   <a href="#lan--non-loopback-pages">LAN pages</a> ·
   <a href="#compatibility">Compatibility</a> ·
   <a href="#configuration">Configuration</a> ·
@@ -24,7 +25,7 @@
   <a href="docs/RELEASING.md">Release guide</a>
 </p>
 
-> DSH Update Status is a community plugin for DeepSeek Harness. It does not modify DSH core and it never installs, restarts, rolls back, downloads, or replaces DSH files.
+> DSH Update Status is a community plugin for DeepSeek Harness. It does not modify DSH core, install or upgrade DSH, roll back DSH packages, download releases, or replace DSH files. It can request a **safe restart only after you explicitly install a verified user-level service** to supervise the current DSH Web process.
 
 It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact version chip that fits the 24px brand row, leaving the official fish mark untouched. A green dot next to the version means the running release is the newest one npm publishes; a breathing amber dot means a newer release exists — stable, release candidate or alpha. Tap the chip for the running version, the newer release, whether this plugin was verified against it, and a copy-only upgrade command pinned to that exact version.
 
@@ -45,6 +46,7 @@ It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact v
 - **Copy-only guidance** — generates an installation-kind-aware command for the exact newer version it found, never a dist-tag that can move, and never executes it.
 - **Cache without polling** — one Host check on mount, a configurable 30–1,440 minute cache, single-flight registry access, and no frontend polling. Only the Check for updates button bypasses the cache.
 - **Mobile-safe panel** — uses a modal browser top layer so the scrollable, safe-area-aware bottom sheet stays above the DSH drawer.
+- **Supervised safe restart** — after an explicit user-level service setup, the panel can check active agents/jobs/terminals, demand a second confirmation for interruption, ask the current Host to exit, wait for a distinct Host instance, and refresh itself. A terminal-started, desktop, or unverified DSH is refused rather than shut down.
 
 ## Install
 
@@ -85,7 +87,7 @@ dsh plugin --profile web add "link:$(pwd)"
 3. Read the running version. When it is the newest release npm publishes, the panel says so and offers nothing to run.
 4. When a newer release exists — stable, release candidate or alpha — the panel names it, its publish date, and whether this plugin was verified against it.
 5. Copy the generated command, which is pinned to that exact version, and run it yourself in a terminal on the computer hosting DSH.
-6. Restart DSH yourself after the package-manager command completes.
+6. After the package-manager command completes, use the panel's **Restart** control only if you have completed [supervised restart](#supervised-restart); otherwise restart DSH yourself.
 
 Example commands generated for a global install:
 
@@ -123,6 +125,38 @@ The plugin asks the npm registry for `@deepseek-ai/dsh` once per cache window, k
 - The panel and the settings section render the same single answer; the upgrade command names the exact version found.
 
 Nothing here installs anything. Choosing to follow a channel — and the `channel` preference that stored it — was removed in `0.2.0`.
+
+## Supervised restart
+
+A Web plugin runs **inside** the `dsh web` process it is asking to restart: it can end that process, but cannot relaunch itself. The Restart button is consequently disabled unless the currently running Host proves it is owned by a user-level service manager.
+
+The shortest safe setup is explicit and terminal-driven:
+
+```sh
+# 1. Inspect the complete native-service plan. This writes and starts nothing.
+dsh plugin --profile web exec dsh-update-status-service plan \
+  --workspace "$PWD" --dry-run
+
+# 2. Stage the user-service definition. This still does not start it.
+dsh plugin --profile web exec dsh-update-status-service install \
+  --workspace "$PWD"
+
+# 3. Stop the terminal-started dsh web yourself, then activate the service.
+dsh plugin --profile web exec dsh-update-status-service activate \
+  --workspace "$PWD"
+```
+
+`activate` refuses to take over an occupied port and never kills a process. After the one-time handoff, the red-box **Restart** button checks activity, waits for a second confirmation where necessary, and only then exits the Host. The native user service returns it; the browser waits for a changed process instance ID and refreshes.
+
+| Platform | User-level owner | Starts | Restart works after setup | Notes |
+| --- | --- | --- | --- | --- |
+| macOS | `launchd` LaunchAgent | at user login | Yes | First verified target; no administrator account required. |
+| Linux | `systemd --user` | at user login | Yes | `loginctl enable-linger` is optional for running after logout and is never enabled automatically. |
+| Windows | Task Scheduler + current-user wrapper | at user logon | Template supplied; verify on Windows before production use | No administrator account required. |
+
+The generated definitions use absolute Node/DSH paths and a minimal, non-secret environment. They do **not** copy your terminal's API keys, npm tokens, cookies, or proxy credentials. See [user-service supervision](docs/service-supervision.md) for native files, logs, status, repair, and removal.
+
+A restart can interrupt running work; it does not save or resume it. The button lists active agents, jobs, and terminals and requires **Force restart** after showing them. If activity cannot be inspected, if DSH Desktop owns the Host, or if the current process was launched from a terminal, the Host refuses the request even if a browser sends a forged RPC.
 
 ## LAN / non-loopback pages
 
@@ -234,7 +268,8 @@ rm -rf ~/.dsh/profiles/<profile>/node_modules/dsh-update-status/node_modules
 - There is no public Remote Service and no model Tool.
 - No package-manager process is spawned by plugin code.
 - `canApplyInPlace` is always `false`.
-- There is no Update now button, automatic install, restart, rollback, or release-file replacement.
+- The plugin never installs, upgrades, rolls back, or replaces DSH files. Its separate, explicitly invoked service CLI stages only current-user service definitions; it never kills an occupied DSH port.
+- Restart is a POST-only authenticated Connection RPC, server-gated by an explicit native-service marker plus a platform identity check. Terminal, Desktop, unknown, and incomplete-activity environments refuse to exit.
 - A failed refresh retains the last good cache and displays a warning; a cold failure still shows the local version.
 
 ## Uninstall
