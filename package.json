@@ -1,6 +1,6 @@
 {
   "name": "dsh-update-status",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "DeepSeek Harness Web plugin for version status, copy-only upgrade guidance, and safe restart when an explicit user-level supervisor is installed.",
   "type": "module",
   "main": "lib/index.js",
@@ -17,11 +17,7 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "lib/index.js",
-    "lib/index.d.ts",
-    "lib/client.js",
-    "lib/client.js.map",
-    "lib/service-cli.js",
+    "lib",
     "bin/dsh-update-status-service.mjs",
     "cordis.patch.yml",
     "README.md",

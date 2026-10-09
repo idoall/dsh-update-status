@@ -146,7 +146,9 @@ dsh plugin --profile web exec dsh-update-status-service activate \
   --workspace "$PWD"
 ```
 
-`activate` stops if the port is still busy instead of killing anything, so the DSH you are already using is never taken down by surprise. From then on, **Restart** lists what is running, asks for a second confirmation when something is, and lets DSH exit; the service starts it again and the page comes back on its own.
+`activate` stops if the port is still busy instead of killing anything, so the DSH you are already using is never taken down by surprise. It also checks afterwards that the service it just started really took over; a service that begins failing immediately is reported as a failure, not as a success. From then on, **Restart** lists what is running, asks for a second confirmation when something is, and lets DSH exit; the service starts it again and the page comes back on its own.
+
+Only one thing may start DSH Web on that port. If another tool starts its own `dsh web` — a second plugin's restart helper, a `nohup` script — that process holds the port while your service keeps failing to start. The plugin asks your operating system which process the service really owns, so **Restart** stays disabled in that state instead of promising a recovery that cannot happen, and it shows the two copy-only commands that fix it: one to find whoever holds the port, one to give the service back. The generated service also stops after a few failed starts in a row rather than respawning forever, and writes the reason to its log. Settings shows when the service started, so a fresh restart and a long-running instance are easy to tell apart. More detail: [user-service supervision](docs/service-supervision.md).
 
 | Platform | User-level owner | Starts | Restart works after setup | Notes |
 | --- | --- | --- | --- | --- |
@@ -156,7 +158,7 @@ dsh plugin --profile web exec dsh-update-status-service activate \
 
 The generated service files contain absolute paths and **no secrets** — never your API keys, npm tokens, cookies or proxy credentials. Native files, logs, status and removal: [user-service supervision](docs/service-supervision.md). To check Linux or Windows on your own machine: [platform acceptance](docs/platform-acceptance.md).
 
-A restart interrupts running work and does not save it. If DSH cannot list what is running, or was started by hand or by the desktop app, it refuses to restart at all — a web page cannot talk it into it.
+A restart interrupts running work and does not save it. If DSH cannot list what is running, cannot verify that your service owns the current process, or was started by hand or by the desktop app, it refuses to restart at all — a web page cannot talk it into it.
 
 ## LAN / non-loopback pages
 
@@ -177,7 +179,8 @@ Current release: plugin **`0.3.2`** is verified against DeepSeek Harness **`0.2.
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| **`0.3.2`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Documentation only: the version table and every past release note are now plain language. Behaves exactly like `0.3.1` |
+| **`0.4.0`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Restart you can trust: the service stops instead of restarting forever, the button needs the service to really own the process, and a disabled button shows the two commands that recover it. Settings also shows when the service started |
+| **`0.3.2`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Documentation only: the version table and every past release note are now plain language. Behaves exactly like `0.3.1` |
 | **`0.3.1`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Small polish: the settings page explains Restart too, and a long job name can no longer push the buttons away. |
 | **`0.3.0`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Adds **Restart** to the panel, plus the one-command service setup it needs. Without that service the button stays disabled and says why. |
 | **`0.2.1`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Hiding the version chip brings DSH’s own name and fish mark back, instead of leaving the brand row blank. |
