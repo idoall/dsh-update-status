@@ -141,8 +141,7 @@ dsh plugin --profile web exec dsh-update-status-service install \
   --workspace "$PWD"
 
 # 3. 由你自己在旧终端停止直启的 dsh web，再激活服务。
-dsh plugin --profile web exec dsh-update-status-service activate \
-  --workspace "$PWD"
+dsh plugin --profile web exec dsh-update-status-service activate
 ```
 
 `activate` 发现端口还被占着就停手，绝不去杀进程，所以你正在用的 DSH 不会被突然掐掉；激活之后它还会确认服务真的接管了——一启动就不停失败的服务会被当作失败报出来，而不是假装成功。这之后就交给**重启**按钮：它先列出正在跑的东西，有东西在跑时再问一次，然后才让 DSH 退出；服务把新的拉起来，页面自己回来。
@@ -155,7 +154,7 @@ dsh plugin --profile web exec dsh-update-status-service activate \
 | Linux | `systemd --user` | 用户登录 | 已实现；请在你自己机器上验证 | 想在登出后继续运行，可自行开启 `loginctl enable-linger`（本插件不会替你开）。 |
 | Windows | 任务计划程序 + 当前用户 wrapper | 用户登录 | 已实现；请在你自己机器上验证 | 不需要管理员。 |
 
-生成的服务文件里只有绝对路径，**没有密钥**——不会带上你终端里的 API key、npm token、cookie 或代理凭据。原生文件、日志、状态与卸载见[用户服务监督说明](docs/service-supervision.md)；想在 Linux 或 Windows 上自己确认，见[跨平台验收步骤](docs/platform-acceptance.md)。
+生成的服务文件里只有绝对路径、一条可审计的 `PATH`，以及**没有密钥**——不会带上你终端里的 API key、npm token、cookie 或代理凭据。默认情况下，`install` 会保存执行安装命令的终端 PATH，因此 Homebrew、MacPorts、Nix、asdf、Conda、Cargo 和手工安装走的是同一套规则；`--path-source minimal` 保留固定环境，`--service-path` 则使用你明确给出的完整 PATH。`plan --dry-run` 会在写文件前列出最终值和全部提示。原生文件、日志、状态与卸载见[用户服务监督说明](docs/service-supervision.md)；想在 Linux 或 Windows 上自己确认，见[跨平台验收步骤](docs/platform-acceptance.md)。
 
 重启会中断正在跑的工作，且不会保存。如果 DSH 列不出正在跑什么、无法确认当前进程确实由你装的服务拥有，或者它本来就是终端直启、桌面应用托管的，它会直接拒绝重启——网页端说什么都没用。
 
@@ -172,13 +171,14 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 
 ## 兼容性
 
-当前发布：插件 **`0.3.2`** 已针对 DeepSeek Harness **`0.2.1-alpha.1`**（当前发布版）、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
+当前发布：插件 **`0.4.1`** 已针对 DeepSeek Harness **`0.2.1-alpha.1`**（当前发布版）、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.4.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 重启变得靠得住：服务连续失败会停下而不是无限重启；按钮要求系统服务真正托管当前进程；禁用时会给出两条可复制的恢复命令。设置页还能看到服务启动时间 |
+| **`0.4.1`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 安装服务时保存当时使用的 PATH，不论工具由哪种包管理器安装，受托管后仍能找到 |
+| **`0.4.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 重启变得靠得住：服务连续失败会停下而不是无限重启；按钮要求系统服务真正托管当前进程；禁用时会给出两条可复制的恢复命令。设置页还能看到服务启动时间 |
 | **`0.3.2`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 只改文档：版本对照表和历史发布说明都改成人话。功能与 `0.3.1` 完全一样 |
 | **`0.3.1`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 小补丁：设置页也说明了重启前提，长任务名不再把按钮挤走。 |
 | **`0.3.0`** | `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 面板新增**重启**，以及它需要的那条服务安装命令；没装服务时按钮保持禁用并说明原因。 |

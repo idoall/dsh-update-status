@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.4.1 — 2026-10-09
+
+Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.1.md`](docs/releases/v0.4.1.md).
+
+- **The service definition now uses one audited, cross-platform PATH instead of package-manager guesses.** `install` snapshots its current PATH by default, puts the selected Node directory first, removes empty/relative/duplicate entries, keeps missing absolute directories with warnings, and persists the final value, source, capture time, PATHEXT (Windows) and warnings in the receipt. `--path-source minimal` preserves a fixed deployment, while `--service-path` supplies an explicit value. macOS launchd, Linux systemd and the Windows wrapper consume that same persisted result; preflight uses it too, and later actions locate the receipt from DSH_HOME instead of recapturing a different terminal environment. `plan --dry-run` prints the exact PATH and warnings. Old receipts retain their historical behaviour (macOS/Linux minimal PATH; Windows Task Scheduler login environment). Tests cover POSIX/Windows separators, drive/UNC/Unicode/quoted paths, PATHEXT, systemd percent escaping, warnings, length limits, native command discovery and lifecycle persistence; only macOS receives native service verification in this environment.
+- **Receipt-backed lifecycle operations are safer and independent of the invoking terminal.** The receipt persists an absolute launchctl/systemctl/schtasks path; later actions never search the caller's PATH. Status, stop and uninstall need only DSH_HOME and continue to work after the old Node/DSH/workspace was moved or deleted, while activate still requires usable launch files. Stored artifact paths must exactly match paths re-derived from the fixed service identity, platform and current home; uninstall deletes only those canonical paths, so a modified receipt cannot nominate an arbitrary file. Unknown options are rejected, XML-illegal control characters and overlong PATH/PATHEXT values are refused, and legacy Windows status honestly reports its inherited logon environment.
+
 ## 0.4.0 — 2026-10-09
 
 Verified DeepSeek Harness: `0.2.1-alpha.1` (the current release, and the one this profile runs), also `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.0.md`](docs/releases/v0.4.0.md).

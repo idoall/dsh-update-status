@@ -142,8 +142,7 @@ dsh plugin --profile web exec dsh-update-status-service install \
   --workspace "$PWD"
 
 # 3. Stop the terminal-started dsh web yourself, then activate the service.
-dsh plugin --profile web exec dsh-update-status-service activate \
-  --workspace "$PWD"
+dsh plugin --profile web exec dsh-update-status-service activate
 ```
 
 `activate` stops if the port is still busy instead of killing anything, so the DSH you are already using is never taken down by surprise. It also checks afterwards that the service it just started really took over; a service that begins failing immediately is reported as a failure, not as a success. From then on, **Restart** lists what is running, asks for a second confirmation when something is, and lets DSH exit; the service starts it again and the page comes back on its own.
@@ -156,7 +155,7 @@ Only one thing may start DSH Web on that port. If another tool starts its own `d
 | Linux | `systemd --user` | at user login | Implemented; verify on your host | `loginctl enable-linger` is optional for running after logout and is never enabled automatically. The unit template is render-tested but has not been run on a real Linux host yet. |
 | Windows | Task Scheduler + current-user wrapper | at user logon | Template supplied; verify on Windows before production use | No administrator account required. |
 
-The generated service files contain absolute paths and **no secrets** — never your API keys, npm tokens, cookies or proxy credentials. Native files, logs, status and removal: [user-service supervision](docs/service-supervision.md). To check Linux or Windows on your own machine: [platform acceptance](docs/platform-acceptance.md).
+The generated service files contain absolute paths, one audited `PATH`, and **no secrets** — never your API keys, npm tokens, cookies or proxy credentials. By default `install` saves the PATH of the terminal that ran it, so Homebrew, MacPorts, Nix, asdf, Conda, Cargo and hand-installed tools all follow the same rule; `--path-source minimal` keeps a fixed environment and `--service-path` supplies an explicit one. `plan --dry-run` shows the final value and every warning before anything is written. Native files, logs, status and removal: [user-service supervision](docs/service-supervision.md). To check Linux or Windows on your own machine: [platform acceptance](docs/platform-acceptance.md).
 
 A restart interrupts running work and does not save it. If DSH cannot list what is running, cannot verify that your service owns the current process, or was started by hand or by the desktop app, it refuses to restart at all — a web page cannot talk it into it.
 
@@ -173,13 +172,14 @@ If you want DSH's stock policy instead (a non-loopback page never persists setti
 
 ## Compatibility
 
-Current release: plugin **`0.3.2`** is verified against DeepSeek Harness **`0.2.1-alpha.1`** (the current release), **`0.2.0-rc.2`**, **`0.2.0-rc.1`**, **`0.1.7-rc.2`**, **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
+Current release: plugin **`0.4.1`** is verified against DeepSeek Harness **`0.2.1-alpha.1`** (the current release), **`0.2.0-rc.2`**, **`0.2.0-rc.1`**, **`0.1.7-rc.2`**, **`0.1.7-rc.1`** and **`0.1.7-alpha.2`**.
 
 ### Which plugin version goes with which DeepSeek Harness version
 
 | Plugin | Verified DeepSeek Harness | On npm | What that version is |
 | --- | --- | --- | --- |
-| **`0.4.0`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | Restart you can trust: the service stops instead of restarting forever, the button needs the service to really own the process, and a disabled button shows the two commands that recover it. Settings also shows when the service started |
+| **`0.4.1`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | `latest` | The service saves the PATH used during installation, so tools installed by any package manager stay available after DSH is supervised |
+| **`0.4.0`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Restart you can trust: the service stops instead of restarting forever, the button needs the service to really own the process, and a disabled button shows the two commands that recover it. Settings also shows when the service started |
 | **`0.3.2`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Documentation only: the version table and every past release note are now plain language. Behaves exactly like `0.3.1` |
 | **`0.3.1`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Small polish: the settings page explains Restart too, and a long job name can no longer push the buttons away. |
 | **`0.3.0`** | `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1`, `0.1.7-alpha.2` | published | Adds **Restart** to the panel, plus the one-command service setup it needs. Without that service the button stays disabled and says why. |
