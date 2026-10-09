@@ -4,10 +4,24 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
+import { LAUNCHD_LABEL, SYSTEMD_UNIT } from '../shared/service-platform.ts'
 import type { CliEnvironment, ServicePaths, ServicePlan, ServicePlatform, ServiceSpec } from './types.ts'
 
-export const SERVICE_LABEL = 'com.idoall.dsh-update-status.web'
+export const SERVICE_LABEL = LAUNCHD_LABEL
 export const SUPERVISOR_MARKER = 'dsh-update-status'
+
+/**
+ * A child that dies within this many seconds never finished a boot. Consecutive
+ * failures past the limit stop the loop instead of respawning forever: a second
+ * launcher holding the port turns `KeepAlive`/`Restart=` into an endless
+ * `EADDRINUSE` storm, and no native supervisor bounds that by itself.
+ */
+export const RAPID_FAILURE_WINDOW_SECONDS = 30
+export const RAPID_FAILURE_LIMIT = 5
+export const RESTART_DELAY_SECONDS = 3
+/** systemd's native equivalent of the same ceiling. */
+export const SYSTEMD_START_LIMIT_INTERVAL_SECONDS = 300
+export const SYSTEMD_START_LIMIT_BURST = 10
 
 function xml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
@@ -19,6 +33,10 @@ function systemd(value: string): string {
 
 function powerShell(value: string): string {
   return value.replace(/'/g, "''")
+}
+
+function shQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`
 }
 
 function boundedPort(value: unknown): number {
@@ -103,6 +121,7 @@ export function pathsFor(spec: ServiceSpec): ServicePaths {
   if (spec.platform === 'darwin') return {
     stateFile: join(root, 'dsh-update-status-service.json'),
     definitionFile: join(spec.home, 'Library', 'LaunchAgents', `${spec.label}.plist`),
+    wrapperFile: join(root, 'dsh-update-status', 'dsh-web-supervisor.sh'),
     stdoutFile,
     stderrFile,
   }
@@ -133,8 +152,64 @@ function webArguments(spec: ServiceSpec): readonly string[] {
   return [spec.dshPath, '--profile', spec.profile, '--host', spec.host, '--port', String(spec.port), '--no-open']
 }
 
+function launchdWrapper(spec: ServiceSpec, paths: ServicePaths, uid: number): string {
+  const args = [spec.nodePath, ...webArguments(spec)].map(shQuote).join(' ')
+  const kickstart = `launchctl kickstart -k gui/${String(uid)}/${spec.label}`
+  return `#!/bin/sh
+# Managed by dsh-update-status. This wrapper, not launchd, owns the restart loop.
+#
+# KeepAlive alone respawns forever and has no failure ceiling: as soon as another
+# launcher owns the port, every respawn dies with EADDRINUSE in a couple of
+# seconds and the machine spins. The loop therefore lives here, where it can stop.
+#
+#   * RAPID_FAILURE_WINDOW: a child that dies this fast never finished a boot.
+#   * RAPID_FAILURE_LIMIT: that many in a row stops the loop and says why on
+#     stderr (launchd captures it in the service log).
+#   * a child that ran longer resets the counter, so ordinary page restarts and
+#     long uptimes never trip it.
+#
+# Recover with: ${kickstart}
+set -u
+RAPID_FAILURE_WINDOW=${String(RAPID_FAILURE_WINDOW_SECONDS)}
+RAPID_FAILURE_LIMIT=${String(RAPID_FAILURE_LIMIT)}
+RESTART_DELAY=${String(RESTART_DELAY_SECONDS)}
+child=0
+forward() {
+  if [ "$child" -gt 0 ]; then
+    kill -TERM "$child" 2>/dev/null || true
+    wait "$child" 2>/dev/null || true
+  fi
+  exit 0
+}
+trap forward TERM INT HUP
+rapid=0
+while :; do
+  started=$(date +%s)
+  ${args} &
+  child=$!
+  wait "$child"
+  code=$?
+  child=0
+  elapsed=$(( $(date +%s) - started ))
+  if [ "$elapsed" -lt "$RAPID_FAILURE_WINDOW" ]; then
+    rapid=$(( rapid + 1 ))
+    echo "[dsh-update-status] supervisor: DSH exited with code $code after \${elapsed}s (rapid failure $rapid/$RAPID_FAILURE_LIMIT)" >&2
+  else
+    rapid=0
+  fi
+  if [ "$rapid" -ge "$RAPID_FAILURE_LIMIT" ]; then
+    echo "[dsh-update-status] supervisor: giving up after $RAPID_FAILURE_LIMIT rapid failures (last exit code $code). Another process may hold the port; fix that, then run: ${kickstart}" >&2
+    exit 78
+  fi
+  sleep "$RESTART_DELAY"
+done
+`
+}
+
 function launchdDefinition(spec: ServiceSpec, paths: ServicePaths): string {
-  const args = [spec.nodePath, ...webArguments(spec)].map(value => `    <string>${xml(value)}</string>`).join('\n')
+  const wrapper = paths.wrapperFile
+  if (wrapper === undefined) throw new Error('macOS service plan requires a supervisor wrapper path')
+  const args = ['/bin/sh', wrapper].map(value => `    <string>${xml(value)}</string>`).join('\n')
   const env: ReadonlyArray<readonly [string, string]> = [
     ['HOME', spec.home],
     ['PATH', `${dirname(spec.nodePath)}:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`],
@@ -156,10 +231,6 @@ ${args}
   <string>${xml(spec.workspace)}</string>
   <key>RunAtLoad</key>
   <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>ThrottleInterval</key>
-  <integer>3</integer>
   <key>EnvironmentVariables</key>
   <dict>
 ${envXml}
@@ -184,6 +255,11 @@ function systemdDefinition(spec: ServiceSpec): string {
   return `[Unit]
 Description=DSH Web managed by dsh-update-status
 After=network-online.target
+# Bound the restart loop: without this, a port held by another launcher turns
+# Restart=on-failure into an endless EADDRINUSE storm. Reset after fixing the
+# cause with: systemctl --user reset-failed dsh-update-status-web.service
+StartLimitIntervalSec=${String(SYSTEMD_START_LIMIT_INTERVAL_SECONDS)}
+StartLimitBurst=${String(SYSTEMD_START_LIMIT_BURST)}
 
 [Service]
 Type=simple
@@ -191,7 +267,7 @@ WorkingDirectory="${systemd(spec.workspace)}"
 ${env}
 ExecStart=${command}
 Restart=on-failure
-RestartSec=3
+RestartSec=${String(RESTART_DELAY_SECONDS)}
 
 [Install]
 WantedBy=default.target
@@ -210,10 +286,28 @@ function windowsWrapper(spec: ServiceSpec, paths: ServicePaths): string {
 $env:HOME = '${home}'
 $env:DSH_WEB_SUPERVISOR = '${spec.supervisorMarker}'
 ${dshHome}Set-Location -LiteralPath '${workspace}'
+$rapidWindowSeconds = ${String(RAPID_FAILURE_WINDOW_SECONDS)}
+$rapidLimit = ${String(RAPID_FAILURE_LIMIT)}
+$rapid = 0
 while ($true) {
+  $started = Get-Date
   & '${node}' '${dsh}' --profile '${powerShell(spec.profile)}' --host '${powerShell(spec.host)}' --port '${String(spec.port)}' --no-open 1>> '${out}' 2>> '${err}'
   $exitCode = $LASTEXITCODE
-  Start-Sleep -Seconds 3
+  $elapsed = ((Get-Date) - $started).TotalSeconds
+  # A child that dies within the window never finished a boot; enough of them in a
+  # row means another launcher owns the port, and respawning forever only spins.
+  if ($elapsed -lt $rapidWindowSeconds) { $rapid = $rapid + 1 } else { $rapid = 0 }
+  $note = "[dsh-update-status] supervisor: DSH exited with code $exitCode after $([int]$elapsed)s (rapid failure $rapid/$rapidLimit)"
+  Write-Host $note
+  # The service log is where a user looks; the console here is the task's own.
+  Add-Content -LiteralPath '${err}' -Value $note -ErrorAction SilentlyContinue
+  if ($rapid -ge $rapidLimit) {
+    $note = "[dsh-update-status] supervisor: giving up after $rapidLimit rapid failures (last exit code $exitCode). Another process may hold the port; fix that, then re-run the scheduled task."
+    Write-Host $note
+    Add-Content -LiteralPath '${err}' -Value $note -ErrorAction SilentlyContinue
+    exit 78
+  }
+  Start-Sleep -Seconds ${String(RESTART_DELAY_SECONDS)}
   # The user service owns deliberate restarts (exit 42) and unexpected exits.
   # Manual uninstall stops the scheduled task, which ends this wrapper.
 }
@@ -242,8 +336,10 @@ export function planFor(spec: ServiceSpec, uid: number = 0): ServicePlan {
     return {
       spec, paths,
       definition: launchdDefinition(spec, paths),
+      wrapper: launchdWrapper(spec, paths, uid),
       installCommand: ['launchctl', 'bootstrap', domain, paths.definitionFile],
       startCommand: ['launchctl', 'kickstart', '-k', `${domain}/${spec.label}`],
+      recoverCommand: `launchctl kickstart -k ${domain}/${spec.label}`,
       statusCommand: ['launchctl', 'print', `${domain}/${spec.label}`],
       stopCommand: ['launchctl', 'bootout', `${domain}/${spec.label}`],
       uninstallCommand: ['launchctl', 'bootout', `${domain}/${spec.label}`],
@@ -254,6 +350,8 @@ export function planFor(spec: ServiceSpec, uid: number = 0): ServicePlan {
     definition: systemdDefinition(spec),
     installCommand: ['systemctl', '--user', 'daemon-reload'],
     startCommand: ['systemctl', '--user', 'enable', '--now', 'dsh-update-status-web.service'],
+    // `reset-failed` first: the unit's own StartLimit is what stopped a storm.
+    recoverCommand: `systemctl --user reset-failed ${SYSTEMD_UNIT} && systemctl --user enable --now ${SYSTEMD_UNIT}`,
     statusCommand: ['systemctl', '--user', 'status', 'dsh-update-status-web.service'],
     stopCommand: ['systemctl', '--user', 'disable', '--now', 'dsh-update-status-web.service'],
     uninstallCommand: ['systemctl', '--user', 'disable', '--now', 'dsh-update-status-web.service'],
@@ -264,6 +362,7 @@ export function planFor(spec: ServiceSpec, uid: number = 0): ServicePlan {
     wrapper: windowsWrapper(spec, paths),
     installCommand: ['schtasks.exe', '/Create', '/TN', 'DSH Update Status Web', '/XML', paths.definitionFile, '/F'],
     startCommand: ['schtasks.exe', '/Run', '/TN', 'DSH Update Status Web'],
+    recoverCommand: 'schtasks.exe /Run /TN "DSH Update Status Web"',
     statusCommand: ['schtasks.exe', '/Query', '/TN', 'DSH Update Status Web', '/V', '/FO', 'LIST'],
     stopCommand: ['schtasks.exe', '/End', '/TN', 'DSH Update Status Web'],
     uninstallCommand: ['schtasks.exe', '/Delete', '/TN', 'DSH Update Status Web', '/F'],

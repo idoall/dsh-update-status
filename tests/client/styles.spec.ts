@@ -126,6 +126,23 @@ describe('update indicator styling', () => {
     expect(line('.dus-restart-work li')).toContain('-webkit-line-clamp:2')
   })
 
+  it('lays the service start time on the version row, wrapping on a narrow card', () => {
+    const pair = line('.dus-settings-pair')
+    expect(pair).toContain('display:flex')
+    expect(pair).toContain('flex-wrap:wrap')
+    // Flush right: the version keeps the left edge, the start time takes the right.
+    expect(pair).toContain('justify-content:space-between')
+    // 5px of air before the status block below; the hints' own margin is 8px 0 0,
+    // so without this the green state block touches the row's text.
+    expect(pair).toContain('margin:0 0 5px')
+    // The break is width-driven: two 200px bases cannot share a phone-width card,
+    // so the row becomes two stacked lines with no width query involved.
+    const item = line('.dus-settings-pair>.dus-settings-hint')
+    expect(item).toContain('min-width:min(200px,100%)')
+    expect(item).toContain('overflow-wrap:anywhere')
+    expect(line('@media (max-width:640px),(hover:none) and (pointer:coarse)')).not.toContain('.dus-settings-pair')
+  })
+
   it('carries no release-channel picker styling', () => {
     // One release line means no channel list, no channel select and no per-channel
     // action button. A selector outliving its markup is dead weight, so their

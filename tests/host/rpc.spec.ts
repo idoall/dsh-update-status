@@ -40,6 +40,9 @@ describe('private update-status RPC shape', () => {
       platform: 'darwin',
       env: { DSH_WEB_SUPERVISOR: 'dsh-update-status', XPC_SERVICE_NAME: 'com.idoall.dsh-update-status.web' },
       instanceId: 'host-one', schedule: () => {}, exit: () => {},
+      // This spec is about the RPC envelope; the platform ownership probe is
+      // exercised in restart.spec/supervision.spec, and its absence fails closed.
+      health: async () => ({ kind: 'owned' }),
     })
     const host = { get: (name: string) => ({
       agents: { list: () => [] }, jobs: { list: () => [] }, terminals: { list: () => [] }, timer: { timeout: () => {} },

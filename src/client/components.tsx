@@ -139,9 +139,10 @@ export function BrandName({ ui }: { ui: SharedUi }): ReactNS.ReactElement | null
   )
 }
 
-function restartUnavailableText(reason: 'not-supervised' | 'desktop' | 'supervisor-mismatch' | 'activity-unavailable' | 'timer-unavailable' | 'stale-instance' | null | undefined): string {
+function restartUnavailableText(reason: 'not-supervised' | 'desktop' | 'supervisor-mismatch' | 'supervisor-thrashing' | 'activity-unavailable' | 'timer-unavailable' | 'stale-instance' | null | undefined): string {
   if (reason === 'desktop') return t('restart.unavailableDesktop')
   if (reason === 'supervisor-mismatch') return t('restart.unavailableMismatch')
+  if (reason === 'supervisor-thrashing') return t('restart.unavailableThrashing')
   if (reason === 'activity-unavailable') return t('restart.unavailableActivity')
   if (reason === 'timer-unavailable') return t('restart.unavailableTimer')
   if (reason === 'stale-instance') return t('restart.unavailableStale')
@@ -153,6 +154,9 @@ function RestartControl({ restart }: { restart: RestartStore }): ReactNS.ReactEl
   React.useEffect(() => { void restart.refresh() }, [restart])
   const unavailable = snapshot.status !== null && !snapshot.status.available
   const hasActivity = snapshot.activity.length > 0
+  // Recovery steps only make sense for a lost supervision, which is exactly when
+  // the Host attaches them; the other refusals say what to do in their own text.
+  const recoverable = snapshot.status?.recovery?.commands ?? null
   const waiting = snapshot.phase === 'waiting'
   const label = snapshot.phase === 'unknown' ? t('restart.loading')
     : snapshot.phase === 'checking' ? t('restart.checking')
@@ -177,6 +181,11 @@ function RestartControl({ restart }: { restart: RestartStore }): ReactNS.ReactEl
     >{label}</button>
     {snapshot.phase === 'armed' && <button className="dus-action" type="button" onClick={() => restart.cancel()}>{t('restart.cancel')}</button>}
     {unavailable && <p className="dus-restart-message" role="status">{restartUnavailableText(snapshot.status?.unavailableReason)}</p>}
+    {unavailable && recoverable !== null && <div className="dus-restart-recover">
+      <p className="dus-restart-message">{t('restart.recoverIntro')}</p>
+      <CommandBlock command={recoverable} label={t('restart.recoverLabel')} note={t('restart.recoverNote')} />
+    </div>}
+    {unavailable && snapshot.status?.unavailableReason === 'not-supervised' && <p className="dus-restart-message">{t('restart.recoverInstall')}</p>}
     {snapshot.phase === 'armed' && <p className="dus-restart-message" role="status">
       {hasActivity ? t('restart.activeWarning', { count: String(snapshot.activity.length) }) : t('restart.confirmHint')}
     </p>}
@@ -219,7 +228,7 @@ function selectCommand(element: HTMLElement | null): void {
  * The one upgrade command plus its copy affordance, shared by the panel and the
  * settings section so both surfaces can never disagree about what to run.
  */
-function CommandBlock({ command, disabled = false }: { command: string; disabled?: boolean }): ReactNS.ReactElement {
+function CommandBlock({ command, disabled = false, label = t('panel.command'), note = t('panel.commandNote') }: { command: string; disabled?: boolean; label?: string; note?: string }): ReactNS.ReactElement {
   const commandRef = React.useRef<HTMLElement | null>(null)
   const [copyMessage, setCopyMessage] = React.useState<string | null>(null)
   const copy = async (): Promise<void> => {
@@ -235,13 +244,13 @@ function CommandBlock({ command, disabled = false }: { command: string; disabled
   }
   return (
     <>
-      <p className="dus-command-label">{t('panel.command')}</p>
+      <p className="dus-command-label">{label}</p>
       <code ref={commandRef} className="dus-command" tabIndex={0}>{command}</code>
       <div className="dus-actions dus-command-actions">
         <button className="dus-action" type="button" disabled={disabled} onClick={() => { void copy() }}>{t('panel.copy')}</button>
         {copyMessage !== null && <p className="dus-copy-message" role="status">{copyMessage}</p>}
       </div>
-      <p className="dus-note">{t('panel.commandNote')}</p>
+      <p className="dus-note">{note}</p>
     </>
   )
 }
@@ -345,6 +354,11 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
 export function UpdateSettings({ ui }: { ui: SharedUi }): ReactNS.ReactElement {
   const preferences = useObservable(ui.preferences)
   const snapshot = useObservable(ui.status)
+  const restart = useObservable(ui.restart)
+  // The Host answers this from its own process clock, so it is the DSH Web
+  // instance's start, not the last plugin mount. Absent on an older Host — then
+  // the line simply does not render rather than inventing a time.
+  const startedAt = restart.status?.startedAt ?? null
   const status = snapshot.status
   const summary = statusSummary(status, snapshot.loading, snapshot.error)
   const hasUpdate = status?.hasUpdate === true && status.latestVersion !== null
@@ -366,7 +380,14 @@ export function UpdateSettings({ ui }: { ui: SharedUi }): ReactNS.ReactElement {
         {!preferences.writable && <p className="dus-settings-hint">{t('settings.readonly')}</p>}
       </div>
       <div className="dus-settings-card">
-        <p className="dus-settings-hint">{t('panel.current')}: <code>{status?.currentVersion ?? '…'}</code></p>
+        {/* One row: the running version on the left, when the service started on the
+            right. The flow decides the break — each line asks for a 200px basis and the
+            row wraps on a narrow card — so both layouts need no width query, and an
+            older Host that sends no start time simply leaves one line in the row. */}
+        <div className="dus-settings-pair">
+          <p className="dus-settings-hint">{t('panel.current')}: <code>{status?.currentVersion ?? '…'}</code></p>
+          {startedAt !== null && <p className="dus-settings-hint">{t('settings.serviceStarted')}: <code>{timeText(startedAt)}</code></p>}
+        </div>
         <p className="dus-state" data-kind={summary.kind}>{summary.text}</p>
         {hasUpdate && <p className="dus-settings-hint">{t('panel.newer')}: <code>{status.latestVersion}</code> · <span className="dus-compat" data-compatibility={status.compatibility}>{compatibilityLabel(status.compatibility)}</span></p>}
         {snapshot.error !== null && <p role="alert">{snapshot.error}</p>}

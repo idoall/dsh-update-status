@@ -4,6 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { detectInstallation } from './host/installation.ts'
 import { installUpdateStatusRpc } from './host/rpc.ts'
 import { createRestartController } from './host/restart.ts'
+import { recordBootOnce } from './host/supervision.ts'
 import { describeSchemaRuntime, schemaRuntime } from './host/schemastery.ts'
 import { Config, installSettings, type UpdateStatusConfig } from './host/settings.ts'
 import { createRegistryFetcher, DEFAULT_TIMEOUT_MS, describeWarning, UpdateStatusService } from './host/update-status.ts'
@@ -47,8 +48,16 @@ export function apply(ctx: Context, config: Config = {}): void {
 
   installSettings(ctx)
   // One controller per Host generation supplies the instance identity the
-  // browser uses to distinguish a recovered process from a mere reconnect.
-  installUpdateStatusRpc(ctx, service, createRestartController())
+  // browser uses to distinguish a recovered process from a mere reconnect, and
+  // one ownership/storm probe per generation decides whether a restart can
+  // actually be completed by the supervisor this process claims to have.
+  const restart = createRestartController()
+  const restartStatus = restart.status()
+  // First-party restart evidence: every generation that reaches this plugin
+  // stamps itself once, so a later generation (or the panel on a foreign process)
+  // can tell a single restart from an endless spawn loop. Best effort by design.
+  recordBootOnce({ pid: process.pid, instanceId: restartStatus.instanceId, supervisor: restartStatus.supervisor })
+  installUpdateStatusRpc(ctx, service, restart)
 
   // One process-mount check, shared with every later browser request through
   // the service's single-flight promise and six-hour TTL. No interval exists.

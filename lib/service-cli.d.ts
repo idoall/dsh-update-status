@@ -37,9 +37,22 @@ interface CommandResult {
 }
 type CommandRunner = (file: string, args: readonly string[]) => CommandResult;
 //#endregion
+//#region src/service/observe.d.ts
+type ServiceVerification = {
+  readonly kind: 'settled';
+} | {
+  readonly kind: 'crash-loop';
+  readonly recentRestarts: number;
+  readonly windowMs: number;
+} | {
+  readonly kind: 'not-running';
+};
+//#endregion
 //#region src/service/cli.d.ts
 export interface CliHooks {
   readonly preflight?: (spec: ServiceSpec) => void;
+  /** Injected in tests; defaults to the real post-activation verification. */
+  readonly verify?: (spec: ServiceSpec) => Promise<ServiceVerification>;
 }
 export declare function main(argv?: readonly string[], env?: CliEnvironment, run?: CommandRunner, hooks?: CliHooks): Promise<number>;
 //#endregion

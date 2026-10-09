@@ -30,6 +30,8 @@ It refuses to start while the port is still busy — that is deliberate, so the 
 
 Then reopen the Web UI and check that **Restart** in the update panel is enabled (not greyed out). That is the whole acceptance test: restart availability means the running process was recognised as service-managed.
 
+One more check worth doing on a new machine: start something else on the same port (a second `dsh web`), then look at the panel. Restart should go grey within a few seconds, and the panel should show the two copy-only commands that recover it. Stop the extra instance and run the second command; the button comes back. That is the ceiling doing its job — the service tries a few times and then stops instead of filling the log forever.
+
 ## Where to look when something is off
 
 | Platform | Status command |
@@ -37,7 +39,7 @@ Then reopen the Web UI and check that **Restart** in the update panel is enabled
 | Linux | `systemctl --user status dsh-update-status-web.service` and `journalctl --user -u dsh-update-status-web.service -f` |
 | Windows | Task Scheduler → **DSH Update Status Web**, or `schtasks /Query /TN "DSH Update Status Web" /V /FO LIST` |
 
-If **Restart** stays greyed out after activating, the running process was not recognised as the service's process. For an issue report, include the `plan` output and the status output above.
+If **Restart** stays greyed out after activating, the running process was not recognised as the service's process — most often because something else (a restart script, another plugin's helper, a hand-started `dsh web`) is holding the port and the service is failing to start. Check `lsof -nP -iTCP:<port> -sTCP:LISTEN` and the service log before reporting. For an issue report, include the `plan` output and the status output above.
 
 ## Removing it again
 

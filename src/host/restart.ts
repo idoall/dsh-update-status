@@ -10,12 +10,17 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { bootStampFile, serviceLogDir } from '../shared/restart-evidence.ts'
+
+import { LAUNCHD_LABEL } from '../shared/service-platform.ts'
+import { createServiceRecovery, type RestartRecovery } from './service-record.ts'
+import { createSupervisorHealth, type SupervisorHealth } from './supervision.ts'
 
 export const SUPERVISOR_MARKER = 'dsh-update-status'
-export const SERVICE_LABEL = 'com.idoall.dsh-update-status.web'
+export const SERVICE_LABEL = LAUNCHD_LABEL
 
 export type RestartSupervisor = 'launchd' | 'systemd' | 'task-scheduler' | 'unknown'
-export type RestartUnavailableReason = 'not-supervised' | 'desktop' | 'supervisor-mismatch' | 'activity-unavailable' | 'timer-unavailable' | 'stale-instance'
+export type RestartUnavailableReason = 'not-supervised' | 'desktop' | 'supervisor-mismatch' | 'supervisor-thrashing' | 'activity-unavailable' | 'timer-unavailable' | 'stale-instance'
 export type RestartItemType = 'agent' | 'job' | 'terminal'
 
 export interface RestartActivityItem {
@@ -35,9 +40,17 @@ export interface RestartActivity {
 
 export interface RestartStatus {
   readonly instanceId: string
+  /** When this DSH Web process started, ISO 8601 — the supervised service's own uptime. */
+  readonly startedAt: string
   readonly available: boolean
   readonly supervisor: RestartSupervisor | null
   readonly unavailableReason: RestartUnavailableReason | null
+  /**
+   * Copy-only steps that give supervision back, present only while a restart is
+   * refused. The panel shows them under the disabled button, because "you cannot
+   * restart" is useless advice without "here is how to get the button back".
+   */
+  readonly recovery?: RestartRecovery
 }
 
 export type RestartCheckResult =
@@ -80,11 +93,22 @@ export interface RestartControllerOptions {
   readonly platform?: NodeJS.Platform
   readonly versions?: Readonly<Record<string, string | undefined>>
   readonly instanceId?: string
+  /** Injected by tests; defaults to this process's own start clock. */
+  readonly startedAt?: string
   readonly exit?: (code: number) => never | void
   readonly schedule?: (callback: () => void, delay: number) => void
+  /**
+   * Platform ownership plus restart-storm evidence. Absent means the environment
+   * verdict is final, which is only correct for a process that cannot be
+   * re-parented — every real Host wires the probe in `createRestartController`.
+   */
+  readonly health?: () => Promise<SupervisorHealth>
+  /** Wired in `createRestartController`; absent in tests that do not care. */
+  readonly recovery?: () => RestartRecovery | undefined
 }
 
 const INSTANCE_KEY = Symbol.for('dsh-update-status/process-instance-id')
+const STARTED_AT_KEY = Symbol.for('dsh-update-status/process-started-at')
 
 /**
  * This must outlive plugin HMR/recomposition inside one Node process. A module
@@ -100,35 +124,51 @@ function processInstanceId(): string {
 }
 
 /**
- * Strict supervisor recognition: the marker is written only by this package's
- * user-service installer. Platform-specific signals defend against a user
- * copying that environment variable into an arbitrary terminal by accident.
+ * Wall-clock start of this process, derived once from `process.uptime()` — the
+ * one clock the Host owns without extra bookkeeping. It is cached on globalThis
+ * for the same reason as the instance id: a recomposed plugin must keep reporting
+ * the start of the process it is running in, not the moment it was recomposed.
+ */
+function processStartedAt(): string {
+  const carrier = globalThis as typeof globalThis & { [STARTED_AT_KEY]?: string }
+  const existing = carrier[STARTED_AT_KEY]
+  if (existing !== undefined) return existing
+  const created = new Date(Date.now() - Math.round(process.uptime() * 1_000)).toISOString()
+  carrier[STARTED_AT_KEY] = created
+  return created
+}
+
+/**
+ * The environment/platform half of the verdict: which supervisor this process
+ * *claims* to be running under.
+ *
+ * The explicit marker is never inherited by accident, but every descendant of a
+ * supervised process does inherit it, so this function alone can only report a
+ * claim. What turns a claim into an answer is `assess()` below, which asks the
+ * platform which process the service actually owns. The platform identity is
+ * deliberately NOT read from the environment: launchd configures
+ * `XPC_SERVICE_NAME=<label>` for the job, yet a DSH process behind the staged
+ * `/bin/sh` wrapper reads `XPC_SERVICE_NAME=0`, so an environment check would
+ * refuse the very setup this plugin installs.
  */
 export function restartStatusOf(options: RestartControllerOptions = {}): RestartStatus {
   const env = options.env ?? process.env
   const platform = options.platform ?? process.platform
   const versions = options.versions ?? process.versions
   const instanceId = options.instanceId ?? processInstanceId()
+  const startedAt = options.startedAt ?? processStartedAt()
   if (versions.electron !== undefined && versions.electron !== '') {
-    return { instanceId, available: false, supervisor: null, unavailableReason: 'desktop' }
+    return { instanceId, startedAt, available: false, supervisor: null, unavailableReason: 'desktop' }
   }
   if (env.DSH_WEB_SUPERVISOR !== SUPERVISOR_MARKER) {
-    return { instanceId, available: false, supervisor: null, unavailableReason: 'not-supervised' }
+    return { instanceId, startedAt, available: false, supervisor: null, unavailableReason: 'not-supervised' }
   }
-  if (platform === 'darwin') {
-    if (env.XPC_SERVICE_NAME !== SERVICE_LABEL) {
-      return { instanceId, available: false, supervisor: 'launchd', unavailableReason: 'supervisor-mismatch' }
-    }
-    return { instanceId, available: true, supervisor: 'launchd', unavailableReason: null }
-  }
-  if (platform === 'linux') {
-    if (typeof env.INVOCATION_ID !== 'string' || env.INVOCATION_ID === '') {
-      return { instanceId, available: false, supervisor: 'systemd', unavailableReason: 'supervisor-mismatch' }
-    }
-    return { instanceId, available: true, supervisor: 'systemd', unavailableReason: null }
-  }
-  if (platform === 'win32') return { instanceId, available: true, supervisor: 'task-scheduler', unavailableReason: null }
-  return { instanceId, available: false, supervisor: 'unknown', unavailableReason: 'supervisor-mismatch' }
+  // `supervisor` here is the platform whose ownership probe `assess()` will run,
+  // not a fact this function has established on its own.
+  if (platform === 'darwin') return { instanceId, startedAt, available: true, supervisor: 'launchd', unavailableReason: null }
+  if (platform === 'linux') return { instanceId, startedAt, available: true, supervisor: 'systemd', unavailableReason: null }
+  if (platform === 'win32') return { instanceId, startedAt, available: true, supervisor: 'task-scheduler', unavailableReason: null }
+  return { instanceId, startedAt, available: false, supervisor: 'unknown', unavailableReason: 'supervisor-mismatch' }
 }
 
 /** Same facts dsh-service lists before allowing its force-restart control. */
@@ -229,19 +269,63 @@ export function collectActiveWork(ctx: ContextLike): RestartActivity {
 export class RestartController {
   private readonly instanceId: string
   private readonly options: RestartControllerOptions
+  private readonly health: (() => Promise<SupervisorHealth>) | undefined
+  private readonly recovery: (() => RestartRecovery | undefined) | undefined
   private scheduled = false
 
   constructor(options: RestartControllerOptions = {}) {
     this.options = options
     this.instanceId = options.instanceId ?? processInstanceId()
+    this.health = options.health
+    this.recovery = options.recovery
   }
 
   status(): RestartStatus {
     return restartStatusOf({ ...this.options, instanceId: this.instanceId })
   }
 
-  check(ctx: ContextLike): RestartCheckResult {
-    const status = this.status()
+  /**
+   * The environment verdict plus what only the platform knows: whether this
+   * process is the one its supervisor is actually tracking, and whether a restart
+   * storm says the supervisor cannot complete a start at all. A probe that throws
+   * is treated as unverifiable, because restart is destructive.
+   */
+  async assess(): Promise<RestartStatus> {
+    const base = this.status()
+    if (!base.available) return this.withRecovery(base)
+    let health: SupervisorHealth
+    if (this.health === undefined) {
+      // No probe means the claim cannot be checked, and the environment marker
+      // alone is inherited by every descendant: fail closed rather than trust it.
+      health = { kind: 'unverifiable' }
+    } else {
+      try {
+        health = await this.health()
+      } catch {
+        health = { kind: 'unverifiable' }
+      }
+    }
+    if (health.kind === 'thrashing') return this.withRecovery({ ...base, available: false, unavailableReason: 'supervisor-thrashing' })
+    if (health.kind === 'not-owner' || health.kind === 'unverifiable') {
+      return this.withRecovery({ ...base, available: false, unavailableReason: 'supervisor-mismatch' })
+    }
+    return base
+  }
+
+  /** A refused restart carries the steps back; an offerable one does not need them. */
+  private withRecovery(status: RestartStatus): RestartStatus {
+    if (this.recovery === undefined) return status
+    let recovery: RestartRecovery | undefined
+    try {
+      recovery = this.recovery()
+    } catch {
+      recovery = undefined
+    }
+    return recovery === undefined ? status : { ...status, recovery }
+  }
+
+  async check(ctx: ContextLike): Promise<RestartCheckResult> {
+    const status = await this.assess()
     if (!status.available) return { kind: 'unavailable', status }
     const activity = collectActiveWork(ctx)
     if (!activity.available) return { kind: 'unavailable', status: { ...status, available: false, unavailableReason: 'activity-unavailable' } }
@@ -249,15 +333,16 @@ export class RestartController {
     return { kind: 'ready', status }
   }
 
-  request(ctx: ContextLike, force: boolean, expectedInstanceId: string): RestartRequestResult {
+  async request(ctx: ContextLike, force: boolean, expectedInstanceId: string): Promise<RestartRequestResult> {
     // A tab left open across a prior restart must never be able to terminate the
     // fresh Host generation it happens to reconnect to.
     if (expectedInstanceId !== this.instanceId) {
       return { kind: 'unavailable', status: { ...this.status(), available: false, unavailableReason: 'stale-instance' } }
     }
     // This is deliberately a second activity inspection. A job may start in
-    // the gap between the client's "Confirm" button and this RPC request.
-    const checked = this.check(ctx)
+    // the gap between the client's "Confirm" button and this RPC request — and
+    // ownership is re-asked here too, because that is the destructive moment.
+    const checked = await this.check(ctx)
     if (checked.kind === 'unavailable') return checked
     if (checked.kind === 'active-work' && !force) return checked
     // A second tab/click can arrive inside the 500ms response grace period.
@@ -282,9 +367,19 @@ export class RestartController {
   }
 }
 
-/** Creates the process-scoped controller once per DSH Host generation. */
-export function createRestartController(): RestartController {
-  return new RestartController()
+/**
+ * Creates the process-scoped controller once per DSH Host generation.
+ *
+ * The health probe is wired here rather than inside the CLI's plan so the Host
+ * and the installer agree on where the evidence lives: `$DSH_HOME/logs`.
+ */
+export function createRestartController(options: RestartControllerOptions = {}): RestartController {
+  const env = options.env ?? process.env
+  const health = options.health ?? createSupervisorHealth({ logDir: serviceLogDir(env), bootLog: bootStampFile(env) })
+  const recovery = options.recovery ?? createServiceRecovery({ env })
+  return new RestartController({ ...options, health, recovery })
 }
 
 export type RestartContext = Context
+
+export type { RestartRecovery }

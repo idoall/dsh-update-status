@@ -54,7 +54,12 @@ const DICTIONARY: Record<string, Entry> = {
   'restart.timeout': { zh: '60 秒内未检测到新 DSH 实例。请检查用户服务状态和日志；重新加载本页不会再次触发重启。', en: 'No new DSH instance was detected within 60 seconds. Check the user-service status and logs; reloading this page will not trigger another restart.' },
   'restart.unavailable': { zh: '当前 DSH 不是由已确认的用户级后台服务启动。为避免页面重启后无法恢复，按钮已禁用；请先按服务管理文档安装并接管 DSH。', en: 'This DSH is not running under a verified user-level service. Restart is disabled so the page cannot strand itself; install and activate supervision first.' },
   'restart.unavailableDesktop': { zh: 'DSH Desktop 管理当前 Host；请退出并重新打开桌面应用。', en: 'DSH Desktop manages this Host. Quit and reopen the desktop app instead.' },
-  'restart.unavailableMismatch': { zh: '检测到监督标记，但当前进程不符合对应平台服务的身份。为安全起见，重启已禁用。', en: 'A supervision marker exists, but this process does not match the platform service identity. Restart is disabled for safety.' },
+  'restart.unavailableMismatch': { zh: '检测到监督标记，但当前进程不是该平台服务真正启动并持有的那个（例如被另一个重启工具拉起）。重启后无法保证恢复，按钮已禁用。', en: 'A supervision marker exists, but this process is not the one that platform service actually started and owns (another restart tool launched it, for example). Restart is disabled so the page cannot strand itself.' },
+  'restart.recoverIntro': { zh: '第一行只列出占用端口的进程，不会杀它；请先自行停止它，再执行第二行让监督服务重新接管。', en: 'The first line only lists whoever holds the port — it kills nothing. Stop that process yourself, then run the second line to hand supervision back.' },
+  'restart.recoverLabel': { zh: '恢复命令', en: 'Recovery commands' },
+  'restart.recoverNote': { zh: '仅复制，不会执行，也不会杀任何进程。', en: 'Copy only — nothing runs here, and no process is killed.' },
+  'restart.recoverInstall': { zh: '尚未安装用户级监督服务；请按 README 的「受监督的重启」一节安装并接管 DSH，之后这个按钮才会启用。', en: 'No user-level supervisor is installed. Follow the “Supervised restart” section of the README to install and activate one; this button stays disabled until then.' },
+  'restart.unavailableThrashing': { zh: '监督服务正在反复启动失败（检测到重启风暴）。请先停止占用该端口的另一个 DSH 实例，并查看服务日志；在那之前重启可能无法恢复。', en: 'The supervisor is repeatedly failing to start (a restart storm was detected). Stop the other DSH instance holding this port and check the service logs; until then a restart may not recover.' },
   'restart.unavailableActivity': { zh: '无法完整读取正在运行的任务。为避免中断未能列出的工作，重启已禁用。', en: 'Active work could not be inspected completely. Restart is disabled to avoid interrupting work that could not be listed.' },
   'restart.unavailableTimer': { zh: '当前 Host 没有可用的安全退出调度器。为确保响应先送达浏览器，重启已禁用。', en: 'This Host has no safe exit scheduler. Restart is disabled so its response can reach the browser first.' },
   'restart.unavailableStale': { zh: '此页面连接的是过期 DSH 实例。请等待恢复或重新加载后再重试。', en: 'This page is connected to a stale DSH instance. Wait for recovery or reload before trying again.' },
@@ -70,6 +75,7 @@ const DICTIONARY: Record<string, Entry> = {
   'settings.sidebar': { zh: '在侧栏显示版本状态入口', en: 'Show the version-status entry in the sidebar' },
   'settings.sidebarHint': { zh: '关闭后不再渲染品牌行里的版本芯片，品牌行恢复为 DSH 官方内容。不会执行或安排升级。', en: 'When off, the version chip in the brand row is not rendered and the brand row falls back to DSH’s own content. No update is run or scheduled.' },
   'settings.readonly': { zh: '此连接的设置为只读；显示状态不受影响。', en: 'Settings are read-only on this connection; status display is unchanged.' },
+  'settings.serviceStarted': { zh: '服务启动时间', en: 'Service started' },
 }
 
 export function languageOf(): Language {

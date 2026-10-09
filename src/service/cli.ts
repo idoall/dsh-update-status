@@ -4,6 +4,7 @@ import { accessSync, constants, existsSync, mkdirSync, readFileSync, renameSync,
 import { createServer } from 'node:net'
 import { dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { verifyActivatedService, type ServiceVerification } from './observe.ts'
 import { pathsFor, planFor, specFromArgs } from './plan.ts'
 import type { CliEnvironment, CommandResult, CommandRunner, ServicePlan, ServiceSpec } from './types.ts'
 
@@ -52,6 +53,10 @@ Options:
   --log-dir <path>       Absolute log directory (default: $DSH_HOME/logs)
 
 Workflow: plan --dry-run → install → stop the terminal-started DSH yourself → activate.
+
+activate refuses an occupied port, never kills a process, and then verifies that
+the service it started actually took over; a service that begins crash-looping
+makes activate fail instead of reporting success.
 `
 }
 
@@ -95,11 +100,32 @@ function atomicWrite(path: string, content: string): void {
   renameSync(temporary, path)
 }
 
-function ensureManagedTarget(path: string, expected: string): void {
+/**
+ * Replace an artifact only when we can prove we wrote it: either it already holds
+ * exactly what we are about to write, or our own receipt names that path. The
+ * receipt is what makes an upgrade possible at all — an improved definition
+ * differs from the stored one by exactly the fix being installed, so
+ * byte-equality with the previous rendering can never authorise it.
+ */
+function ensureReplaceable(path: string, expected: string, managed: boolean): void {
   if (!existsSync(path)) return
   let current: string
   try { current = readFileSync(path, 'utf8') } catch { throw new Error(`refusing to replace unreadable existing file: ${path}`) }
-  if (current !== expected) throw new Error(`refusing to overwrite an existing unmanaged service artifact: ${path}`)
+  if (current === expected || managed) return
+  throw new Error(`refusing to overwrite an existing unmanaged service artifact: ${path}`)
+}
+
+function receiptOwnsPath(previous: Receipt | undefined, path: string): boolean {
+  if (previous === undefined) return false
+  return previous.paths.definitionFile === path || previous.paths.stateFile === path || previous.paths.wrapperFile === path
+}
+
+function receiptTextOf(receipt: Receipt): string {
+  return JSON.stringify(receipt, null, 2) + '\n'
+}
+
+function readReceiptIfPresent(path: string): Receipt | undefined {
+  return existsSync(path) ? readReceipt(path) : undefined
 }
 
 function readReceipt(path: string): Receipt {
@@ -136,7 +162,7 @@ function serialisePlan(plan: ServicePlan): string {
     wrapperFile: plan.paths.wrapperFile,
     stateFile: plan.paths.stateFile,
     logs: { stdout: plan.paths.stdoutFile, stderr: plan.paths.stderrFile },
-    commands: { install: plan.installCommand, start: plan.startCommand, status: plan.statusCommand, stop: plan.stopCommand, uninstall: plan.uninstallCommand },
+    commands: { install: plan.installCommand, start: plan.startCommand, status: plan.statusCommand, stop: plan.stopCommand, uninstall: plan.uninstallCommand, recover: plan.recoverCommand },
   }, null, 2) + '\n'
 }
 
@@ -179,6 +205,8 @@ function preflight(spec: ServiceSpec): void {
 
 export interface CliHooks {
   readonly preflight?: (spec: ServiceSpec) => void
+  /** Injected in tests; defaults to the real post-activation verification. */
+  readonly verify?: (spec: ServiceSpec) => Promise<ServiceVerification>
 }
 
 export async function main(argv: readonly string[] = process.argv.slice(2), env = environment(), run: CommandRunner = runner, hooks: CliHooks = {}): Promise<number> {
@@ -203,11 +231,14 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env 
     }
     if (action === 'install') {
       ;(hooks.preflight ?? preflight)(spec)
-      ensureManagedTarget(plan.paths.definitionFile, plan.definition)
-      if (plan.wrapper !== undefined && plan.paths.wrapperFile !== undefined) ensureManagedTarget(plan.paths.wrapperFile, plan.wrapper)
+      const previous = readReceiptIfPresent(plan.paths.stateFile)
+      ensureReplaceable(plan.paths.definitionFile, plan.definition, receiptOwnsPath(previous, plan.paths.definitionFile))
+      if (plan.wrapper !== undefined && plan.paths.wrapperFile !== undefined) {
+        ensureReplaceable(plan.paths.wrapperFile, plan.wrapper, receiptOwnsPath(previous, plan.paths.wrapperFile))
+      }
       const receipt: Receipt = { version: RECEIPT_VERSION, managedBy: 'dsh-update-status', spec, paths: plan.paths }
-      const receiptText = JSON.stringify(receipt, null, 2) + '\n'
-      ensureManagedTarget(plan.paths.stateFile, receiptText)
+      const receiptText = receiptTextOf(receipt)
+      ensureReplaceable(plan.paths.stateFile, receiptText, receiptOwnsPath(previous, plan.paths.stateFile))
       mkdirSync(spec.logDir, { recursive: true, mode: 0o700 })
       atomicWrite(plan.paths.definitionFile, plan.definition)
       if (plan.wrapper !== undefined && plan.paths.wrapperFile !== undefined) atomicWrite(plan.paths.wrapperFile, plan.wrapper)
@@ -221,7 +252,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env 
         throw new Error(`port ${receipt.spec.host}:${String(receipt.spec.port)} is in use; stop the existing DSH yourself before activate. Nothing was killed.`)
       }
       for (const command of commandsForActivate(plan, env.uid ?? 0)) invoke(command, run)
-      process.stdout.write('User service activated. Wait for DSH to become ready, then open the existing Web URL.\n')
+      const verify = hooks.verify ?? ((installed: ServiceSpec) => verifyActivatedService(installed, { run, uid: env.uid ?? 0 }))
+      const verification = await verify(receipt.spec)
+      if (verification.kind === 'crash-loop') {
+        throw new Error(`the activated service is restarting repeatedly (${String(verification.recentRestarts)} starts within ${String(Math.round(verification.windowMs / 1000))}s); another process probably holds ${receipt.spec.host}:${String(receipt.spec.port)}. Nothing was killed. Stop that instance, fix the cause, then run activate again.`)
+      }
+      if (verification.kind === 'not-running') {
+        throw new Error(`the activated service reported no running process; check the native status and the logs in ${receipt.spec.logDir}. Nothing was killed.`)
+      }
+      process.stdout.write('User service activated and verified to be running. Wait for DSH to become ready, then open the existing Web URL.\n')
       return 0
     }
     if (action === 'status') {

@@ -3,6 +3,9 @@ import { RestartController, collectActiveWork, restartStatusOf } from '../../src
 
 const launchdEnv = { DSH_WEB_SUPERVISOR: 'dsh-update-status', XPC_SERVICE_NAME: 'com.idoall.dsh-update-status.web' }
 
+/** A probe that reports the platform's own verdict: this process is the job. */
+const owned = async () => ({ kind: 'owned' }) as const
+
 function ctx(services: Record<string, unknown>) {
   return { get: (name: string) => services[name] }
 }
@@ -18,11 +21,41 @@ function liveAgent(terminals?: unknown, status = 'running') {
 }
 
 describe('safe restart controller', () => {
-  it('requires both its marker and the platform supervisor identity', () => {
+  it('requires the explicit marker, and reports only a claim about the supervisor', () => {
     expect(restartStatusOf({ platform: 'darwin', env: {}, instanceId: 'one' })).toMatchObject({ available: false, unavailableReason: 'not-supervised' })
-    expect(restartStatusOf({ platform: 'darwin', env: { DSH_WEB_SUPERVISOR: 'dsh-update-status' }, instanceId: 'one' })).toMatchObject({ available: false, unavailableReason: 'supervisor-mismatch' })
-    expect(restartStatusOf({ platform: 'darwin', env: launchdEnv, instanceId: 'one' })).toEqual({ instanceId: 'one', available: true, supervisor: 'launchd', unavailableReason: null })
+    const claimed = restartStatusOf({ platform: 'darwin', env: launchdEnv, instanceId: 'one', startedAt: '2026-10-09T00:25:03.000Z' })
+    expect(claimed).toEqual({ instanceId: 'one', startedAt: '2026-10-09T00:25:03.000Z', available: true, supervisor: 'launchd', unavailableReason: null })
+    // This is a claim, not proof: the environment marker is inherited by every
+    // descendant. What makes it an answer is the platform probe in `assess()`,
+    // which is why the same env with no probe wired is refused below.
     expect(restartStatusOf({ platform: 'darwin', env: launchdEnv, versions: { electron: '44.0.0' }, instanceId: 'one' })).toMatchObject({ available: false, unavailableReason: 'desktop' })
+  })
+
+  it('does not depend on the launchd label surviving into the environment', () => {
+    // Observed on a real host: launchd configures XPC_SERVICE_NAME=<label> for the
+    // job, but the DSH process behind the staged /bin/sh wrapper reads
+    // `XPC_SERVICE_NAME=0`. An environment check here disabled the button on the
+    // very setup this plugin installs, so identity comes from the probe instead.
+    const hostEnv = { DSH_WEB_SUPERVISOR: 'dsh-update-status', XPC_SERVICE_NAME: '0' }
+    expect(restartStatusOf({ platform: 'darwin', env: hostEnv, instanceId: 'one' })).toMatchObject({ available: true, supervisor: 'launchd', unavailableReason: null })
+  })
+
+  it('reports this process\' start time even when a restart is refused', () => {
+    // The settings panel shows it beside the version, so it must not depend on
+    // supervision being available — an unsupervised Host is exactly where an
+    // operator wants to know how long this instance has been up.
+    const before = Date.now()
+    const derived = restartStatusOf({ platform: 'darwin', env: {}, instanceId: 'one' })
+    const started = Date.parse(derived.startedAt)
+    expect(Number.isNaN(started)).toBe(false)
+    expect(started).toBeLessThanOrEqual(before)
+    // Node reports uptime with sub-second precision; allow a generous second of
+    // scheduling slack rather than asserting an exact instant.
+    expect(before - started).toBeLessThan(process.uptime() * 1_000 + 1_000)
+    expect(derived.available).toBe(false)
+    expect(derived.unavailableReason).toBe('not-supervised')
+    // Stable for the lifetime of the process, so a re-render cannot make it drift.
+    expect(restartStatusOf({ platform: 'darwin', env: {}, instanceId: 'one' }).startedAt).toBe(derived.startedAt)
   })
 
   it('fails closed when the agent registry itself cannot answer', () => {
@@ -78,27 +111,96 @@ describe('safe restart controller', () => {
     expect(collectActiveWork(ctx(throwing.services))).toEqual({ available: false, hasActive: false, items: [] })
   })
 
-  it('rechecks activity and schedules exactly one exit after its response grace period', () => {
+  it('rechecks activity and schedules exactly one exit after its response grace period', async () => {
     const delays: number[] = []
     const exits: number[] = []
     let scheduled: (() => void) | undefined
-    const controller = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'old', schedule: (callback, delay) => { delays.push(delay); scheduled = callback }, exit: code => { exits.push(code) } })
+    const controller = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'old', health: owned, schedule: (callback, delay) => { delays.push(delay); scheduled = callback }, exit: code => { exits.push(code) } })
     const services = idleServices()
-    expect(controller.check(ctx(services))).toMatchObject({ kind: 'ready' })
+    await expect(controller.check(ctx(services))).resolves.toMatchObject({ kind: 'ready' })
     // The accepted result exists before the delayed exit callback is released.
-    expect(controller.request(ctx(services), false, 'old')).toEqual({ kind: 'scheduled', instanceId: 'old' })
+    await expect(controller.request(ctx(services), false, 'old')).resolves.toEqual({ kind: 'scheduled', instanceId: 'old' })
     expect(delays).toEqual([500])
     expect(exits).toEqual([])
     scheduled?.()
     expect(exits).toEqual([42])
-    expect(controller.request(ctx(services), false, 'old')).toEqual({ kind: 'in-progress', instanceId: 'old' })
+    await expect(controller.request(ctx(services), false, 'old')).resolves.toEqual({ kind: 'in-progress', instanceId: 'old' })
   })
 
-  it('refuses a stale tab and a final active-work check without force', () => {
-    const controller = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'live', schedule: () => {}, exit: () => {} })
-    expect(controller.request(ctx(idleServices()), false, 'old')).toMatchObject({ kind: 'unavailable' })
+  it('refuses a stale tab and a final active-work check without force', async () => {
+    const controller = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'live', health: owned, schedule: () => {}, exit: () => {} })
+    await expect(controller.request(ctx(idleServices()), false, 'old')).resolves.toMatchObject({ kind: 'unavailable' })
     const { services } = liveAgent()
-    expect(controller.request(ctx(services), false, 'live')).toMatchObject({ kind: 'active-work' })
-    expect(controller.request(ctx(services), true, 'live')).toMatchObject({ kind: 'scheduled' })
+    await expect(controller.request(ctx(services), false, 'live')).resolves.toMatchObject({ kind: 'active-work' })
+    await expect(controller.request(ctx(services), true, 'live')).resolves.toMatchObject({ kind: 'scheduled' })
+  })
+
+  it('refuses a process the platform supervisor does not actually own', async () => {
+    // The environment marker is inherited by every descendant: another plugin's
+    // restart helper starts a real DSH Web that inherits it while launchd is busy
+    // respawning a process that can never bind the port. Owning the marker is not
+    // owning the service, and this is the process the panel must refuse.
+    const foreign = new RestartController({
+      platform: 'darwin', env: launchdEnv, instanceId: 'foreign', exit: () => {},
+      health: async () => ({ kind: 'not-owner' }),
+    })
+    await expect(foreign.assess()).resolves.toMatchObject({ available: false, unavailableReason: 'supervisor-mismatch' })
+    await expect(foreign.check(ctx(idleServices()))).resolves.toMatchObject({ kind: 'unavailable' })
+    // The destructive moment must refuse as well, not only the status read.
+    await expect(foreign.request(ctx(idleServices()), false, 'foreign')).resolves.toMatchObject({ kind: 'unavailable' })
+  })
+
+  it('surfaces a supervisor that cannot finish a start as its own reason', async () => {
+    const storming = new RestartController({
+      platform: 'darwin', env: launchdEnv, instanceId: 'live', exit: () => {},
+      health: async () => ({ kind: 'thrashing', recentRestarts: 18, windowMs: 180_000 }),
+    })
+    await expect(storming.assess()).resolves.toMatchObject({ available: false, unavailableReason: 'supervisor-thrashing' })
+  })
+
+  it('fails closed when ownership cannot be verified at all', async () => {
+    const broken = new RestartController({
+      platform: 'darwin', env: launchdEnv, instanceId: 'live', exit: () => {},
+      health: async () => { throw new Error('probe exploded') },
+    })
+    await expect(broken.assess()).resolves.toMatchObject({ available: false, unavailableReason: 'supervisor-mismatch' })
+    const unverifiable = new RestartController({
+      platform: 'darwin', env: launchdEnv, instanceId: 'live', exit: () => {},
+      health: async () => ({ kind: 'unverifiable' }),
+    })
+    await expect(unverifiable.assess()).resolves.toMatchObject({ available: false, unavailableReason: 'supervisor-mismatch' })
+  })
+
+  it('carries the recovery steps only while a restart is refused', async () => {
+    const recovery = (): { commands: string } => ({ commands: 'lsof -nP -iTCP:3080 -sTCP:LISTEN\nlaunchctl kickstart -k gui/501/x' })
+    const refused = new RestartController({
+      platform: 'darwin', env: launchdEnv, instanceId: 'live', exit: () => {},
+      health: async () => ({ kind: 'not-owner' }), recovery,
+    })
+    await expect(refused.assess()).resolves.toMatchObject({
+      available: false, unavailableReason: 'supervisor-mismatch', recovery: { commands: 'lsof -nP -iTCP:3080 -sTCP:LISTEN\nlaunchctl kickstart -k gui/501/x' },
+    })
+    // A button that works needs no consolation prize, and the payload stays lean.
+    const offered = new RestartController({
+      platform: 'darwin', env: launchdEnv, instanceId: 'live', exit: () => {},
+      health: async () => ({ kind: 'owned' }), recovery,
+    })
+    await expect(offered.assess()).resolves.not.toHaveProperty('recovery')
+  })
+
+  it('keeps refusing even when the recovery reader itself fails', async () => {
+    const broken = new RestartController({
+      platform: 'darwin', env: launchdEnv, instanceId: 'live', exit: () => {},
+      health: async () => ({ kind: 'not-owner' }),
+      recovery: () => { throw new Error('receipt exploded') },
+    })
+    await expect(broken.assess()).resolves.toMatchObject({ available: false, unavailableReason: 'supervisor-mismatch' })
+  })
+
+  it('fails closed when no ownership probe is wired at all', async () => {
+    // Every production controller wires the probe in `createRestartController`;
+    // one constructed without it must not fall back to the inherited marker.
+    const plain = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'live', exit: () => {} })
+    await expect(plain.assess()).resolves.toMatchObject({ available: false, unavailableReason: 'supervisor-mismatch' })
   })
 })

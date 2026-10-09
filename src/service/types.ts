@@ -24,7 +24,7 @@ export interface ServiceSpec {
 export interface ServicePaths {
   readonly stateFile: string
   readonly definitionFile: string
-  /** Windows only: the Task Scheduler wrapper. */
+  /** macOS and Windows: the wrapper that owns the restart loop. */
   readonly wrapperFile?: string
   readonly stdoutFile: string
   readonly stderrFile: string
@@ -37,6 +37,12 @@ export interface ServicePlan {
   readonly wrapper?: string
   readonly installCommand: readonly string[]
   readonly startCommand: readonly string[]
+  /**
+   * One copy-only line that lets the service take over again after it stopped
+   * (a tripped start limit, a given-up wrapper). Displayed only — never run by
+   * the plugin.
+   */
+  readonly recoverCommand: string
   readonly statusCommand: readonly string[]
   readonly stopCommand: readonly string[]
   readonly uninstallCommand: readonly string[]

@@ -4,11 +4,23 @@ import type { UpdateStatus, UpdateWarning } from '../shared/types.ts'
 
 export type RestartPhase = 'unknown' | 'idle' | 'armed' | 'checking' | 'waiting' | 'timeout' | 'error'
 
+export interface RestartRecoveryValue {
+  /** Copy-only advice from the installer's own receipt: find the port holder, then recover. */
+  commands: string
+}
+
 export interface RestartStatusValue {
   instanceId: string
+  /**
+   * When the current Host process started. Optional on purpose: a bundle that was
+   * hot-reloaded over an older Host must keep rendering without it.
+   */
+  startedAt?: string
   available: boolean
   supervisor: 'launchd' | 'systemd' | 'task-scheduler' | 'unknown' | null
-  unavailableReason: 'not-supervised' | 'desktop' | 'supervisor-mismatch' | 'activity-unavailable' | 'timer-unavailable' | 'stale-instance' | null
+  unavailableReason: 'not-supervised' | 'desktop' | 'supervisor-mismatch' | 'supervisor-thrashing' | 'activity-unavailable' | 'timer-unavailable' | 'stale-instance' | null
+  /** Optional: an older Host sends no recovery steps and the panel simply omits them. */
+  recovery?: RestartRecoveryValue
 }
 
 export interface RestartActivityItemValue {
@@ -99,9 +111,17 @@ export function restartStatusOf(value: unknown): RestartStatusValue | undefined 
     : record.unavailableReason === 'not-supervised' || record.unavailableReason === 'desktop' || record.unavailableReason === 'supervisor-mismatch' || record.unavailableReason === 'activity-unavailable' || record.unavailableReason === 'timer-unavailable' || record.unavailableReason === 'stale-instance'
       ? record.unavailableReason : undefined
   if (supervisor === undefined || unavailableReason === undefined) return undefined
+  if (record.startedAt !== undefined && (typeof record.startedAt !== 'string' || record.startedAt === '')) return undefined
+  const recovery = record.recovery === undefined ? undefined : objectOf(record.recovery)
+  if (record.recovery !== undefined && (recovery === undefined || typeof recovery.commands !== 'string' || recovery.commands === '')) return undefined
   if (record.available && (supervisor === null || unavailableReason !== null)) return undefined
   if (!record.available && unavailableReason === null) return undefined
-  return { instanceId: record.instanceId, available: record.available, supervisor, unavailableReason }
+  return {
+    instanceId: record.instanceId,
+    ...(record.startedAt === undefined ? {} : { startedAt: record.startedAt }),
+    available: record.available, supervisor, unavailableReason,
+    ...(recovery === undefined ? {} : { recovery: { commands: recovery.commands as string } }),
+  }
 }
 
 function restartActivityOf(value: unknown): { hasActive: boolean; items: RestartActivityItemValue[] } | undefined {

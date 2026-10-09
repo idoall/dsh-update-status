@@ -43,6 +43,13 @@ describe('RestartStore recovery boundary', () => {
     expect(store.getSnapshot().phase).toBe('idle')
   })
 
+  it('carries the Host start time into the snapshot the settings panel renders', async () => {
+    const withStart = { ...supervised, startedAt: '2026-10-09T00:25:03.000Z' }
+    const store = new RestartStore({ rpc: { call: async () => ({ ok: true, value: withStart }) } })
+    await store.refresh()
+    expect(store.getSnapshot().status?.startedAt).toBe('2026-10-09T00:25:03.000Z')
+  })
+
   it('checks activity, demands force only after listing active work, and sends expected identity', async () => {
     const calls: Array<{ endpoint: string; payload: unknown }> = []
     const active = { kind: 'active-work', status: supervised, activity: { hasActive: true, items: [{ type: 'agent', id: 'a1', label: 'a1', status: 'running' }] } }

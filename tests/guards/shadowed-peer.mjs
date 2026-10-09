@@ -92,8 +92,10 @@ function plantStaleCopy(work) {
 /** A throwaway install tree: the built entry, its manifest, and the planted copy. */
 function makeWork() {
   const work = mkdtempSync(join(tmpdir(), 'dus-shadowed-peer-'))
-  mkdirSync(join(work, 'lib'), { recursive: true })
-  cpSync(join(root, 'lib', 'index.js'), join(work, 'lib', 'index.js'))
+  // The whole built directory, shared chunks included: the bundler is free to
+  // split modules into separate files, and a partial copy would fail to load for
+  // a reason that has nothing to do with peer resolution.
+  cpSync(join(root, 'lib'), join(work, 'lib'), { recursive: true })
   cpSync(join(root, 'package.json'), join(work, 'package.json'))
   plantStaleCopy(work)
   return work

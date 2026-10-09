@@ -42,7 +42,7 @@ describe('RPC status boundary', () => {
 })
 
 describe('restart RPC boundary', () => {
-  const supervised = { instanceId: 'new-host', available: true, supervisor: 'launchd', unavailableReason: null }
+  const supervised = { instanceId: 'new-host', startedAt: '2026-10-09T00:25:03.000Z', available: true, supervisor: 'launchd', unavailableReason: null }
 
   it('accepts a strict supervised status, activity check, and accepted response', () => {
     expect(restartStatusOf(supervised)).toEqual(supervised)
@@ -51,6 +51,27 @@ describe('restart RPC boundary', () => {
       activity: { hasActive: true, items: [{ type: 'job', id: 'job-1', label: 'Build', status: 'running', ownerSession: 's1' }] },
     })).toMatchObject({ kind: 'active-work' })
     expect(restartRequestOf({ kind: 'scheduled', instanceId: 'new-host' })).toEqual({ kind: 'scheduled', instanceId: 'new-host' })
+  })
+
+  it('keeps the Host start time, and tolerates a Host that predates it', () => {
+    expect(restartStatusOf(supervised)?.startedAt).toBe('2026-10-09T00:25:03.000Z')
+    // A hot-reloaded bundle can meet an older Host: the line is simply absent.
+    const { startedAt, ...withoutStart } = supervised
+    expect(restartStatusOf(withoutStart)).toEqual(withoutStart)
+    void startedAt
+    expect(restartStatusOf({ ...supervised, startedAt: 7 })).toBeUndefined()
+    expect(restartStatusOf({ ...supervised, startedAt: '' })).toBeUndefined()
+  })
+
+  it('carries the copy-only recovery steps, and tolerates a Host without them', () => {
+    const withRecovery = { ...supervised, available: false, unavailableReason: 'supervisor-mismatch', recovery: { commands: 'lsof -nP -iTCP:3080 -sTCP:LISTEN\nlaunchctl kickstart -k gui/501/x' } }
+    expect(restartStatusOf(withRecovery)?.recovery?.commands).toContain('launchctl kickstart')
+    expect(restartStatusOf(supervised)?.recovery).toBeUndefined()
+    // A half-filled or foreign shape is not advice this panel will show.
+    expect(restartStatusOf({ ...withRecovery, recovery: {} })).toBeUndefined()
+    expect(restartStatusOf({ ...withRecovery, recovery: { commands: '' } })).toBeUndefined()
+    expect(restartStatusOf({ ...withRecovery, recovery: { commands: 7 } })).toBeUndefined()
+    expect(restartStatusOf({ ...withRecovery, recovery: 'rm -rf /' })).toBeUndefined()
   })
 
   it('rejects malformed capability, activity, and accepted response payloads', () => {

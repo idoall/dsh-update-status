@@ -104,17 +104,17 @@ export function createUpdateStatusRpcHandler(
       }
       if (endpoint === RESTART_ENDPOINTS.status) {
         if (restart === undefined) return failure('dsh-update-status/restart-unavailable', 'restart support is not configured')
-        return { ok: true, value: restart.status() }
+        return { ok: true, value: await restart.assess() }
       }
       if (endpoint === RESTART_ENDPOINTS.check) {
         if (restart === undefined || restartContext === undefined) return failure('dsh-update-status/restart-unavailable', 'restart support is not configured')
-        return { ok: true, value: restart.check(restartContext) }
+        return { ok: true, value: await restart.check(restartContext) }
       }
       if (endpoint === RESTART_ENDPOINTS.request) {
         const request = restartRequestOf(payload)
         if (request === undefined) return failure('dsh-update-status/bad-request', '`force` must be boolean')
         if (restart === undefined || restartContext === undefined) return failure('dsh-update-status/restart-unavailable', 'restart support is not configured')
-        return { ok: true, value: restart.request(restartContext, request.force, request.expectedInstanceId) }
+        return { ok: true, value: await restart.request(restartContext, request.force, request.expectedInstanceId) }
       }
       return failure('dsh-update-status/unknown-endpoint', `unknown endpoint: ${endpoint}`)
     } catch (error) {

@@ -86,6 +86,9 @@ export const UPDATE_STATUS_CSS = `
 /* A job label is a whole shell command: clamp it so one long command cannot push
    the panel's buttons off a 390px card. */
 .dus-restart-work li{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+/* Recovery steps live under the disabled button and take their own row, like the
+   active-work list: the instruction, the copyable commands, then the no-op note. */
+.dus-restart-recover{flex-basis:100%}
 .dus-command-label{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:600;margin:0 0 6px}
 .dus-command{background:var(--dsw-specific-input-major);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;display:block;font-family:var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:11px;line-height:1.5;margin:0;overflow-wrap:anywhere;padding:9px;tab-size:2;user-select:text;white-space:pre-wrap}
 .dus-command:focus{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
@@ -97,6 +100,16 @@ export const UPDATE_STATUS_CSS = `
 .dus-settings-toggle{align-items:flex-start;cursor:pointer;display:flex;gap:10px;font-size:13px;line-height:1.4}
 .dus-settings-toggle input{accent-color:var(--dsw-alias-state-business-primary);height:18px;margin:0;min-height:18px;min-width:18px;width:18px}
 .dus-settings-hint{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.45;margin:8px 0 0}
+/* Running version and service start time share one row: version left, start time
+   flush right. Each line asks for a 200px basis, so the row wraps into two stacked
+   lines on a phone-width card instead of squeezing either value — the break is
+   driven by available width, which keeps one declaration correct at every size and
+   needs no width query. min(200px,100%) keeps a very narrow card from overflowing.
+   The 5px bottom margin is the breathing room the status block below used to do
+   without: the hints carry margin:8px 0 0, so the row's own box ends at the text and
+   the green state block sat flush against it. */
+.dus-settings-pair{align-items:baseline;display:flex;flex-wrap:wrap;gap:0 12px;justify-content:space-between;margin:0 0 5px}
+.dus-settings-pair>.dus-settings-hint{flex:0 1 auto;min-width:min(200px,100%);overflow-wrap:anywhere}
 .dus-compat{color:var(--dsw-alias-label-secondary)}
 .dus-compat[data-compatibility=verified]{color:var(--dsw-alias-state-success-primary)}
 .dus-compat[data-compatibility=incompatible]{color:var(--dsw-alias-state-error-primary)}
