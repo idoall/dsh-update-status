@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createServiceRecovery } from '../../src/host/service-record.ts'
 import type { ServiceSpec } from '../../src/service/types.ts'
@@ -17,12 +18,16 @@ function receipt(overrides: Record<string, unknown> = {}, specOverride: unknown 
   return JSON.stringify({ version: 1, managedBy: 'dsh-update-status', spec: specOverride, paths: {}, ...overrides })
 }
 
+// Built with `join` so the stub matches the receipt path the Host asks for on
+// every platform: a hardcoded POSIX string silently missed on Windows CI.
+const RECEIPT_PATH = join('/Users/me/.dsh', 'dsh-update-status-service.json')
+
 function recover(text: string, options: { uid?: number; now?: () => number } = {}) {
   return createServiceRecovery({
     env: { DSH_HOME: '/Users/me/.dsh' },
     uid: options.uid ?? 501,
     ...(options.now === undefined ? {} : { now: options.now }),
-    readFile: (path) => (path === '/Users/me/.dsh/dsh-update-status-service.json' ? text : undefined),
+    readFile: (path) => (path === RECEIPT_PATH ? text : undefined),
   })
 }
 
@@ -55,6 +60,10 @@ describe('service recovery advice', () => {
     expect(recover(receipt({}, { ...spec('darwin'), supervisorMarker: 'other' }))()).toBeUndefined()
     expect(recover(receipt({}, { ...spec('darwin'), dshPath: undefined }))()).toBeUndefined()
     expect(createServiceRecovery({ env: { DSH_HOME: '/Users/me/.dsh' }, readFile: () => undefined })()).toBeUndefined()
+    // And the Host must look for the receipt under DSH_HOME with native separators.
+    let askedFor = ''
+    createServiceRecovery({ env: { DSH_HOME: '/Users/me/.dsh' }, readFile: (path) => { askedFor = path; return undefined } })()
+    expect(askedFor).toBe(RECEIPT_PATH)
   })
 
   it('caches the answer, so a status poll does not re-read on every request', () => {
