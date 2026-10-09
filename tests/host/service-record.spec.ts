@@ -34,7 +34,7 @@ function recover(text: string, options: { uid?: number; now?: () => number } = {
 describe('service recovery advice', () => {
   it('turns the installer receipt into the two commands that give supervision back', () => {
     expect(recover(receipt())()).toEqual({
-      commands: `lsof -nP -iTCP:3080 -sTCP:LISTEN\nlaunchctl kickstart -k gui/501/${label}`,
+      commands: `lsof -nP -iTCP:3080 -sTCP:LISTEN\n'/bin/launchctl' kickstart -k gui/501/${label}`,
     })
   })
 
@@ -42,9 +42,9 @@ describe('service recovery advice', () => {
     // The unit's own StartLimit is what stopped a Linux storm, so clearing it is
     // part of the recovery rather than a separate piece of advice.
     expect(recover(receipt({}, spec('linux')))()?.commands)
-      .toBe('lsof -nP -iTCP:3080 -sTCP:LISTEN\nsystemctl --user reset-failed dsh-update-status-web.service && systemctl --user enable --now dsh-update-status-web.service')
+      .toBe("lsof -nP -iTCP:3080 -sTCP:LISTEN\n'/usr/bin/systemctl' --user reset-failed dsh-update-status-web.service && '/usr/bin/systemctl' --user enable --now dsh-update-status-web.service")
     expect(recover(receipt({}, spec('win32')))()?.commands)
-      .toBe('netstat -ano | findstr :3080\nschtasks.exe /Run /TN "DSH Update Status Web"')
+      .toBe('netstat -ano | findstr :3080\n"C:\\Windows\\System32\\schtasks.exe" /Run /TN "DSH Update Status Web"')
   })
 
   it('reads the port from the receipt rather than assuming the default', () => {

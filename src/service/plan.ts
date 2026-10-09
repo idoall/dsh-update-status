@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { LAUNCHD_LABEL, SYSTEMD_UNIT } from '../shared/service-platform.ts'
+import { resolveServicePath, servicePathOf, type ServicePathSource } from './service-path.ts'
 import type { CliEnvironment, ServicePaths, ServicePlan, ServicePlatform, ServiceSpec } from './types.ts'
 
 export const SERVICE_LABEL = LAUNCHD_LABEL
@@ -23,12 +24,23 @@ export const RESTART_DELAY_SECONDS = 3
 export const SYSTEMD_START_LIMIT_INTERVAL_SECONDS = 300
 export const SYSTEMD_START_LIMIT_BURST = 10
 
+export function nativeServiceCommandCandidates(platform: ServicePlatform, systemRoot?: string): readonly string[] {
+  if (platform === 'darwin') return ['/bin/launchctl']
+  if (platform === 'linux') return ['/usr/bin/systemctl', '/bin/systemctl']
+  return [`${systemRoot ?? 'C:\\Windows'}\\System32\\schtasks.exe`]
+}
+
+export function nativeServiceCommandOf(spec: Pick<ServiceSpec, 'platform' | 'nativeServiceCommand'>): string {
+  return spec.nativeServiceCommand ?? nativeServiceCommandCandidates(spec.platform)[0]!
+}
+
 function xml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }
 
 function systemd(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  // Environment= uses systemd specifier expansion: a literal percent is `%%`.
+  return value.replace(/%/g, '%%').replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
 function powerShell(value: string): string {
@@ -79,6 +91,29 @@ export function servicePlatform(value: NodeJS.Platform): ServicePlatform {
   throw new Error(`unsupported platform: ${value}; supported: macOS, Linux, Windows`)
 }
 
+function envValue(env: Readonly<Record<string, string | undefined>>, key: string, platform: ServicePlatform): string | undefined {
+  if (platform !== 'win32') return env[key]
+  const match = Object.entries(env).find(([name]) => name.toLowerCase() === key.toLowerCase())
+  return match?.[1]
+}
+
+function pathSourceOf(args: readonly string[]): ServicePathSource {
+  const explicit = valueAfter(args, '--service-path')
+  const raw = valueAfter(args, '--path-source')
+  if (raw === undefined) return explicit === undefined ? 'current' : 'explicit'
+  if (raw !== 'current' && raw !== 'minimal' && raw !== 'explicit') throw new Error('`--path-source` must be current, minimal, or explicit')
+  if (explicit !== undefined && raw !== 'explicit') throw new Error('`--service-path` requires `--path-source explicit` (or omit --path-source)')
+  return raw
+}
+
+export function serviceStateFileFromArgs(args: readonly string[], env: CliEnvironment): string {
+  const home = env.home || homedir()
+  const dshHomeArg = valueAfter(args, '--dsh-home')
+  const dshHome = dshHomeArg ?? (env.env.DSH_HOME?.trim() || undefined)
+  if (dshHome !== undefined && !isAbsolute(dshHome)) throw new Error('`--dsh-home` must be an absolute path')
+  return join(dshHome ?? join(home, '.dsh'), 'dsh-update-status-service.json')
+}
+
 export function specFromArgs(args: readonly string[], env: CliEnvironment): ServiceSpec {
   const platform = servicePlatform(env.platform)
   const profile = valueAfter(args, '--profile') ?? env.env.DSH_PROFILE ?? 'web'
@@ -97,6 +132,24 @@ export function specFromArgs(args: readonly string[], env: CliEnvironment): Serv
   if (!isAbsolute(dshPath)) throw new Error('`--dsh` must be an absolute executable path')
   if (!isAbsolute(workspace)) throw new Error('`--workspace` must be an absolute path')
   if (!isAbsolute(logDir)) throw new Error('`--log-dir` must be an absolute path')
+  const systemRoot = envValue(env.env, 'SYSTEMROOT', platform)
+  const pathExtOverride = valueAfter(args, '--service-pathext')
+  if (pathExtOverride !== undefined && platform !== 'win32') throw new Error('`--service-pathext` is supported only on Windows')
+  const candidates = nativeServiceCommandCandidates(platform, systemRoot)
+  const nativeServiceCommand = platform === 'linux'
+    ? candidates.find(candidate => existsSync(candidate)) ?? candidates[0]!
+    : candidates[0]!
+  const servicePath = resolveServicePath({
+    platform,
+    nodePath,
+    source: pathSourceOf(args),
+    currentPath: env.path ?? envValue(env.env, 'PATH', platform),
+    currentPathExt: pathExtOverride ?? envValue(env.env, 'PATHEXT', platform),
+    explicitPath: valueAfter(args, '--service-path'),
+    minimalPath: platform === 'win32' && systemRoot !== undefined
+      ? `${systemRoot}\\System32;${systemRoot}`
+      : undefined,
+  })
   return {
     schemaVersion: 1,
     platform,
@@ -110,6 +163,12 @@ export function specFromArgs(args: readonly string[], env: CliEnvironment): Serv
     home,
     ...(dshHome === undefined ? {} : { dshHome }),
     logDir,
+    servicePath: servicePath.value,
+    servicePathSource: servicePath.source,
+    servicePathCapturedAt: new Date().toISOString(),
+    ...(servicePath.pathExt === undefined ? {} : { servicePathExt: servicePath.pathExt }),
+    ...(servicePath.warnings.length === 0 ? {} : { servicePathWarnings: servicePath.warnings }),
+    nativeServiceCommand,
     supervisorMarker: SUPERVISOR_MARKER,
   }
 }
@@ -154,7 +213,7 @@ function webArguments(spec: ServiceSpec): readonly string[] {
 
 function launchdWrapper(spec: ServiceSpec, paths: ServicePaths, uid: number): string {
   const args = [spec.nodePath, ...webArguments(spec)].map(shQuote).join(' ')
-  const kickstart = `launchctl kickstart -k gui/${String(uid)}/${spec.label}`
+  const kickstart = `${shQuote(nativeServiceCommandOf(spec))} kickstart -k gui/${String(uid)}/${spec.label}`
   return `#!/bin/sh
 # Managed by dsh-update-status. This wrapper, not launchd, owns the restart loop.
 #
@@ -212,7 +271,9 @@ function launchdDefinition(spec: ServiceSpec, paths: ServicePaths): string {
   const args = ['/bin/sh', wrapper].map(value => `    <string>${xml(value)}</string>`).join('\n')
   const env: ReadonlyArray<readonly [string, string]> = [
     ['HOME', spec.home],
-    ['PATH', `${dirname(spec.nodePath)}:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`],
+    // One audited PATH was resolved when the plan was created. No shell rc file is
+    // executed by launchd, and no package-manager directory is guessed here.
+    ['PATH', servicePathOf(spec)],
     ['DSH_WEB_SUPERVISOR', spec.supervisorMarker],
     ...(spec.dshHome === undefined ? [] : [['DSH_HOME', spec.dshHome] as const]),
   ]
@@ -248,7 +309,7 @@ function systemdDefinition(spec: ServiceSpec): string {
   const command = [spec.nodePath, ...webArguments(spec)].map(value => `"${systemd(value)}"`).join(' ')
   const env = [
     `Environment="HOME=${systemd(spec.home)}"`,
-    `Environment="PATH=${systemd(`${dirname(spec.nodePath)}:/usr/local/bin:/usr/bin:/bin`)}"`,
+    `Environment="PATH=${systemd(servicePathOf(spec))}"`,
     `Environment="DSH_WEB_SUPERVISOR=${spec.supervisorMarker}"`,
     ...(spec.dshHome === undefined ? [] : [`Environment="DSH_HOME=${systemd(spec.dshHome)}"`]),
   ].join('\n')
@@ -282,9 +343,12 @@ function windowsWrapper(spec: ServiceSpec, paths: ServicePaths): string {
   const err = powerShell(paths.stderrFile)
   const home = powerShell(spec.home)
   const dshHome = spec.dshHome === undefined ? '' : `$env:DSH_HOME = '${powerShell(spec.dshHome)}'\n`
+  // New receipts pin both variables. An old Windows receipt keeps Task
+  // Scheduler's historical logon environment rather than being narrowed here.
+  const serviceEnvironment = spec.servicePath === undefined ? '' : `$env:PATH = '${powerShell(spec.servicePath)}'\n$env:PATHEXT = '${powerShell(spec.servicePathExt ?? '.COM;.EXE;.BAT;.CMD')}'\n`
   return `$ErrorActionPreference = 'Stop'
 $env:HOME = '${home}'
-$env:DSH_WEB_SUPERVISOR = '${spec.supervisorMarker}'
+${serviceEnvironment}$env:DSH_WEB_SUPERVISOR = '${spec.supervisorMarker}'
 ${dshHome}Set-Location -LiteralPath '${workspace}'
 $rapidWindowSeconds = ${String(RAPID_FAILURE_WINDOW_SECONDS)}
 $rapidLimit = ${String(RAPID_FAILURE_LIMIT)}
@@ -331,40 +395,41 @@ function windowsDefinition(spec: ServiceSpec, paths: ServicePaths): string {
 /** Generate a service plan without writing, starting, or stopping anything. */
 export function planFor(spec: ServiceSpec, uid: number = 0): ServicePlan {
   const paths = pathsFor(spec)
+  const control = nativeServiceCommandOf(spec)
   if (spec.platform === 'darwin') {
     const domain = `gui/${uid}`
     return {
       spec, paths,
       definition: launchdDefinition(spec, paths),
       wrapper: launchdWrapper(spec, paths, uid),
-      installCommand: ['launchctl', 'bootstrap', domain, paths.definitionFile],
-      startCommand: ['launchctl', 'kickstart', '-k', `${domain}/${spec.label}`],
-      recoverCommand: `launchctl kickstart -k ${domain}/${spec.label}`,
-      statusCommand: ['launchctl', 'print', `${domain}/${spec.label}`],
-      stopCommand: ['launchctl', 'bootout', `${domain}/${spec.label}`],
-      uninstallCommand: ['launchctl', 'bootout', `${domain}/${spec.label}`],
+      installCommand: [control, 'bootstrap', domain, paths.definitionFile],
+      startCommand: [control, 'kickstart', '-k', `${domain}/${spec.label}`],
+      recoverCommand: `${shQuote(control)} kickstart -k ${domain}/${spec.label}`,
+      statusCommand: [control, 'print', `${domain}/${spec.label}`],
+      stopCommand: [control, 'bootout', `${domain}/${spec.label}`],
+      uninstallCommand: [control, 'bootout', `${domain}/${spec.label}`],
     }
   }
   if (spec.platform === 'linux') return {
     spec, paths,
     definition: systemdDefinition(spec),
-    installCommand: ['systemctl', '--user', 'daemon-reload'],
-    startCommand: ['systemctl', '--user', 'enable', '--now', 'dsh-update-status-web.service'],
+    installCommand: [control, '--user', 'daemon-reload'],
+    startCommand: [control, '--user', 'enable', '--now', 'dsh-update-status-web.service'],
     // `reset-failed` first: the unit's own StartLimit is what stopped a storm.
-    recoverCommand: `systemctl --user reset-failed ${SYSTEMD_UNIT} && systemctl --user enable --now ${SYSTEMD_UNIT}`,
-    statusCommand: ['systemctl', '--user', 'status', 'dsh-update-status-web.service'],
-    stopCommand: ['systemctl', '--user', 'disable', '--now', 'dsh-update-status-web.service'],
-    uninstallCommand: ['systemctl', '--user', 'disable', '--now', 'dsh-update-status-web.service'],
+    recoverCommand: `${shQuote(control)} --user reset-failed ${SYSTEMD_UNIT} && ${shQuote(control)} --user enable --now ${SYSTEMD_UNIT}`,
+    statusCommand: [control, '--user', 'status', 'dsh-update-status-web.service'],
+    stopCommand: [control, '--user', 'disable', '--now', 'dsh-update-status-web.service'],
+    uninstallCommand: [control, '--user', 'disable', '--now', 'dsh-update-status-web.service'],
   }
   return {
     spec, paths,
     definition: windowsDefinition(spec, paths),
     wrapper: windowsWrapper(spec, paths),
-    installCommand: ['schtasks.exe', '/Create', '/TN', 'DSH Update Status Web', '/XML', paths.definitionFile, '/F'],
-    startCommand: ['schtasks.exe', '/Run', '/TN', 'DSH Update Status Web'],
-    recoverCommand: 'schtasks.exe /Run /TN "DSH Update Status Web"',
-    statusCommand: ['schtasks.exe', '/Query', '/TN', 'DSH Update Status Web', '/V', '/FO', 'LIST'],
-    stopCommand: ['schtasks.exe', '/End', '/TN', 'DSH Update Status Web'],
-    uninstallCommand: ['schtasks.exe', '/Delete', '/TN', 'DSH Update Status Web', '/F'],
+    installCommand: [control, '/Create', '/TN', 'DSH Update Status Web', '/XML', paths.definitionFile, '/F'],
+    startCommand: [control, '/Run', '/TN', 'DSH Update Status Web'],
+    recoverCommand: `"${control}" /Run /TN "DSH Update Status Web"`,
+    statusCommand: [control, '/Query', '/TN', 'DSH Update Status Web', '/V', '/FO', 'LIST'],
+    stopCommand: [control, '/End', '/TN', 'DSH Update Status Web'],
+    uninstallCommand: [control, '/Delete', '/TN', 'DSH Update Status Web', '/F'],
   }
 }

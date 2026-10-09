@@ -16,8 +16,43 @@ interface ServiceSpec {
   readonly home: string;
   readonly dshHome?: string;
   readonly logDir: string;
+  /** Final audited PATH persisted by install and reused by every later action. */
+  readonly servicePath?: string;
+  readonly servicePathSource?: 'current' | 'minimal' | 'explicit';
+  readonly servicePathCapturedAt?: string;
+  /** Windows command extension lookup, persisted alongside PATH. */
+  readonly servicePathExt?: string;
+  /** Human-readable warnings retained in the receipt and dry-run output. */
+  readonly servicePathWarnings?: readonly string[];
+  /** Absolute launchctl/systemctl/schtasks path; later actions never search PATH. */
+  readonly nativeServiceCommand?: string;
   /** Written by the user-service definition, never inferred from a TTY. */
   readonly supervisorMarker: 'dsh-update-status';
+}
+interface ServicePaths {
+  readonly stateFile: string;
+  readonly definitionFile: string;
+  /** macOS and Windows: the wrapper that owns the restart loop. */
+  readonly wrapperFile?: string;
+  readonly stdoutFile: string;
+  readonly stderrFile: string;
+}
+interface ServicePlan {
+  readonly spec: ServiceSpec;
+  readonly paths: ServicePaths;
+  readonly definition: string;
+  readonly wrapper?: string;
+  readonly installCommand: readonly string[];
+  readonly startCommand: readonly string[];
+  /**
+   * One copy-only line that lets the service take over again after it stopped
+   * (a tripped start limit, a given-up wrapper). Displayed only — never run by
+   * the plugin.
+   */
+  readonly recoverCommand: string;
+  readonly statusCommand: readonly string[];
+  readonly stopCommand: readonly string[];
+  readonly uninstallCommand: readonly string[];
 }
 interface CliEnvironment {
   readonly platform: NodeJS.Platform;
@@ -49,6 +84,7 @@ type ServiceVerification = {
 };
 //#endregion
 //#region src/service/cli.d.ts
+export declare function serialisePlan(plan: ServicePlan): string;
 export interface CliHooks {
   readonly preflight?: (spec: ServiceSpec) => void;
   /** Injected in tests; defaults to the real post-activation verification. */

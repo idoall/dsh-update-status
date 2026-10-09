@@ -17,6 +17,16 @@ export interface ServiceSpec {
   readonly home: string
   readonly dshHome?: string
   readonly logDir: string
+  /** Final audited PATH persisted by install and reused by every later action. */
+  readonly servicePath?: string
+  readonly servicePathSource?: 'current' | 'minimal' | 'explicit'
+  readonly servicePathCapturedAt?: string
+  /** Windows command extension lookup, persisted alongside PATH. */
+  readonly servicePathExt?: string
+  /** Human-readable warnings retained in the receipt and dry-run output. */
+  readonly servicePathWarnings?: readonly string[]
+  /** Absolute launchctl/systemctl/schtasks path; later actions never search PATH. */
+  readonly nativeServiceCommand?: string
   /** Written by the user-service definition, never inferred from a TTY. */
   readonly supervisorMarker: 'dsh-update-status'
 }

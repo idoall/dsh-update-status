@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { serialisePlan } from '../../src/service/cli.ts'
 import {
   RAPID_FAILURE_LIMIT,
   RAPID_FAILURE_WINDOW_SECONDS,
@@ -7,8 +8,9 @@ import {
   SYSTEMD_START_LIMIT_INTERVAL_SECONDS,
   pathsFor,
   planFor,
+  specFromArgs,
 } from '../../src/service/plan.ts'
-import type { ServiceSpec } from '../../src/service/types.ts'
+import type { CliEnvironment, ServiceSpec } from '../../src/service/types.ts'
 
 /**
  * Path assertions are built with `join` on purpose: `pathsFor` returns NATIVE
@@ -19,11 +21,17 @@ import type { ServiceSpec } from '../../src/service/types.ts'
 const HOME = '/Users/me'
 
 function spec(platform: ServiceSpec['platform']): ServiceSpec {
+  const nodePath = platform === 'win32' ? 'C:\\Node\\node.exe' : '/opt/node/bin/node'
+  const servicePath = platform === 'win32'
+    ? 'C:\\Node;C:\\Users\\me\\工具;\\\\server\\share\\bin;C:\\Windows\\System32'
+    : '/opt/node/bin:/custom/bin:/usr/bin:/bin'
   return {
     schemaVersion: 1, platform, label: 'com.idoall.dsh-update-status.web',
-    nodePath: '/opt/node/bin/node', dshPath: '/opt/dsh/lib/bin.js', profile: 'web',
-    workspace: '/Users/me/Work Space', host: '127.0.0.1', port: 3080,
+    nodePath, dshPath: platform === 'win32' ? 'C:\\DSH\\lib\\bin.js' : '/opt/dsh/lib/bin.js', profile: 'web',
+    workspace: platform === 'win32' ? 'C:\\Users\\me\\Work Space' : '/Users/me/Work Space', host: '127.0.0.1', port: 3080,
     home: HOME, dshHome: join(HOME, '.dsh'), logDir: join(HOME, '.dsh', 'logs'),
+    servicePath, servicePathSource: 'explicit',
+    ...(platform === 'win32' ? { servicePathExt: '.COM;.EXE;.CMD' } : {}),
     supervisorMarker: 'dsh-update-status',
   }
 }
@@ -34,8 +42,13 @@ describe('user-service plan rendering', () => {
     expect(plan.paths.definitionFile).toBe(join(HOME, 'Library', 'LaunchAgents', 'com.idoall.dsh-update-status.web.plist'))
     expect(plan.paths.wrapperFile).toBe(join(HOME, '.dsh', 'dsh-update-status', 'dsh-web-supervisor.sh'))
     expect(plan.definition).toContain('<key>DSH_WEB_SUPERVISOR</key>')
-    expect(plan.startCommand).toEqual(['launchctl', 'kickstart', '-k', 'gui/501/com.idoall.dsh-update-status.web'])
-    expect(plan.recoverCommand).toBe('launchctl kickstart -k gui/501/com.idoall.dsh-update-status.web')
+    // The generator consumes the one PATH already resolved and persisted by the
+    // CLI; it must not add, drop, or guess a package-manager directory here.
+    expect(plan.definition).toContain('<string>/opt/node/bin:/custom/bin:/usr/bin:/bin</string>')
+    expect(planFor({ ...spec('darwin'), servicePath: '/opt/A&B/bin:/usr/bin' }).definition)
+      .toContain('<string>/opt/A&amp;B/bin:/usr/bin</string>')
+    expect(plan.startCommand).toEqual(['/bin/launchctl', 'kickstart', '-k', 'gui/501/com.idoall.dsh-update-status.web'])
+    expect(plan.recoverCommand).toBe("'/bin/launchctl' kickstart -k gui/501/com.idoall.dsh-update-status.web")
     expect(plan.definition).not.toContain('NPM_TOKEN')
     expect(plan.definition).not.toContain('OPENAI_API_KEY')
     // The loop is the wrapper's, not launchd's: `KeepAlive` can only respawn
@@ -56,10 +69,14 @@ describe('user-service plan rendering', () => {
     expect(plan.definition).toContain('RestartSec=3')
     expect(plan.definition).toContain('WorkingDirectory="/Users/me/Work Space"')
     expect(plan.definition).toContain('DSH_WEB_SUPERVISOR=dsh-update-status')
-    expect(plan.startCommand).toEqual(['systemctl', '--user', 'enable', '--now', 'dsh-update-status-web.service'])
+    expect(plan.definition).toContain('Environment="PATH=/opt/node/bin:/custom/bin:/usr/bin:/bin"')
+    // A literal percent is doubled so systemd cannot treat a PATH segment as a specifier.
+    expect(planFor({ ...spec('linux'), servicePath: '/opt/%h/bin:/usr/bin' }).definition)
+      .toContain('Environment="PATH=/opt/%%h/bin:/usr/bin"')
+    expect(plan.startCommand).toEqual(['/usr/bin/systemctl', '--user', 'enable', '--now', 'dsh-update-status-web.service'])
     // A tripped StartLimit is what stopped the storm, so clearing it is part of
     // getting the unit back — and the panel shows exactly this line.
-    expect(plan.recoverCommand).toBe('systemctl --user reset-failed dsh-update-status-web.service && systemctl --user enable --now dsh-update-status-web.service')
+    expect(plan.recoverCommand).toBe("'/usr/bin/systemctl' --user reset-failed dsh-update-status-web.service && '/usr/bin/systemctl' --user enable --now dsh-update-status-web.service")
   })
 
   it('renders Windows Task Scheduler plus a Node-owned restart wrapper', () => {
@@ -67,13 +84,27 @@ describe('user-service plan rendering', () => {
     expect(plan.paths.wrapperFile).toContain('dsh-web-supervisor.ps1')
     expect(plan.definition).toContain('LogonTrigger')
     expect(plan.definition).toContain('InteractiveToken')
+    expect(plan.wrapper).toContain("$env:PATH = 'C:\\Node;C:\\Users\\me\\工具;\\\\server\\share\\bin;C:\\Windows\\System32'")
+    expect(plan.wrapper).toContain("$env:PATHEXT = '.COM;.EXE;.CMD'")
     expect(plan.wrapper).toContain("$env:DSH_WEB_SUPERVISOR = 'dsh-update-status'")
     expect(plan.wrapper).toContain('--no-open')
     expect(plan.wrapper).not.toContain('NPM_TOKEN')
     // The wrapper hands DSH its own absolute paths, never a bare command name.
-    expect(plan.recoverCommand).toBe('schtasks.exe /Run /TN "DSH Update Status Web"')
+    expect(plan.recoverCommand).toBe('"C:\\Windows\\System32\\schtasks.exe" /Run /TN "DSH Update Status Web"')
     expect(plan.wrapper).toContain("& '")
     expect(plan.wrapper).not.toMatch(/&\s+dsh\b/)
+  })
+
+  it('keeps old receipts compatible without inventing a Windows PATH', () => {
+    const darwin = planFor({ ...spec('darwin'), servicePath: undefined, servicePathSource: undefined })
+    expect(darwin.definition).toContain('<string>/opt/node/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>')
+    const windows = planFor({ ...spec('win32'), servicePath: undefined, servicePathSource: undefined, servicePathExt: undefined })
+    // Historical Task Scheduler definitions inherited the user's logon PATH.
+    expect(windows.wrapper).not.toContain('$env:PATH =')
+    expect(windows.wrapper).not.toContain('$env:PATHEXT =')
+    expect(JSON.parse(serialisePlan(windows)).servicePath).toEqual({
+      source: 'inherited logon environment (legacy receipt)', value: null, warnings: [],
+    })
   })
 
   it('keeps every platform artifact below the current user home', () => {
@@ -88,6 +119,27 @@ describe('user-service plan rendering', () => {
       // Linux runs under systemd directly; the other two stage a wrapper.
       if (platform !== 'linux') expect(normalize(paths.wrapperFile ?? '').startsWith(homePrefix)).toBe(true)
     }
+  })
+
+  it('captures the invoking PATH once, records its source, and honours both escape hatches', () => {
+    const env: CliEnvironment = {
+      platform: 'darwin', home: HOME, cwd: HOME, execPath: '/opt/node/bin/node', uid: 501,
+      path: '/opt/pkg/env/active/bin:/Users/me/.cargo/bin:/usr/bin:/bin', env: {},
+    }
+    const base = ['--workspace', HOME, '--dsh', '/opt/dsh/lib/bin.js']
+    const current = specFromArgs(base, env)
+    expect(current.servicePathSource).toBe('current')
+    expect(current.servicePath).toBe('/opt/node/bin:/opt/pkg/env/active/bin:/Users/me/.cargo/bin:/usr/bin:/bin')
+    expect(current.servicePathCapturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    const minimal = specFromArgs([...base, '--path-source', 'minimal'], env)
+    expect(minimal.servicePath).toBe('/opt/node/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin')
+    const explicit = specFromArgs([...base, '--service-path', '/one:/two'], env)
+    expect(explicit.servicePathSource).toBe('explicit')
+    expect(explicit.servicePath).toBe('/opt/node/bin:/one:/two')
+    expect(() => specFromArgs([...base, '--path-source', 'minimal', '--service-path', '/one'], env))
+      .toThrow('requires `--path-source explicit`')
+    expect(() => specFromArgs([...base, '--service-pathext', '.EXE'], env))
+      .toThrow('supported only on Windows')
   })
 
   /**

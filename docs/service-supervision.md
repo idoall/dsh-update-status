@@ -25,15 +25,14 @@ This document describes the explicit, opt-in setup. The plugin never installs a 
 5. Activate the staged service:
 
    ```sh
-   dsh plugin --profile web exec dsh-update-status-service activate \
-     --workspace "$PWD"
+   dsh plugin --profile web exec dsh-update-status-service activate
    ```
 
    `activate` refuses to run while the requested port is occupied, and it never kills an existing process. After starting the service it also verifies that the service really owns a running process: a service that begins crash-looping makes `activate` fail with that reason instead of reporting success.
 
 6. Reopen the normal Web URL. The update panel should report a restart-capable supervised process. Perform the first real page restart yourself while present, then confirm that the page reconnects.
 
-Use `status`, `stop`, and `uninstall` with the same `--workspace` argument for later maintenance. `uninstall` preserves logs.
+After `install`, the receipt under `DSH_HOME` is the source of truth. `activate`, `status`, `stop`, and `uninstall` need no workspace/profile/PATH arguments; use only `--dsh-home` when the receipt is outside the default `~/.dsh`. Unknown options are rejected instead of silently falling back to another receipt. The receipt also stores an absolute launchctl/systemctl/schtasks path, so these actions do not depend on the shell that invokes them. Status, stop and uninstall remain available even if the old Node/DSH path or workspace no longer exists; activate still checks all launch files before it starts anything. `uninstall` preserves logs and re-derives every deletion path from the validated fixed service identity, platform and current home — mutable receipt paths are never trusted.
 
 > `dsh plugin --profile web exec` is pnpm's profile-local executable runner. Do not assume `dsh-update-status-service` is globally installed.
 
@@ -45,9 +44,12 @@ The staged definition contains only explicit, non-secret launch facts:
 - profile, workspace, host, port, and `--no-open`;
 - `DSH_HOME` when explicitly configured;
 - an explicit `DSH_WEB_SUPERVISOR=dsh-update-status` marker;
-- private stdout/stderr log paths.
+- private stdout/stderr log paths;
+- one final `PATH`, its source (`current`, `minimal`, or `explicit`), capture time, Windows `PATHEXT` when applicable, and any warnings produced while resolving it.
 
-It intentionally does **not** inherit the full terminal environment. If your DSH startup requires secret environment variables, configure them through your operating system's secret-management mechanism before activating the service; do not paste secrets into this plugin's configuration or issue tracker.
+It intentionally does **not** copy the full terminal environment. The default `current` mode snapshots only the PATH of the process that runs `plan`/`install`; no login or interactive shell startup file is executed. The selected Node directory is placed first, empty and relative entries are ignored, duplicates are removed in order, and missing absolute directories are preserved with a warning because a mount or tool directory may appear later. The result is persisted in the receipt and reused by preflight, the native definition, activation and status — later commands never recapture a different terminal PATH.
+
+For a fixed deployment use `--path-source minimal`; to supply the exact value yourself use `--service-path "..."` (which implies the `explicit` source). On Windows `--service-pathext` can pin command extensions as well. `plan --dry-run` prints the final PATH, source, capture time, PATHEXT and every warning before anything is written; `install` repeats the final PATH before preflight, so running the two commands from different terminals cannot hide a changed input. A too-long value or a value containing NUL/line breaks is rejected rather than silently shortened. If your DSH startup requires other environment variables or secrets, configure them through your operating system's secret-management mechanism before activating the service; do not paste secrets into this plugin's configuration or issue tracker.
 
 ## macOS — LaunchAgent
 
@@ -56,6 +58,8 @@ The CLI stages a current-user plist at:
 ```text
 ~/Library/LaunchAgents/com.idoall.dsh-update-status.web.plist
 ```
+
+The plist receives the one PATH resolved above. This is package-manager-neutral: Homebrew, MacPorts, pkgsrc, Nix, asdf, Conda, Cargo and hand-installed tools work when their directory was already in the terminal PATH used for `install`; no prefix is hardcoded into the macOS renderer.
 
 It runs at login (`RunAtLoad`) and starts a small wrapper, also staged by the CLI:
 
@@ -89,6 +93,8 @@ The CLI stages:
 ~/.config/systemd/user/dsh-update-status-web.service
 ```
 
+The unit receives the persisted POSIX PATH, with literal `%` escaped so systemd cannot treat a directory as a specifier. WSL reports itself as Linux and therefore uses the same colon-separated rules; a Windows semicolon PATH is never written into the unit.
+
 It uses `Restart=on-failure`, so DSH's restart exit code causes systemd to relaunch it, and it bounds the loop with `StartLimitIntervalSec=300` / `StartLimitBurst=10`: ten starts inside five minutes stops the unit instead of respawning forever. It is a **user** service: normally it starts after that user logs in.
 
 ```sh
@@ -118,6 +124,8 @@ The CLI stages a current-user Task Scheduler definition and a PowerShell wrapper
 ```text
 %LOCALAPPDATA%\dsh-update-status\
 ```
+
+New receipts pin both the semicolon-separated PATH and PATHEXT in the PowerShell wrapper, including drive paths, UNC shares, spaces and Unicode; PATH keys are read case-insensitively. Old receipts preserve their historical Task Scheduler logon environment instead of being narrowed during an upgrade.
 
 The task starts at user logon with least privilege. The wrapper owns the long-running DSH child, restarts it after an intentional restart or unexpected exit, and stops after five starts that each die within 30 seconds (the same ceiling as macOS) instead of respawning forever. Use Task Scheduler to inspect the task named **DSH Update Status Web**.
 
@@ -152,8 +160,7 @@ Node/NVM upgrades can change the absolute Node path captured in a service defini
 To remove supervision without deleting DSH profiles, sessions, or plugin preferences:
 
 ```sh
-dsh plugin --profile web exec dsh-update-status-service uninstall \
-  --workspace "$PWD"
+dsh plugin --profile web exec dsh-update-status-service uninstall
 ```
 
 The command removes only the definition and receipt created by this installer. It preserves logs for diagnosis.
