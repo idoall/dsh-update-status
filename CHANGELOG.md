@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.4.3 — 2026-10-16
+
+Verified DeepSeek Harness: `0.2.1-alpha.4` (the current release), also `0.2.1-alpha.3`, `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.3.md`](docs/releases/v0.4.3.md).
+
+- **Compatibility declaration only; no functional code changed.** The peer range `>=0.1.7-alpha.2 <0.3.0` already admits DSH `0.2.1-alpha.4`, the active profile loads it without a compatibility refusal, and the status RPC, restart RPC, settings form, sidebar-brand slot, overlay and settings-section slot remain available.
+- **The visible effect:** DSH `0.2.1-alpha.4` now appears as verified compatible rather than compatibility unverified. The test suite, build, shadowed-peer guard and packed artifact all pass unchanged in behavior.
+
 ## 0.4.2 — 2026-10-15
 
 Verified DeepSeek Harness: `0.2.1-alpha.3` (the current release), also `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.2.md`](docs/releases/v0.4.2.md).
