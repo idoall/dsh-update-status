@@ -23,7 +23,7 @@ export const RELEASES_URL = 'https://github.com/deepseek-ai/deepseek-harness/rel
  * release the registry reports stays `unverified` — the plugin never claims a
  * compatibility nobody checked.
  */
-export const VERIFIED_DSH_VERSIONS: readonly string[] = ['0.1.7-alpha.2', '0.1.7-rc.1', '0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.3', '0.2.1-alpha.4']
+export const VERIFIED_DSH_VERSIONS: readonly string[] = ['0.1.7-alpha.2', '0.1.7-rc.1', '0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5']
 export const DEFAULT_CACHE_TTL_MINUTES = 360
 export const MIN_CACHE_TTL_MINUTES = 30
 export const MAX_CACHE_TTL_MINUTES = 1_440

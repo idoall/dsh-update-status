@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## 0.4.4 — 2026-10-16
+
+Verified DeepSeek Harness: `0.2.1-alpha.5` (the current release), also `0.2.1-alpha.4`, `0.2.1-alpha.3`, `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.4.md`](docs/releases/v0.4.4.md).
+
+- **Compatibility declaration only; no functional code changed.** The peer range `>=0.1.7-alpha.2 <0.3.0` already admits DSH `0.2.1-alpha.5`, the active profile loads it without a compatibility refusal, and the status RPC, restart RPC, settings form, sidebar-brand slot, overlay and settings-section slot remain available.
+- **The visible effect:** DSH `0.2.1-alpha.5` now appears as verified compatible rather than compatibility unverified. The test suite, build, shadowed-peer guard and packed artifact all pass unchanged in behavior.
+- **Both READMEs were re-checked for stale numbers.** The sample `npm install -g` command and the SemVer examples now name the current release, the verified-release list and version matrix carry `0.2.1-alpha.5`, and the version table marks `0.4.4` as `latest`.
+
 ## 0.4.3 — 2026-10-16
 
 Verified DeepSeek Harness: `0.2.1-alpha.4` (the current release), also `0.2.1-alpha.3`, `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.3.md`](docs/releases/v0.4.3.md).
