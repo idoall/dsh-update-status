@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.4.5 — 2026-10-17
+
+Verified DeepSeek Harness: `0.2.1-rc.2` (the current release), also `0.2.1-alpha.5`, `0.2.1-alpha.4`, `0.2.1-alpha.3`, `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.5.md`](docs/releases/v0.4.5.md).
+
+- **Compatibility declaration only; no functional code changed.** DSH `0.2.1-rc.2` is the first release candidate of the `0.2.1` line and also moves the shared libraries from prereleases to stables (`@deepseek-ai/cordis` `4.0.5-alpha.2` → `4.0.5`, `@deepseek-ai/schemastery` `3.18.5-alpha.2` → `3.18.5`). Every declared range already admits both: `>=0.1.7-alpha.2 <0.3.0` for DSH settings, `^4.0.4` for cordis and `^3.18.4` for schemastery. The active profile loads the plugin without a compatibility refusal, and the status RPC, restart RPC, settings form, sidebar-brand slot, overlay and settings-section slot remain available.
+- **The visible effect:** DSH `0.2.1-rc.2` now appears as verified compatible rather than compatibility unverified. The test suite, build, shadowed-peer guard and packed artifact all pass unchanged in behavior.
+- **Both READMEs were re-checked for stale numbers.** The sample `npm install -g` command, the SemVer examples, the verified-release list, the version matrix and the engine-range paragraph now all name `0.2.1-rc.2`, and the matrix marks `0.4.5` as `latest`.
+- **The published package was verified against the repository.** Every file in the npm tarball other than `package.json` is byte-identical to this working tree, and the published `package.json` differs only by the publish-time normalization (the `prepack` script npm strips and the local `packageManager` field).
+
 ## 0.4.4 — 2026-10-16
 
 Verified DeepSeek Harness: `0.2.1-alpha.5` (the current release), also `0.2.1-alpha.4`, `0.2.1-alpha.3`, `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.4.md`](docs/releases/v0.4.4.md).
