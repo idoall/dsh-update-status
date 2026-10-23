@@ -104,6 +104,48 @@ describe('safe restart controller', () => {
     })
   })
 
+  it('reports unpublished terminal activity and fails closed if that probe throws', async () => {
+    const { services } = liveAgent({ list: () => [], hasOwnerActivity: () => true }, 'idle')
+    expect(collectActiveWork(ctx(services))).toMatchObject({ available: true, hasActive: true, items: [{ type: 'terminal', status: 'pending' }] })
+    const controller = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'live', health: owned, exit: () => {}, schedule: () => {} })
+    await expect(controller.request(ctx(services), false, 'live')).resolves.toMatchObject({ kind: 'active-work' })
+    const broken = liveAgent({ list: () => [], hasOwnerActivity: () => { throw new Error('unreadable') } }, 'idle')
+    expect(collectActiveWork(ctx(broken.services)).available).toBe(false)
+  })
+
+  it('requires confirmation for maintenance that keeps public agent status idle', async () => {
+    const { owner, services } = liveAgent(undefined, 'idle')
+    let finish!: () => void
+    const activity = new Promise<void>(resolve => { finish = resolve })
+    Object.assign(owner, { whenIdle: () => activity })
+    const controller = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'live', health: owned, exit: () => {}, schedule: () => {} })
+    await expect(controller.check(ctx(services))).resolves.toMatchObject({ kind: 'active-work', activity: { items: [{ type: 'agent', status: 'maintenance' }] } })
+    await expect(controller.request(ctx(services), false, 'live')).resolves.toMatchObject({ kind: 'active-work' })
+    await expect(controller.request(ctx(services), true, 'live')).resolves.toMatchObject({ kind: 'scheduled' })
+    finish()
+    await expect(controller.check(ctx(services))).resolves.toMatchObject({ kind: 'ready' })
+  })
+
+  it('observes idle agents together before yielding to timers', async () => {
+    const first = liveAgent(undefined, 'idle').owner
+    const second = { ...liveAgent(undefined, 'idle').owner, id: 's2' }
+    let firstProbeStarted = false
+    Object.assign(first, { whenIdle: async () => { firstProbeStarted = true } })
+    Object.assign(second, { whenIdle: () => {
+      expect(firstProbeStarted).toBe(true)
+      return new Promise<void>(() => {})
+    } })
+    const controller = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'live', health: owned })
+    await expect(controller.check(ctx({ agents: { list: () => [first, second] } }))).resolves.toMatchObject({ kind: 'active-work', activity: { items: [{ id: 's2', status: 'maintenance' }] } })
+  })
+
+  it('fails closed on a rejected maintenance probe', async () => {
+    const { owner, services } = liveAgent(undefined, 'idle')
+    Object.assign(owner, { whenIdle: async () => { throw new Error('unreadable') } })
+    const controller = new RestartController({ platform: 'darwin', env: launchdEnv, instanceId: 'live', health: owned })
+    await expect(controller.check(ctx(services))).resolves.toMatchObject({ kind: 'unavailable', status: { unavailableReason: 'activity-unavailable' } })
+  })
+
   it('refuses when an agent context or its terminal list cannot be read', () => {
     const noCtx = { agents: { list: () => [{ id: 's1', status: 'running' }] }, jobs: { list: () => [] } }
     expect(collectActiveWork(ctx(noCtx))).toEqual({ available: false, hasActive: false, items: [] })

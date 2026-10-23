@@ -74,6 +74,16 @@ describe('restart RPC boundary', () => {
     expect(restartStatusOf({ ...withRecovery, recovery: 'rm -rf /' })).toBeUndefined()
   })
 
+  it.each([
+    'not-supervised', 'desktop', 'supervisor-mismatch', 'supervisor-thrashing',
+    'activity-unavailable', 'timer-unavailable', 'stale-instance',
+  ])('accepts the Host refusal %s without losing its recovery steps', unavailableReason => {
+    const status = { ...supervised, available: false, unavailableReason, recovery: { commands: 'inspect service\nrecover service' } }
+    expect(restartStatusOf(status)).toEqual(status)
+    expect(restartCheckOf({ kind: 'unavailable', status })).toEqual({ kind: 'unavailable', status })
+    expect(restartRequestOf({ kind: 'unavailable', status })).toEqual({ kind: 'unavailable', status })
+  })
+
   it('rejects malformed capability, activity, and accepted response payloads', () => {
     expect(restartStatusOf({ ...supervised, unavailableReason: 'not-supervised' })).toBeUndefined()
     expect(restartCheckOf({ kind: 'active-work', status: supervised, activity: { hasActive: false, items: [] } })).toBeUndefined()

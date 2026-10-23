@@ -108,7 +108,7 @@ export function restartStatusOf(value: unknown): RestartStatusValue | undefined 
     : record.supervisor === 'launchd' || record.supervisor === 'systemd' || record.supervisor === 'task-scheduler' || record.supervisor === 'unknown'
       ? record.supervisor : undefined
   const unavailableReason = record.unavailableReason === null ? null
-    : record.unavailableReason === 'not-supervised' || record.unavailableReason === 'desktop' || record.unavailableReason === 'supervisor-mismatch' || record.unavailableReason === 'activity-unavailable' || record.unavailableReason === 'timer-unavailable' || record.unavailableReason === 'stale-instance'
+    : record.unavailableReason === 'not-supervised' || record.unavailableReason === 'desktop' || record.unavailableReason === 'supervisor-mismatch' || record.unavailableReason === 'supervisor-thrashing' || record.unavailableReason === 'activity-unavailable' || record.unavailableReason === 'timer-unavailable' || record.unavailableReason === 'stale-instance'
       ? record.unavailableReason : undefined
   if (supervisor === undefined || unavailableReason === undefined) return undefined
   if (record.startedAt !== undefined && (typeof record.startedAt !== 'string' || record.startedAt === '')) return undefined

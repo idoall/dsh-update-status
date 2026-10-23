@@ -41,7 +41,7 @@
 - **中性版本底框**：Badge 在明暗两套主题下都用灰色二级面（浅色 `#f1f3f5` / 深色 `#353638`）配主题常规文字色，所以暗色下是「深灰底 + 白字」，不再是会把橙色光晕吃掉的白框；只有状态读取失败时才会重绘成红色。
 - **浅色 / 深色 / 跟随系统，自动适配**：插件渲染的每个颜色都是 DSH 语义令牌，Badge、圆点、光晕与面板都按 DSH 当前外观解析。DSH 设为浅色、深色或跟随系统，插件就跟着切换——插件侧没有自己的主题开关，也没有需要同步的媒体查询。hover 在两个方向上都是「抬起」：浅色下压深、深色下提亮（把主题文字色按比例混进底色实现）。
 - **只有一条发布线、零配置**：一次 registry 请求读取 npm 的全部 dist-tags，只保留其中最新的版本——稳定版、RC、Alpha 一视同仁。没有需要关注的通道，也没有需要做的选择。
-- **诚实的预发布比较**：运行版本与线上最新版本按 SemVer 排序，因此 `0.2.1-rc.2` 高于 `0.2.0-rc.2`，而 RC 仍然低于它自己的正式版。
+- **诚实的预发布比较**：运行版本与线上最新版本按 SemVer 排序，因此 `0.2.1-rc.3` 高于 `0.2.0-rc.2`，而 RC 仍然低于它自己的正式版。
 - **兼容性标识**：本插件验证过的版本显示“已验证兼容”；没验证过的更新版本显示“尚未验证兼容”，不冒充安全升级，而且这条提示永远不会重绘芯片。
 - **仅复制命令**：根据安装来源，为**找到的那个确切版本**生成命令，不用会移动的 dist-tag，也从不执行。
 - **缓存但不轮询**：Host 挂载时检查一次，缓存可设为 30–1,440 分钟并合并并发请求；前端没有轮询，只有“检查更新”按钮绕过缓存。
@@ -53,7 +53,7 @@
 
 - 带 Web profile 的 DeepSeek Harness
 - Node.js 20 或更新版本
-- 已验证的 DSH 版本：`0.2.1-rc.2`（当前）、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1` 与 `0.1.7-alpha.2`
+- 已验证的 DSH 版本：`0.2.1-rc.3`（当前）、`0.2.1-rc.2`、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1` 与 `0.1.7-alpha.2`
 
 已经安装 `dsh` 命令：
 
@@ -91,7 +91,7 @@ dsh plugin --profile web add "link:$(pwd)"
 全局安装时可能生成：
 
 ```sh
-npm install -g @deepseek-ai/dsh@0.2.1-rc.2
+npm install -g @deepseek-ai/dsh@0.2.1-rc.3
 ```
 
 插件只显示一条与检测到的安装方式匹配、并写明所查到确切版本号的命令，不会运行它。
@@ -118,7 +118,7 @@ npm install -g @deepseek-ai/dsh@0.2.1-rc.2
 插件按缓存周期向 npm registry 请求一次 `@deepseek-ai/dsh`，取出**所有 dist-tag 指向的最新版本**，再与正在运行的版本比较。`latest`、`next`、`alpha` 是 npm 自己的记账方式，不是需要用户做的选择：哪个 tag 上挂着更新的版本，就报哪个。
 
 - 取 SemVer 最高者（含预发布）：因此跑到稳定版前面的 `alpha` 会被提示，而不是被藏起来。
-- 比较是精确的：`0.2.1-rc.2` 比 `0.2.0-rc.2` 新，两者都低于 `0.2.1`。
+- 比较是精确的：`0.2.1-rc.3` 比 `0.2.0-rc.2` 新，两者都低于 `0.2.1`。
 - 插件没听说过的 dist-tag 同样计入——读取的是 npm 返回的全部 tag，不是写死的三个。
 - 只有本插件验证过的版本才标注“已验证兼容”；没验证过的更新版本会带上“尚未验证兼容”的提示（`notice`，永远不会重绘芯片）。
 - 面板与设置区块渲染同一个答案；升级命令写明所查到的确切版本。
@@ -160,24 +160,25 @@ dsh plugin --profile web exec dsh-update-status-service activate
 
 ## 局域网（非回环页面）访问
 
-DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Host 设置持久化（官方 `dsh-client-ui-settings` README 原文：*Non-loopback pages get no durable settings*）：所有按条目寻址的设置表单（`ctx.configForms.get(id)`，DSH 0.1.7 中已移除的 `settingsScope` 服务的继任者）此时被固定为 `memory`，直接返回 `unavailable`，并且从此不发 `settings.describe`；整页的 `connection.isLoopback` 也都是 false。
+较早的 DSH 会把非回环页面的设置表单限制为仅内存状态。DSH `0.2.1-rc.3` 的表单快照不再提供该 `mode` 字段，官方按条目寻址的表单直接调用设置 Remote。不能仅根据页面来源判断当前的持久化或授权行为；写入是否获准由正在运行的 Host 设置策略决定。
 
 从 `0.1.2` 起，本插件在局域网页面同样可用：
 
 - **版本/更新状态**照常读取。早先的版本把整个功能压在 `connection.isLoopback === true` 上，于是经局域网转发（`dsh-bridge`、`dsh-lan-proxy` 等）打开的页面从不发送 `POST /api/dsh-update-status.get-status`、详情面板打不开，还会把本包声明的兼容版本当成"当前运行版本"显示。该判断已移除——Connection RPC 本身是已认证的，Host 路由也是本插件自己的路由。
 - **偏好设置**（`sidebarEnabled`、`cacheTtlMinutes`）继续读写 Host 上共享的那一份 `dsh-update-status` 设置条目，走的是与官方设置表单相同的公开 Remote（`settings.describe` / `settings.mutate`）。写入仍受 revision 栅栏保护，被拒时明确提示冲突而不会静默覆盖。直连通道只在官方表单报 `unavailable` 时才打开，所以回环页面仍走官方路径，不会多发一次线上读取。
 
-若你希望保持 DSH 官方策略（非回环页面完全不落地设置），可以让转发侧声明宿主身份：在返回的 HTML 中、`__DSH_BOOT__` 之前注入 `window.__DSH_TRANSPORT__ = { fetch: (input, init) => window.fetch(input, init), ownsHost: true }`。DSH 的 `ctx.connection.isLoopback` 会据此为真，所有依赖设置的界面（含官方「设置」页）一并恢复；`dsh-mobile` 网关正是这么做的。
+局域网转发必须保留 DSH 的已认证传输和 Host 授权策略。本插件不会修改转发配置或授予设置访问权；Host 拒绝访问时，应由部署维护者处理。
 
 ## 兼容性
 
-当前发布：插件 **`0.4.5`** 已针对 DeepSeek Harness **`0.2.1-rc.2`**（当前发布版）、**`0.2.1-alpha.5`**、**`0.2.1-alpha.4`**、**`0.2.1-alpha.3`**、**`0.2.1-alpha.1`**、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
+当前发布：插件 **`0.4.6`** 已针对 DeepSeek Harness **`0.2.1-rc.3`**（当前发布版）、**`0.2.1-rc.2`**、**`0.2.1-alpha.5`**、**`0.2.1-alpha.4`**、**`0.2.1-alpha.3`**、**`0.2.1-alpha.1`**、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.4.5`** | `0.2.1-rc.2`、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 为 DSH `0.2.1-rc.2` 追加兼容声明；功能代码不变，中英文 README 一并核对，npm 包内容也与仓库比对过 |
+| **`0.4.6`** | `0.2.1-rc.3`、`0.2.1-rc.2`、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 验证 DSH `0.2.1-rc.3`；后台维护和启动中的终端也需重启确认，并恢复重启风暴的原因与恢复指引 |
+| **`0.4.5`** | `0.2.1-rc.2`、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 为 DSH `0.2.1-rc.2` 追加兼容声明；功能代码不变，中英文 README 一并核对，npm 包内容也与仓库比对过 |
 | **`0.4.4`** | `0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 为 DSH `0.2.1-alpha.5` 追加兼容声明；功能代码不变，中英文 README 的版本号一并核对过 |
 | **`0.4.3`** | `0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 为 DSH `0.2.1-alpha.4` 追加兼容声明；功能代码不变，面板会将当前运行版显示为已验证兼容 |
 | **`0.4.2`** | `0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 为 DSH `0.2.1-alpha.3` 追加兼容声明；功能代码不变，面板会将当前运行版显示为已验证兼容 |
@@ -208,6 +209,7 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
 - 需要精确对应时显式指定版本：
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.4.6   # DSH 0.2.1-rc.3、0.2.1-rc.2、0.2.1-alpha.5、0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.4.5   # DSH 0.2.1-rc.2、0.2.1-alpha.5、0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.4.4   # DSH 0.2.1-alpha.5、0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.4.3   # DSH 0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
@@ -227,9 +229,9 @@ DSH 对来源不是 loopback（`localhost` / `127.0.0.1`）的页面会关闭 Ho
   ```
 
 - 有两处声明让已验证的版本线能正常加载，并由测试守住：
-  - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.3.0`，十个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。上界在 `0.1.11` 从 `<0.2.0` 放宽到 `<0.3.0` 是同一件事的镜像：DSH 会在 profile 加载时拒绝不兼容的 bundle，而裸的 `<0.2.0` 恰好排除 `0.2.0` 正式版——DSH `0.2.0` 发布当天插件就会被静默丢弃。DSH 判定时使用 `includePrerelease: true`，所以 `0.2.0-rc.2` 本来就在这个范围内，`0.1.12` 无需再动范围；反过来说，把范围写成 `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` 这类枚举的插件会因为 `>=0.2.0` 不接纳 `0.2.0` 预发布而被 rc.2 拒载。
+  - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.3.0`，十一个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。上界在 `0.1.11` 从 `<0.2.0` 放宽到 `<0.3.0` 是同一件事的镜像：DSH 会在 profile 加载时拒绝不兼容的 bundle，而裸的 `<0.2.0` 恰好排除 `0.2.0` 正式版——DSH `0.2.0` 发布当天插件就会被静默丢弃。DSH 判定时使用 `includePrerelease: true`，所以 `0.2.0-rc.2` 本来就在这个范围内，`0.1.12` 无需再动范围；反过来说，把范围写成 `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` 这类枚举的插件会因为 `>=0.2.0` 不接纳 `0.2.0` 预发布而被 rc.2 拒载。
   - `@deepseek-ai/schemastery` 是 **peer**，不是普通依赖：DSH 0.1.7 只从运行安装解析 link 插件的 peer 依赖，否则 `link:` 安装会连 Host 半边都 import 失败。
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.4.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.5.md) · [`v0.4.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.4.md) · [`v0.4.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.3.md) · [`v0.4.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.2.md) · [`v0.4.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.1.md) · [`v0.4.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.0.md) · [`v0.3.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [`v0.3.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.4.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.6.md) · [`v0.4.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.5.md) · [`v0.4.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.4.md) · [`v0.4.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.3.md) · [`v0.4.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.2.md) · [`v0.4.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.1.md) · [`v0.4.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.0.md) · [`v0.3.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [`v0.3.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 
@@ -268,7 +270,7 @@ Host 会缓存一次 registry 响应，默认 360 分钟，且只有普通读取
 插件会报告失败，并仍然显示本地检测到的运行版本。registry 访问只允许 HTTPS 的 `registry.npmjs.org`；代理或离线环境会给出这条警告，而不是编造一个版本号。
 
 **升级之后插件整个消失了，宿主日志里是 `volatile is not a function`。**
-`0.1.5` 及更早版本把 `@deepseek-ai/schemastery` 声明为普通依赖；从 `0.1.6` 起它是**由 DSH 提供的 peer**，而 DSH 给它加的 `volatile()` 正是把三个偏好变成这个条目设置表单的机制。如果该包的一份旧副本被留在插件自己的安装目录里（用本地目录安装时被一起拷进来的 dev `node_modules`，pnpm 永远不会清理），Node 就会解析到那份旧副本，缺失的方法在宿主半 import 阶段直接抛错，插件在来得及报告任何信息之前就消失了。新版本改为显式解析平台那份，两种情况都能加载；只找得到旧副本时，面板会给出 `stale-schemastery` 提示并指出该删除哪个目录。删除残留目录后重启 DSH：
+`0.1.5` 及更早版本把 `@deepseek-ai/schemastery` 声明为普通依赖；从 `0.1.6` 起它是**由 DSH 提供的 peer**，而 DSH 给它加的 `volatile()` 正是把两个偏好变成这个条目设置表单的机制。如果该包的一份旧副本被留在插件自己的安装目录里（用本地目录安装时被一起拷进来的 dev `node_modules`，pnpm 永远不会清理），Node 就会解析到那份旧副本，缺失的方法在宿主半 import 阶段直接抛错，插件在来得及报告任何信息之前就消失了。新版本改为显式解析平台那份，两种情况都能加载；只找得到旧副本时，面板会给出 `stale-schemastery` 提示并指出该删除哪个目录。删除残留目录后重启 DSH：
 
 ```sh
 rm -rf ~/.dsh/profiles/<profile>/node_modules/dsh-update-status/node_modules

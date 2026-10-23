@@ -63,6 +63,7 @@ export type RestartRequestResult = RestartCheckResult | { readonly kind: 'schedu
 interface AgentLike {
   readonly id: unknown
   readonly status?: unknown
+  readonly whenIdle?: () => Promise<void>
   readonly ctx?: { get?: (name: string) => unknown }
 }
 
@@ -236,7 +237,7 @@ export function collectActiveWork(ctx: ContextLike): RestartActivity {
   for (const owner of agents) {
     const ownerCtx = owner.ctx
     if (ownerCtx === undefined || typeof ownerCtx.get !== 'function') return unavailable()
-    let face: { list?: (owner: AgentLike) => TerminalLike[] } | undefined
+    let face: { list?: (owner: AgentLike) => TerminalLike[]; hasOwnerActivity?: (owner: AgentLike) => boolean } | undefined
     try {
       face = ownerCtx.get('terminals') as typeof face
     } catch {
@@ -245,9 +246,15 @@ export function collectActiveWork(ctx: ContextLike): RestartActivity {
     if (face === undefined) continue
     if (typeof face.list !== 'function') return unavailable()
     try {
+      let published = false
       for (const terminal of face.list(owner)) {
         if (terminal.status?.kind !== 'running') continue
+        published = true
         terminals.set(String(terminal.sessionId), terminal)
+      }
+      // rc.3 counts unpublished backend setup here too; list() alone has a gap.
+      if (typeof face.hasOwnerActivity === 'function' && face.hasOwnerActivity(owner) && !published) {
+        items.push({ type: 'terminal', id: `pending:${String(owner.id)}`, label: 'Pending terminal activity', status: 'pending', ownerSession: String(owner.id) })
       }
     } catch {
       return unavailable()
@@ -327,7 +334,34 @@ export class RestartController {
   async check(ctx: ContextLike): Promise<RestartCheckResult> {
     const status = await this.assess()
     if (!status.available) return { kind: 'unavailable', status }
-    const activity = collectActiveWork(ctx)
+    // rc.3 maintenance owns the agent while public status stays idle. Observe
+    // quiescence without awaiting active maintenance indefinitely or cancelling it.
+    const maintenance: RestartActivityItem[] = []
+    try {
+      const registry = ctx.get?.('agents') as { list?: () => AgentLike[] } | undefined
+      const probes: { agent: AgentLike; settled: boolean; failed: boolean }[] = []
+      for (const agent of registry?.list?.() ?? []) {
+        if (agent.status !== 'idle' || typeof agent.whenIdle !== 'function') continue
+        const probe = { agent, settled: false, failed: false }
+        const pending = agent.whenIdle()
+        if (pending === undefined || typeof pending.then !== 'function') throw new Error('invalid quiescence probe')
+        void pending.then(() => { probe.settled = true }, () => { probe.failed = true })
+        probes.push(probe)
+      }
+      // Observe all agents together, without yielding to timers/I/O per agent.
+      // rc.3's idle whenIdle() settles through a short microtask chain. A slower
+      // implementation is conservatively reported as active work.
+      for (let turn = 0; turn < 4; turn += 1) await Promise.resolve()
+      for (const { agent, settled, failed } of probes) {
+        if (failed) throw new Error('quiescence probe failed')
+        if (!settled) maintenance.push({ type: 'agent', id: String(agent.id), label: String(agent.id), status: 'maintenance' })
+      }
+    } catch {
+      return { kind: 'unavailable', status: { ...status, available: false, unavailableReason: 'activity-unavailable' } }
+    }
+    // Read the registries after the asynchronous observations, not before them.
+    const snapshot = collectActiveWork(ctx)
+    const activity: RestartActivity = { ...snapshot, hasActive: snapshot.hasActive || maintenance.length > 0, items: [...snapshot.items, ...maintenance.filter(item => !snapshot.items.some(other => other.type === 'agent' && other.id === item.id))] }
     if (!activity.available) return { kind: 'unavailable', status: { ...status, available: false, unavailableReason: 'activity-unavailable' } }
     if (activity.hasActive) return { kind: 'active-work', status, activity }
     return { kind: 'ready', status }

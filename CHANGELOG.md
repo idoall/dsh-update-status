@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.4.6 — 2026-10-23
+
+Verified DeepSeek Harness: `0.2.1-rc.3`; retains all ten previously verified releases, including `0.2.1-rc.2`. Release notes: [`docs/releases/v0.4.6.md`](docs/releases/v0.4.6.md).
+
+- **Declares DSH `0.2.1-rc.3` verified compatible.** The existing engine and peer ranges remain unchanged.
+- **Shows restart-storm guidance instead of an invalid-payload error.** The client now accepts the Host's `supervisor-thrashing` refusal, preserving its reason and copy-only recovery commands. Regression tests cover every declared refusal through status, check and request responses. No automatic recovery or restart-policy bypass was added.
+- **Includes rc.3 background work in restart confirmation.** Idle-looking agents can still own maintenance; the check now observes `whenIdle()` without waiting indefinitely. Terminal ownership activity also covers unpublished spawns. Unreadable probes refuse the restart, and active work still requires explicit force confirmation.
+- **Synchronizes release information.** Both READMEs, their current version and compatibility tables, upgrade commands, release-note links and verified-release counts are updated together. The npm tarball is checked against the release build after publication.
+
 ## 0.4.5 — 2026-10-17
 
 Verified DeepSeek Harness: `0.2.1-rc.2` (the current release), also `0.2.1-alpha.5`, `0.2.1-alpha.4`, `0.2.1-alpha.3`, `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`, `0.1.7-rc.1` and `0.1.7-alpha.2`. Release notes: [`docs/releases/v0.4.5.md`](docs/releases/v0.4.5.md).
