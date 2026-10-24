@@ -106,12 +106,11 @@ export const Config: z<UpdateStatusConfig, Record<string, unknown>> = buildConfi
 /**
  * Suppress the auto-generated settings page for this entry.
  *
- * `autoGenerate` defaults to true, which would put a second, generic form beside
- * the plugin's own `settings.section` page. Registering the policy is the
- * documented move for a plugin that owns its preference UI (`ui-theme`,
- * `ui-chat`, `ui-conversation` all do exactly this), and the entry's row stays
- * in `settings.describe()` either way — the browser half still reads and writes
- * it through `ctx.configForms`.
+ * Keep Settings free of a redundant version/update page: the sidebar chip and
+ * its detail panel are the plugin's UI. The entry's row stays in
+ * `settings.describe()` either way — the browser half still reads and writes
+ * cache preferences through `ctx.configForms`, and existing profile preferences
+ * remain compatible.
  *
  * Guarded twice: a deployment without the settings service never runs the inject
  * callback (the plugin keeps working from its defaults), and a refused policy

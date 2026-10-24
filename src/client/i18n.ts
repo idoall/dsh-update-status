@@ -71,11 +71,6 @@ const DICTIONARY: Record<string, Entry> = {
   'warning.staleSchemasteryNoPath': { zh: '本插件解析到的 @deepseek-ai/schemastery（版本 {version}）来自 {path}，不是 DSH 自带的那份，偏好字段无法标记为 volatile。请删除该处残留的 @deepseek-ai/schemastery 目录并重启 DSH。', en: 'This plugin resolved @deepseek-ai/schemastery {version} from {path} instead of the copy DSH provides, so preference fields cannot be marked volatile. Remove the stale @deepseek-ai/schemastery directory there and restart DSH.' },
   'guidance.sourceCheckout': { zh: '请更新 DSH 源码 checkout、安装依赖并重新构建；本插件无法从 GUI 原地替换。', en: 'Update the DSH source checkout, install its dependencies, and rebuild it; this plugin cannot replace it in place from the GUI.' },
   'guidance.unknownInstall': { zh: '升级前请先确认 DSH 的安装方式；本插件无法代为执行升级。', en: 'Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you.' },
-  'settings.title': { zh: '版本与更新', en: 'Version & updates' },
-  'settings.sidebar': { zh: '在侧栏显示版本状态入口', en: 'Show the version-status entry in the sidebar' },
-  'settings.sidebarHint': { zh: '关闭后不再渲染品牌行里的版本芯片，品牌行恢复为 DSH 官方内容。不会执行或安排升级。', en: 'When off, the version chip in the brand row is not rendered and the brand row falls back to DSH’s own content. No update is run or scheduled.' },
-  'settings.readonly': { zh: '此连接的设置为只读；显示状态不受影响。', en: 'Settings are read-only on this connection; status display is unchanged.' },
-  'settings.serviceStarted': { zh: '服务启动时间', en: 'Service started' },
 }
 
 export function languageOf(): Language {

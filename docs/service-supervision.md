@@ -139,7 +139,7 @@ Supervision only means something while the service is the only thing starting DS
 - a restart storm (recent boot stamps plus DSH's own `startup-*.log` diagnostics, four within three minutes) is reported in the panel as its own reason;
 - every generated definition carries a failure ceiling, and the wrapper/log line says which limit was reached.
 
-Recovery is always the same: stop the extra instance, confirm the port is free (`lsof -nP -iTCP:3080 -sTCP:LISTEN`), then restart the service with the platform command above. The plugin never kills that other process for you — but it does hand you both commands: while a restart is refused, the panel and the settings card show the refusal reason followed by the two copy-only lines, taken from the installer's own receipt (the port) and the service plan (`recoverCommand`, which includes `systemctl --user reset-failed` on Linux because the unit's own start limit is what stopped the storm). With no receipt, the panel points at this document instead.
+Recovery is always the same: stop the extra instance, confirm the port is free (`lsof -nP -iTCP:3080 -sTCP:LISTEN`), then restart the service with the platform command above. The plugin never kills that other process for you — but it does hand you both commands: while a restart is refused, the detail panel shows the refusal reason followed by the two copy-only lines, taken from the installer's own receipt (the port) and the service plan (`recoverCommand`, which includes `systemctl --user reset-failed` on Linux because the unit's own start limit is what stopped the storm). With no receipt, the panel points at this document instead.
 
 ## Restart behavior and limits
 

@@ -121,7 +121,7 @@ npm install -g @deepseek-ai/dsh@0.2.1-rc.3
 - 比较是精确的：`0.2.1-rc.3` 比 `0.2.0-rc.2` 新，两者都低于 `0.2.1`。
 - 插件没听说过的 dist-tag 同样计入——读取的是 npm 返回的全部 tag，不是写死的三个。
 - 只有本插件验证过的版本才标注“已验证兼容”；没验证过的更新版本会带上“尚未验证兼容”的提示（`notice`，永远不会重绘芯片）。
-- 面板与设置区块渲染同一个答案；升级命令写明所查到的确切版本。
+- 详情面板渲染唯一答案；升级命令写明所查到的确切版本。
 
 这里不会安装任何东西。跟随某条通道——以及保存它的 `channel` 偏好——已在 `0.2.0` 移除。
 
@@ -146,7 +146,7 @@ dsh plugin --profile web exec dsh-update-status-service activate
 
 `activate` 发现端口还被占着就停手，绝不去杀进程，所以你正在用的 DSH 不会被突然掐掉；激活之后它还会确认服务真的接管了——一启动就不停失败的服务会被当作失败报出来，而不是假装成功。这之后就交给**重启**按钮：它先列出正在跑的东西，有东西在跑时再问一次，然后才让 DSH 退出；服务把新的拉起来，页面自己回来。
 
-同一个端口只允许一个启动者。如果别的工具自己拉起了 `dsh web`——另一个插件的重启助手、`nohup` 脚本——那个进程会占着端口，而你的服务会一直启动失败。插件会直接问操作系统「这个服务真正拥有的是哪个进程」，所以这种情况下**重启**按钮会保持禁用，而不是承诺一个做不到的恢复；同时它会给出两条只复制的命令：一条找出谁占着端口，一条把服务交还回去。生成的服务在连续几次启动失败后也会停下来（不再无限重拉），并把原因写进自己的日志。设置页会显示服务启动时间，刚重启和跑了很久的实例一眼就能分清。更多细节见[用户服务监督说明](docs/service-supervision.md)。
+同一个端口只允许一个启动者。如果别的工具自己拉起了 `dsh web`——另一个插件的重启助手、`nohup` 脚本——那个进程会占着端口，而你的服务会一直启动失败。插件会直接问操作系统「这个服务真正拥有的是哪个进程」，所以这种情况下**重启**按钮会保持禁用，而不是承诺一个做不到的恢复；同时它会给出两条只复制的命令：一条找出谁占着端口，一条把服务交还回去。生成的服务在连续几次启动失败后也会停下来（不再无限重拉），并把原因写进自己的日志。更多细节见[用户服务监督说明](docs/service-supervision.md)。
 
 | 平台 | 用户级拥有者 | 启动时机 | 接管后页面重启 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -171,13 +171,14 @@ dsh plugin --profile web exec dsh-update-status-service activate
 
 ## 兼容性
 
-当前发布：插件 **`0.4.6`** 已针对 DeepSeek Harness **`0.2.1-rc.3`**（当前发布版）、**`0.2.1-rc.2`**、**`0.2.1-alpha.5`**、**`0.2.1-alpha.4`**、**`0.2.1-alpha.3`**、**`0.2.1-alpha.1`**、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
+当前发布：插件 **`0.4.7`** 已针对 DeepSeek Harness **`0.2.1-rc.3`**（当前发布版）、**`0.2.1-rc.2`**、**`0.2.1-alpha.5`**、**`0.2.1-alpha.4`**、**`0.2.1-alpha.3`**、**`0.2.1-alpha.1`**、**`0.2.0-rc.2`**、**`0.2.0-rc.1`**、**`0.1.7-rc.2`**、**`0.1.7-rc.1`** 与 **`0.1.7-alpha.2`** 验证。
 
 ### 插件版本与 DeepSeek Harness 版本的对应关系
 
 | 插件版本 | 已验证的 DeepSeek Harness | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- | --- |
-| **`0.4.6`** | `0.2.1-rc.3`、`0.2.1-rc.2`、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 验证 DSH `0.2.1-rc.3`；后台维护和启动中的终端也需重启确认，并恢复重启风暴的原因与恢复指引 |
+| **`0.4.7`** | `0.2.1-rc.3`、`0.2.1-rc.2`、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | `latest` | 移除重复的设置菜单；安装后默认显示版本与更新提示，详情统一由侧栏版本芯片打开 |
+| **`0.4.6`** | `0.2.1-rc.3`、`0.2.1-rc.2`、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 验证 DSH `0.2.1-rc.3`；后台维护和启动中的终端也需重启确认，并恢复重启风暴的原因与恢复指引 |
 | **`0.4.5`** | `0.2.1-rc.2`、`0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 为 DSH `0.2.1-rc.2` 追加兼容声明；功能代码不变，中英文 README 一并核对，npm 包内容也与仓库比对过 |
 | **`0.4.4`** | `0.2.1-alpha.5`、`0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 为 DSH `0.2.1-alpha.5` 追加兼容声明；功能代码不变，中英文 README 的版本号一并核对过 |
 | **`0.4.3`** | `0.2.1-alpha.4`、`0.2.1-alpha.3`、`0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2` | 已发布 | 为 DSH `0.2.1-alpha.4` 追加兼容声明；功能代码不变，面板会将当前运行版显示为已验证兼容 |
@@ -209,7 +210,7 @@ dsh plugin --profile web exec dsh-update-status-service activate
 - 需要精确对应时显式指定版本：
 
   ```sh
-  dsh plugin --profile web add dsh-update-status@0.4.6   # DSH 0.2.1-rc.3、0.2.1-rc.2、0.2.1-alpha.5、0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
+  dsh plugin --profile web add dsh-update-status@0.4.7   # DSH 0.2.1-rc.3、0.2.1-rc.2、0.2.1-alpha.5、0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.4.5   # DSH 0.2.1-rc.2、0.2.1-alpha.5、0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.4.4   # DSH 0.2.1-alpha.5、0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
   dsh plugin --profile web add dsh-update-status@0.4.3   # DSH 0.2.1-alpha.4、0.2.1-alpha.3、0.2.1-alpha.1、0.2.0-rc.2、0.2.0-rc.1、0.1.7-rc.2、0.1.7-rc.1 或 0.1.7-alpha.2
@@ -231,7 +232,7 @@ dsh plugin --profile web exec dsh-update-status-service activate
 - 有两处声明让已验证的版本线能正常加载，并由测试守住：
   - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.3.0`，十一个已验证版本都在范围内。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。上界在 `0.1.11` 从 `<0.2.0` 放宽到 `<0.3.0` 是同一件事的镜像：DSH 会在 profile 加载时拒绝不兼容的 bundle，而裸的 `<0.2.0` 恰好排除 `0.2.0` 正式版——DSH `0.2.0` 发布当天插件就会被静默丢弃。DSH 判定时使用 `includePrerelease: true`，所以 `0.2.0-rc.2` 本来就在这个范围内，`0.1.12` 无需再动范围；反过来说，把范围写成 `... || 0.2.0-rc.1 || >=0.2.0 <0.3.0` 这类枚举的插件会因为 `>=0.2.0` 不接纳 `0.2.0` 预发布而被 rc.2 拒载。
   - `@deepseek-ai/schemastery` 是 **peer**，不是普通依赖：DSH 0.1.7 只从运行安装解析 link 插件的 peer 依赖，否则 `link:` 安装会连 Host 半边都 import 失败。
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.4.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.6.md) · [`v0.4.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.5.md) · [`v0.4.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.4.md) · [`v0.4.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.3.md) · [`v0.4.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.2.md) · [`v0.4.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.1.md) · [`v0.4.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.0.md) · [`v0.3.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [`v0.3.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.4.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.7.md) · [`v0.4.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.6.md) · [`v0.4.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.5.md) · [`v0.4.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.4.md) · [`v0.4.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.3.md) · [`v0.4.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.2.md) · [`v0.4.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.1.md) · [`v0.4.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.0.md) · [`v0.3.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [`v0.3.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 
@@ -240,9 +241,9 @@ dsh plugin --profile web exec dsh-update-status-service activate
 | `cacheTtlMinutes` | `360` | 30–1,440 分钟；仅在下一次按需读取时判断是否到期，绝不启动后台定时器 |
 | `sidebarEnabled` | `true` | 只隐藏本插件自己的侧栏入口；隐藏期间品牌行恢复为 DSH 官方鱼标与字标 |
 
-**设置 → 版本与更新** 显示当前运行版本、检查结论与升级命令，并可隐藏本插件侧栏入口（隐藏期间品牌行恢复为 DSH 官方内容）；详情面板中另可填写缓存时长。修改缓存时长不会请求网络；只在之后普通读取且缓存已到期时更新，“检查更新”始终是立即手动检查。
+插件安装后默认显示版本状态与更新提示。点击侧栏版本芯片即可查看当前版本、检查结论、升级说明并调整缓存时长，不再提供单独的**设置 → 版本与更新**菜单。已有 profile 中的 `sidebarEnabled` 配置仍然兼容；若旧配置隐藏了芯片，将其设为 `true` 或删除该覆盖值即可恢复默认显示。修改缓存时长不会请求网络；只在之后普通读取且缓存已到期时更新，“检查更新”始终是立即手动检查。
 
-偏好只会在你于面板或该设置区块中主动选择时写入。插件没有任何自动写入路径——没有 effect、定时器，也不在挂载时写入，并由 `tests/client/entry.spec.ts` 挂载真实客户端入口长期守住这一点。在 DSH 0.1.7 上，上面两个偏好就是本插件条目 `Config` 的 **volatile** 字段，因此以该条目的 `config` 落在当前 profile 的 patch 里（`~/.dsh/profiles/<profile>/cordis.patch.yml`）；要重置某个偏好，直接修改或删除该段即可，DSH 会在下次变更时重新加载 profile。`Config` 的其余字段只用于部署、不会出现在表单中：`cacheTtlHours`（默认 `6`）、`timeoutMs`（默认 `15000`）与 `autoCheckOnMount`（默认 `true`），同样写在同一份 profile patch 中。
+缓存偏好只会在你于面板中主动选择时写入。插件没有任何自动写入路径——没有 effect、定时器，也不在挂载时写入，并由 `tests/client/entry.spec.ts` 挂载真实客户端入口长期守住这一点。在 DSH 0.1.7 上，上面两个偏好就是本插件条目 `Config` 的 **volatile** 字段，因此以该条目的 `config` 落在当前 profile 的 patch 里（`~/.dsh/profiles/<profile>/cordis.patch.yml`）；要重置某个偏好，直接修改或删除该段即可，DSH 会在下次变更时重新加载 profile。`Config` 的其余字段只用于部署、不会出现在表单中：`cacheTtlHours`（默认 `6`）、`timeoutMs`（默认 `15000`）与 `autoCheckOnMount`（默认 `true`），同样写在同一份 profile patch 中。
 
 ## 故障排查
 

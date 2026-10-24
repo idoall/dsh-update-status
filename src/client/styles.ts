@@ -94,22 +94,6 @@ export const UPDATE_STATUS_CSS = `
 .dus-command:focus{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
 .dus-note{color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.45;margin:8px 0 0}
 .dus-copy-message{color:var(--dsw-alias-state-business-primary);font-size:11px;margin:7px 0 0}
-.dus-settings{display:grid;gap:14px;max-width:640px;padding:4px 0}
-.dus-settings-heading{font-size:16px;font-weight:650;margin:0}
-.dus-settings-card{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:12px}
-.dus-settings-toggle{align-items:flex-start;cursor:pointer;display:flex;gap:10px;font-size:13px;line-height:1.4}
-.dus-settings-toggle input{accent-color:var(--dsw-alias-state-business-primary);height:18px;margin:0;min-height:18px;min-width:18px;width:18px}
-.dus-settings-hint{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.45;margin:8px 0 0}
-/* Running version and service start time share one row: version left, start time
-   flush right. Each line asks for a 200px basis, so the row wraps into two stacked
-   lines on a phone-width card instead of squeezing either value — the break is
-   driven by available width, which keeps one declaration correct at every size and
-   needs no width query. min(200px,100%) keeps a very narrow card from overflowing.
-   The 5px bottom margin is the breathing room the status block below used to do
-   without: the hints carry margin:8px 0 0, so the row's own box ends at the text and
-   the green state block sat flush against it. */
-.dus-settings-pair{align-items:baseline;display:flex;flex-wrap:wrap;gap:0 12px;justify-content:space-between;margin:0 0 5px}
-.dus-settings-pair>.dus-settings-hint{flex:0 1 auto;min-width:min(200px,100%);overflow-wrap:anywhere}
 .dus-compat{color:var(--dsw-alias-label-secondary)}
 .dus-compat[data-compatibility=verified]{color:var(--dsw-alias-state-success-primary)}
 .dus-compat[data-compatibility=incompatible]{color:var(--dsw-alias-state-error-primary)}

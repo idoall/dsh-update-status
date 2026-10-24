@@ -1,4 +1,4 @@
-/** Sidebar chip, overlay detail panel, and settings page. */
+/** Sidebar chip and overlay detail panel. */
 
 import type * as ReactNS from 'react'
 import { isChipProblem, visualState } from '../shared/visual-state.ts'
@@ -225,8 +225,7 @@ function selectCommand(element: HTMLElement | null): void {
 }
 
 /**
- * The one upgrade command plus its copy affordance, shared by the panel and the
- * settings section so both surfaces can never disagree about what to run.
+ * Copy-only commands for upgrade guidance and restart recovery.
  */
 function CommandBlock({ command, disabled = false, label = t('panel.command'), note = t('panel.commandNote') }: { command: string; disabled?: boolean; label?: string; note?: string }): ReactNS.ReactElement {
   const commandRef = React.useRef<HTMLElement | null>(null)
@@ -347,60 +346,5 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
         <p className="dus-note">{t('panel.readOnly')}</p>
       </section>
     </dialog>
-  )
-}
-
-/** Separate setting page: disables only this plugin's own rendering. */
-export function UpdateSettings({ ui }: { ui: SharedUi }): ReactNS.ReactElement {
-  const preferences = useObservable(ui.preferences)
-  const snapshot = useObservable(ui.status)
-  const restart = useObservable(ui.restart)
-  // The Host answers this from its own process clock, so it is the DSH Web
-  // instance's start, not the last plugin mount. Absent on an older Host — then
-  // the line simply does not render rather than inventing a time.
-  const startedAt = restart.status?.startedAt ?? null
-  const status = snapshot.status
-  const summary = statusSummary(status, snapshot.loading, snapshot.error)
-  const hasUpdate = status?.hasUpdate === true && status.latestVersion !== null
-  const command = status === null || !hasUpdate ? '' : localizedUpgradeGuidance(status)
-  return (
-    <section className="dus-settings">
-      <h2 className="dus-settings-heading">{t('settings.title')}</h2>
-      <div className="dus-settings-card">
-        <label className="dus-settings-toggle">
-          <input
-            type="checkbox"
-            checked={preferences.sidebarEnabled}
-            disabled={!preferences.writable}
-            onChange={(event) => { ui.preferences.setSidebarEnabled(event.currentTarget.checked) }}
-          />
-          <span>{t('settings.sidebar')}</span>
-        </label>
-        <p className="dus-settings-hint">{t('settings.sidebarHint')}</p>
-        {!preferences.writable && <p className="dus-settings-hint">{t('settings.readonly')}</p>}
-      </div>
-      <div className="dus-settings-card">
-        {/* One row: the running version on the left, when the service started on the
-            right. The flow decides the break — each line asks for a 200px basis and the
-            row wraps on a narrow card — so both layouts need no width query, and an
-            older Host that sends no start time simply leaves one line in the row. */}
-        <div className="dus-settings-pair">
-          <p className="dus-settings-hint">{t('panel.current')}: <code>{status?.currentVersion ?? '…'}</code></p>
-          {startedAt !== null && <p className="dus-settings-hint">{t('settings.serviceStarted')}: <code>{timeText(startedAt)}</code></p>}
-        </div>
-        <p className="dus-state" data-kind={summary.kind}>{summary.text}</p>
-        {hasUpdate && <p className="dus-settings-hint">{t('panel.newer')}: <code>{status.latestVersion}</code> · <span className="dus-compat" data-compatibility={status.compatibility}>{compatibilityLabel(status.compatibility)}</span></p>}
-        {snapshot.error !== null && <p role="alert">{snapshot.error}</p>}
-        {hasUpdate && <CommandBlock command={command} disabled={snapshot.loading} />}
-        <div className="dus-actions">
-          <button className="dus-action" type="button" disabled={snapshot.loading} onClick={() => { void ui.status.refresh(preferences.cacheTtlMinutes) }}>
-            {snapshot.loading ? t('panel.checking') : t('panel.check')}
-          </button>
-          {status !== null && <a className="dus-action" href={status.changelogUrl} target="_blank" rel="noreferrer">{t('panel.releaseNotes')}</a>}
-          <RestartControl restart={ui.restart} />
-        </div>
-        <p className="dus-settings-hint">{t('panel.readOnly')}</p>
-      </div>
-    </section>
   )
 }

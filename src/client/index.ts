@@ -28,7 +28,7 @@
  */
 
 import type { ClientContext, ConnectionClient } from './contract.ts'
-import { BrandName, type SharedUi, UpdatePanel, UpdateSettings } from './components.tsx'
+import { BrandName, type SharedUi, UpdatePanel } from './components.tsx'
 import { SETTINGS_NAMESPACE, PanelStore, PreferencesStore, RestartStore, StatusStore } from './stores.ts'
 import { configFormScope, configFormsOf } from './settings/configFormScope.ts'
 import {
@@ -39,7 +39,6 @@ import {
   type SettingsRemoteLike,
 } from './settings/hostDirectScope.ts'
 import { createSettingsChannel } from './settings/settingsChannel.ts'
-import { t } from './i18n.ts'
 import { UPDATE_STATUS_CSS } from './styles.ts'
 
 const PLUGIN_ID = 'dsh-update-status'
@@ -245,12 +244,6 @@ function apply(ctx: ClientContext): void {
   ctx.slots.inject('shell.overlay', () => ctx.slots.register(
     { name: 'shell.overlay', id: 'dsh-update-status', order: 40 },
     () => UpdatePanel({ ui }),
-  ))
-
-  // Independent settings section provides the required way to hide our entry.
-  ctx.slots.inject('settings.section', () => ctx.slots.register(
-    { name: 'settings.section', id: 'dsh-update-status', order: 80, label: () => t('settings.title') },
-    () => UpdateSettings({ ui }),
   ))
 }
 

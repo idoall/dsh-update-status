@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.4.7 — 2026-10-24
+
+Verified DeepSeek Harness: `0.2.1-rc.3`; retains all ten previously verified releases. Engine and peer ranges remain unchanged. Release notes: [`docs/releases/v0.4.7.md`](docs/releases/v0.4.7.md).
+
+- **Removes the redundant Settings → Version & updates menu.** Installation still shows the sidebar version chip and update notices by default; click the chip for status, manual checks, cache duration, upgrade guidance and guarded restart. The generic settings page remains suppressed. Existing profile preferences remain compatible and are never rewritten on mount.
+- **Why:** installation already enables version status and update notices, and the chip detail panel provides the same primary actions. Removing the duplicate page simplifies Settings. The page-only visibility toggle and service-start-time display are removed with it; no new automatic behavior is introduced.
+- Removes the settings-only component, styles and translations; restart recovery rendering tests now exercise the remaining detail panel. All 219 tests pass.
+- **Existing hidden profiles:** a persisted `sidebarEnabled: false` remains respected. Set it to `true` or remove that override to restore the default chip; no automatic preference migration runs.
+
 ## 0.4.6 — 2026-10-23
 
 Verified DeepSeek Harness: `0.2.1-rc.3`; retains all ten previously verified releases, including `0.2.1-rc.2`. Release notes: [`docs/releases/v0.4.6.md`](docs/releases/v0.4.6.md).
