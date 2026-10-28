@@ -2,9 +2,9 @@
 
 import type * as ReactNS from 'react'
 import { isChipProblem, visualState } from '../shared/visual-state.ts'
-import { MAX_CACHE_TTL_MINUTES, MIN_CACHE_TTL_MINUTES, isCacheTtlMinutes, type ReleaseCompatibility, type UpdateStatus } from '../shared/types.ts'
+import { MAX_CACHE_TTL_MINUTES, MIN_CACHE_TTL_MINUTES, isCacheTtlMinutes, type ReleaseCandidate, type UpdateStatus } from '../shared/types.ts'
 import type { PreferencesStore, PanelStore, RestartStore, StatusStore } from './stores.ts'
-import { localizedUpgradeGuidance, localizedWarning, t } from './i18n.ts'
+import { languageOf, localizedUpgradeGuidance, localizedWarning, t, type Language } from './i18n.ts'
 import { React, h } from './react.ts'
 
 function useObservable<T>(store: { subscribe(listener: () => void): () => void; getSnapshot(): T }): T {
@@ -23,12 +23,6 @@ function timeText(value: string | null): string | null {
 function shortVersion(value: string): string {
   if (value.length <= 16) return value
   return value.slice(0, 15) + '…'
-}
-
-function compatibilityLabel(value: ReleaseCompatibility): string {
-  if (value === 'verified') return t('panel.compatVerified')
-  if (value === 'incompatible') return t('panel.compatIncompatible')
-  return t('panel.compatUnverified')
 }
 
 /** Persists a cache policy only; it never schedules a browser or Host timer. */
@@ -199,8 +193,10 @@ function RestartControl({ restart }: { restart: RestartStore }): ReactNS.ReactEl
 function statusSummary(status: UpdateStatus | null, loading: boolean, error: string | null): { kind: 'update' | 'ok' | 'warning' | 'error'; text: string } {
   if (loading && status === null) return { kind: 'warning', text: t('brand.checking') }
   if (error !== null) return { kind: 'error', text: error }
-  if (status?.hasUpdate === true) {
-    return { kind: 'update', text: `${t('panel.available')} · ${status.latestVersion ?? ''}`.trim() }
+  if (status !== null && status.releases.length > 0) {
+    // The count is the whole answer: the cards below name every version, so the
+    // state line does not repeat one of them and go stale when the list changes.
+    return { kind: 'update', text: t('panel.updatesFound', { count: String(status.releases.length) }) }
   }
   if (status !== null) {
     const warning = localizedWarning(status)
@@ -225,9 +221,12 @@ function selectCommand(element: HTMLElement | null): void {
 }
 
 /**
- * Copy-only commands for upgrade guidance and restart recovery.
+ * One copy-only command and its own feedback.
+ *
+ * Each instance owns its clipboard state, so a card's "已复制" never appears on
+ * another card: the panel can show several commands at once.
  */
-function CommandBlock({ command, disabled = false, label = t('panel.command'), note = t('panel.commandNote') }: { command: string; disabled?: boolean; label?: string; note?: string }): ReactNS.ReactElement {
+function CopyableCommand({ command, disabled, label }: { command: string; disabled: boolean; label: string | null }): ReactNS.ReactElement {
   const commandRef = React.useRef<HTMLElement | null>(null)
   const [copyMessage, setCopyMessage] = React.useState<string | null>(null)
   const copy = async (): Promise<void> => {
@@ -243,14 +242,83 @@ function CommandBlock({ command, disabled = false, label = t('panel.command'), n
   }
   return (
     <>
-      <p className="dus-command-label">{label}</p>
+      {label !== null && <p className="dus-command-label">{label}</p>}
       <code ref={commandRef} className="dus-command" tabIndex={0}>{command}</code>
       <div className="dus-actions dus-command-actions">
         <button className="dus-action" type="button" disabled={disabled} onClick={() => { void copy() }}>{t('panel.copy')}</button>
         {copyMessage !== null && <p className="dus-copy-message" role="status">{copyMessage}</p>}
       </div>
+    </>
+  )
+}
+
+/** A labelled, copy-only command block, used by restart recovery. */
+function CommandBlock({ command, disabled = false, label = t('panel.command'), note = t('panel.commandNote') }: { command: string; disabled?: boolean; label?: string; note?: string }): ReactNS.ReactElement {
+  return (
+    <>
+      <CopyableCommand command={command} disabled={disabled} label={label} />
       <p className="dus-note">{note}</p>
     </>
+  )
+}
+
+/** One card, in the order the Host sent it, with "newest" already decided. */
+export interface ReleaseRow {
+  release: ReleaseCandidate
+  /** Only ever true for the first row: the amber border and the 最新 pill. */
+  newest: boolean
+}
+
+export interface ReleaseView {
+  rows: ReleaseRow[]
+  /** Some card carries a real command, so the copy-only note belongs on the panel. */
+  copyable: boolean
+  /** One explanation for an installation no candidate can hand a command to. */
+  guidance: string | null
+}
+
+/**
+ * What the card area renders, decided as a pure function.
+ *
+ * It lives outside the JSX for the same reason `visualState` does: "nothing newer
+ * means no card and no command block at all" is a rule that regressions hide
+ * from, and a test can drive this directly without a DOM. The Host's array is
+ * already newest-first, so the client never re-sorts it — it only marks index 0.
+ */
+export function releaseViewOf(status: UpdateStatus | null, language: Language = languageOf()): ReleaseView {
+  const releases = status === null ? [] : status.releases
+  const copyable = releases.some(release => release.command !== null)
+  return {
+    rows: releases.map((release, index) => ({ release, newest: index === 0 })),
+    copyable,
+    guidance: status !== null && releases.length > 0 && !copyable
+      ? localizedUpgradeGuidance(status.installKind, language)
+      : null,
+  }
+}
+
+/**
+ * One upgradable version, top to bottom: what it is, when it shipped, and how to
+ * get it. `newest` is index 0 of the Host's array — the list arrives sorted, and
+ * the client must not re-sort a contract the Host already ordered.
+ */
+function ReleaseCard({ release, newest, disabled }: { release: ReleaseCandidate; newest: boolean; disabled: boolean }): ReactNS.ReactElement {
+  const published = timeText(release.publishedAt)
+  return (
+    <article className="dus-release" data-highlight={newest || undefined}>
+      <div className="dus-release-head">
+        <code className="dus-release-version">{release.version}</code>
+        {newest && <span className="dus-pill dus-pill-latest">{t('panel.latest')}</span>}
+        {release.tag !== null && <span className="dus-pill">{release.tag}</span>}
+      </div>
+      <p className="dus-release-meta">
+        <span className="dus-release-line">{release.line}</span>
+        {published !== null && <span>{t('panel.publishedAt')}: {published}</span>}
+      </p>
+      {/* A source checkout has no command this panel may fabricate; the panel's
+          guidance line speaks for every such card instead. */}
+      {release.command !== null && <CopyableCommand command={release.command} disabled={disabled} label={null} />}
+    </article>
   )
 }
 
@@ -290,8 +358,7 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
   const status = snapshot.status
   const warning = status === null ? null : localizedWarning(status)
   const summary = statusSummary(status, snapshot.loading, snapshot.error)
-  const hasUpdate = status?.hasUpdate === true && status.latestVersion !== null
-  const command = status === null || !hasUpdate ? '' : localizedUpgradeGuidance(status)
+  const view = releaseViewOf(status)
 
   return (
     <dialog
@@ -318,12 +385,6 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
             <span className="dus-meta-label">{t('panel.current')}</span>
             <code className="dus-meta-value">{status?.currentVersion ?? '…'}</code>
           </div>
-          {hasUpdate && <div className="dus-metadata-row">
-            <span className="dus-meta-label">{t('panel.newer')}</span>
-            <code className="dus-meta-value">{status.latestVersion}</code>
-            {status.publishedAt !== null && <span className="dus-meta-sub">{t('panel.publishedAt')}: {timeText(status.publishedAt)}</span>}
-            <span className="dus-meta-sub dus-compat" data-compatibility={status.compatibility}>{compatibilityLabel(status.compatibility)}</span>
-          </div>}
           {status?.checkedAt !== null && status?.checkedAt !== undefined && <div className="dus-metadata-row">
             <span className="dus-meta-label">{t('panel.checkedAt')}</span>
             <span className="dus-meta-value">{timeText(status.checkedAt)}</span>
@@ -342,7 +403,13 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
           <RestartControl restart={ui.restart} />
         </div>
 
-        {hasUpdate && <CommandBlock command={command} disabled={snapshot.loading} />}
+        {view.rows.length > 0 && <div className="dus-releases">
+          {view.rows.map(row => (
+            <ReleaseCard key={row.release.version} release={row.release} newest={row.newest} disabled={snapshot.loading} />
+          ))}
+        </div>}
+        {view.copyable && <p className="dus-note">{t('panel.commandNote')}</p>}
+        {view.guidance !== null && <p className="dus-guidance">{view.guidance}</p>}
         <p className="dus-note">{t('panel.readOnly')}</p>
       </section>
     </dialog>

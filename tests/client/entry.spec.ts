@@ -39,18 +39,21 @@ interface Mounted {
 
 const status: UpdateStatus = {
   currentVersion: '0.2.0-rc.2',
-  latestVersion: '0.2.1-alpha.1',
+  releases: [{
+    version: '0.2.1-alpha.1',
+    tag: 'next',
+    publishedAt: '2026-09-10T03:12:53.293Z',
+    line: '0.2.1',
+    command: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
+  }],
   hasUpdate: true,
-  compatibility: 'unverified',
   cached: true,
   checkedAt: '2026-09-16T13:33:37.470Z',
   warning: null,
   warnings: [],
   installKind: 'npm-global',
-  upgradeCommand: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
   releaseUrl: 'https://example.test/releases',
   changelogUrl: 'https://example.test/releases',
-  publishedAt: '2026-09-10T03:12:53.293Z',
   packageName: '@deepseek-ai/dsh',
   canApplyInPlace: false,
 }

@@ -2,24 +2,25 @@
  * Read-only npm-registry update checker with process-local TTL cache and
  * single-flight coordination.
  *
- * ONE release line, not a channel catalogue: the registry read keeps only the
- * newest version published under any dist-tag, so the whole plugin has a single
- * answer to render and a single version to name in the upgrade command. Whether
- * that newest release is stable, a release candidate or an alpha is npm's
- * bookkeeping — a newer release is a newer release, and it is reported.
+ * The plugin's whole purpose is to tell an operator that a newer DSH release
+ * exists and how to get it, so this read keeps EVERY version any dist-tag
+ * publishes, then reports the ones strictly newer than the running version,
+ * newest first. `latest`, `next` and `alpha` are npm bookkeeping, not a user
+ * choice: a version published under a tag this plugin has never heard of still
+ * counts. Compatibility is deliberately not judged here — whether DSH can load
+ * this plugin is decided by its own engine and peer ranges.
  */
 
 import type { InstallationInfo } from './installation.ts'
 import { upgradeCommandFor } from './installation.ts'
 import { SCHEMASTERY_NAME } from './schemastery.ts'
-import { compareSemver, newestSemver } from '../shared/semver.ts'
+import { compareSemver, parseSemver } from '../shared/semver.ts'
 import {
   PACKAGE_NAME,
   RELEASES_URL,
   DEFAULT_CACHE_TTL_MINUTES,
   isCacheTtlMinutes,
-  VERIFIED_DSH_VERSIONS,
-  type ReleaseCompatibility,
+  type ReleaseCandidate,
   type UpdateStatus,
   type UpdateWarning,
   type UpdateWarningKind,
@@ -29,18 +30,19 @@ export const REGISTRY_URL = 'https://registry.npmjs.org/@deepseek-ai%2Fdsh'
 export const DEFAULT_TTL_MS = DEFAULT_CACHE_TTL_MINUTES * 60 * 1000
 export const DEFAULT_TIMEOUT_MS = 15_000
 
-/** The newest release the registry publishes, with everything the UI shows. */
-export interface RegistryLatest {
+/** One tagged version from the registry, before it is compared with the running version. */
+export interface RegistryCandidate {
   version: string
+  tag: string | null
   publishedAt: string | null
-  compatibility: ReleaseCompatibility
 }
 
-export interface RegistryRelease {
-  latest: RegistryLatest | null
+/** Every version the registry publishes under a dist-tag, newest first. */
+export interface RegistrySnapshot {
+  releases: RegistryCandidate[]
 }
 
-export type RegistryFetcher = () => Promise<RegistryRelease>
+export type RegistryFetcher = () => Promise<RegistrySnapshot>
 
 export interface UpdateStatusServiceOptions {
   installation: InstallationInfo
@@ -55,8 +57,8 @@ export interface UpdateStatusServiceOptions {
   runtimeWarnings?: readonly UpdateWarning[]
 }
 
-interface CachedRelease {
-  release: RegistryRelease
+interface CachedReleases {
+  releases: RegistryCandidate[]
   checkedAtMs: number
 }
 
@@ -71,7 +73,6 @@ export function describeWarning(warning: UpdateWarning): string {
   switch (warning.code) {
     case 'registry-unavailable': return `Unable to check the npm registry: ${warning.detail}`
     case 'version-incomparable': return `Unable to compare the current version ${warning.currentVersion} with the published version ${warning.latestVersion} using SemVer.`
-    case 'version-unverified': return `Version ${warning.version} is newer than this plugin has been verified against.`
     case 'stale-schemastery': {
       const version = warning.version === null ? '' : ` ${warning.version}`
       // Only name a removal command when the directory is known; `rm -rf` on the
@@ -95,7 +96,7 @@ function warningFallback(warnings: UpdateWarning[]): string | null {
  * and only the settings form is degraded, so repainting the brand row would
  * misreport a plugin-runtime fact as a failed update check.
  */
-const ADVISORY_CODES: readonly UpdateWarning['code'][] = ['version-unverified', 'stale-schemastery']
+const ADVISORY_CODES: readonly UpdateWarning['code'][] = ['stale-schemastery']
 
 function warningKindOf(warnings: UpdateWarning[]): UpdateWarningKind | null {
   if (warnings.length === 0) return null
@@ -108,32 +109,59 @@ function dateOrNull(value: unknown): string | null {
   return Number.isFinite(time) ? new Date(time).toISOString() : null
 }
 
-function compatibilityOf(version: string): ReleaseCompatibility {
-  return VERIFIED_DSH_VERSIONS.includes(version) ? 'verified' : 'unverified'
+/** The numeric release line of a version: `0.2.1-rc.4` belongs to line `0.2.1`. */
+export function releaseLineOf(version: string): string {
+  return version.split('-', 1)[0] ?? version
+}
+
+/** Tag preference when two tags point at the same version; npm's own vocabulary leads. */
+const TAG_PRIORITY: readonly string[] = ['latest', 'next', 'alpha', 'beta', 'rc']
+
+function preferredTag(left: string, right: string): string {
+  const rank = (tag: string): number => {
+    const index = TAG_PRIORITY.indexOf(tag)
+    return index === -1 ? TAG_PRIORITY.length : index
+  }
+  return rank(left) <= rank(right) ? left : right
 }
 
 /**
- * Reduce one registry document to the single newest release.
+ * Reduce one registry document to every tagged version, newest first.
  *
  * Every dist-tag contributes, not a fixed `latest`/`next`/`alpha` triple: npm
  * tags are the registry's own vocabulary, and a version published under a tag
- * this plugin has never heard of is still a version users can install.
+ * this plugin has never heard of is still a version users can install. A version
+ * carried by several tags keeps the most specific tag name (latest > next >
+ * alpha > …), and an unparsable version is dropped rather than rendered as a
+ * card nobody can compare.
  */
-export function registryReleaseOf(value: unknown): RegistryRelease {
+export function registryReleasesOf(value: unknown): RegistrySnapshot {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('npm registry returned an invalid document')
   const record = value as Record<string, unknown>
   const tags = record['dist-tags']
   if (tags === null || typeof tags !== 'object' || Array.isArray(tags)) throw new Error('npm registry response has no dist-tags')
-  const tagged = Object.values(tags as Record<string, unknown>)
-    .filter((version): version is string => typeof version === 'string' && version.trim() !== '')
-    .map(version => version.trim())
-  const version = newestSemver(tagged)
-  if (version === undefined) throw new Error('npm registry response has no comparable dist-tags')
   const time = record.time
   const timeRecord = time !== null && typeof time === 'object' && !Array.isArray(time)
     ? time as Record<string, unknown>
     : {}
-  return { latest: { version, publishedAt: dateOrNull(timeRecord[version]), compatibility: compatibilityOf(version) } }
+
+  /** version -> tag, keeping one deterministic tag per version. */
+  const byVersion = new Map<string, string>()
+  for (const [tag, raw] of Object.entries(tags as Record<string, unknown>)) {
+    if (typeof raw !== 'string' || raw.trim() === '') continue
+    const version = raw.trim()
+    const existing = byVersion.get(version)
+    byVersion.set(version, existing === undefined ? tag : preferredTag(existing, tag))
+  }
+
+  const releases: RegistryCandidate[] = []
+  for (const [version, tag] of byVersion) {
+    if (parseSemver(version) === undefined) continue
+    releases.push({ version, tag, publishedAt: dateOrNull(timeRecord[version]) })
+  }
+  releases.sort((left, right) => (compareSemver(right.version, left.version) ?? 0))
+  if (releases.length === 0) throw new Error('npm registry response has no comparable dist-tags')
+  return { releases }
 }
 
 /** Only the explicitly approved HTTPS npm Registry authority may be contacted. */
@@ -158,11 +186,11 @@ export function createRegistryFetcher(timeoutMs: number = DEFAULT_TIMEOUT_MS): R
         redirect: 'error',
         signal: controller.signal,
         // npm's install-v1 abbreviated packument omits the `time` map. The
-        // complete JSON document is required to display the publish date.
+        // complete JSON document is required to display publish dates.
         headers: { accept: 'application/json' },
       })
       if (!response.ok) throw new Error(`npm registry returned HTTP ${response.status}`)
-      return registryReleaseOf(await response.json())
+      return registryReleasesOf(await response.json())
     } catch (error) {
       if (controller.signal.aborted) throw new Error(`npm registry timed out after ${boundedTimeout}ms`)
       throw error
@@ -172,6 +200,16 @@ export function createRegistryFetcher(timeoutMs: number = DEFAULT_TIMEOUT_MS): R
   }
 }
 
+/**
+ * A copyable command is only honest for a package-manager installation; a source
+ * checkout and an unknown installation get guidance text instead of a command
+ * that would not work.
+ */
+function copyableCommand(installation: InstallationInfo, version: string): string | null {
+  if (installation.installKind !== 'npm-global' && installation.installKind !== 'pnpm-global') return null
+  return upgradeCommandFor(installation.installKind, installation.packageName || PACKAGE_NAME, version)
+}
+
 export class UpdateStatusService {
   private readonly installation: InstallationInfo
   private readonly fetchLatest: RegistryFetcher
@@ -179,8 +217,8 @@ export class UpdateStatusService {
   private readonly ttlMs: number
   private readonly releaseUrl: string
   private readonly runtimeWarnings: readonly UpdateWarning[]
-  private cache: CachedRelease | undefined
-  private inFlight: Promise<CachedRelease> | undefined
+  private cache: CachedReleases | undefined
+  private inFlight: Promise<CachedReleases> | undefined
 
   constructor(options: UpdateStatusServiceOptions) {
     this.installation = options.installation
@@ -210,7 +248,7 @@ export class UpdateStatusService {
       }
     }
 
-    const run = this.refreshRelease()
+    const run = this.refreshReleases()
     this.inFlight = run
     try {
       return this.statusFromCache(await run, false, [])
@@ -221,8 +259,8 @@ export class UpdateStatusService {
     }
   }
 
-  private async refreshRelease(): Promise<CachedRelease> {
-    const cache = { release: await this.fetchLatest(), checkedAtMs: this.now() }
+  private async refreshReleases(): Promise<CachedReleases> {
+    const cache = { releases: (await this.fetchLatest()).releases, checkedAtMs: this.now() }
     this.cache = cache
     return cache
   }
@@ -234,40 +272,50 @@ export class UpdateStatusService {
       : this.statusFromCache(this.cache, true, warnings)
   }
 
-  private statusFromCache(cache: CachedRelease, cached: boolean, initialWarnings: UpdateWarning[]): UpdateStatus {
-    const selected = cache.release.latest
-    const comparison = selected === null ? undefined : compareSemver(this.installation.currentVersion, selected.version)
-    const hasUpdate = comparison !== undefined && comparison < 0
+  private statusFromCache(cache: CachedReleases, cached: boolean, initialWarnings: UpdateWarning[]): UpdateStatus {
+    const current = this.installation.currentVersion
     const warnings: UpdateWarning[] = [...initialWarnings]
-    if (selected !== null && comparison === undefined) {
-      warnings.push({
-        code: 'version-incomparable',
-        currentVersion: this.installation.currentVersion,
-        latestVersion: selected.version,
-      })
+    const releases: ReleaseCandidate[] = []
+
+    if (parseSemver(current) === undefined) {
+      // The running version is not SemVer, so no candidate can be ordered
+      // against it. Say so once instead of rendering arbitrary cards.
+      const newest = cache.releases[0]
+      if (newest !== undefined) {
+        warnings.push({ code: 'version-incomparable', currentVersion: current, latestVersion: newest.version })
+      }
+    } else {
+      for (const candidate of cache.releases) {
+        const comparison = compareSemver(current, candidate.version)
+        // Strictly newer only: an equal version is what is already running, and
+        // an older one is a downgrade the operator did not ask about.
+        if (comparison === undefined || comparison >= 0) continue
+        releases.push({
+          version: candidate.version,
+          tag: candidate.tag,
+          publishedAt: candidate.publishedAt,
+          line: releaseLineOf(candidate.version),
+          command: copyableCommand(this.installation, candidate.version),
+        })
+      }
+      // The contract promises highest-first whatever the registry (or a test
+      // double) hands over; the card highlight depends on that order.
+      releases.sort((left, right) => (compareSemver(right.version, left.version) ?? 0))
     }
-    // Only a version this plugin is RECOMMENDING is worth an advisory: when the
-    // running release is simply ahead of the verified list, saying so would be
-    // noise about a choice the operator already made.
-    if (hasUpdate && selected !== null && selected.compatibility !== 'verified') {
-      warnings.push({ code: 'version-unverified', version: selected.version })
-    }
+
     warnings.push(...this.runtimeWarnings)
     return {
-      currentVersion: this.installation.currentVersion,
-      latestVersion: selected?.version ?? null,
-      hasUpdate,
-      compatibility: selected?.compatibility ?? 'unverified',
+      currentVersion: current,
+      releases,
+      hasUpdate: releases.length > 0,
       cached,
       checkedAt: new Date(cache.checkedAtMs).toISOString(),
       warning: warningFallback(warnings),
       warningKind: warningKindOf(warnings),
       warnings,
       installKind: this.installation.installKind,
-      upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, selected?.version ?? null),
       releaseUrl: this.releaseUrl,
       changelogUrl: this.releaseUrl,
-      publishedAt: selected?.publishedAt ?? null,
       packageName: this.installation.packageName || PACKAGE_NAME,
       canApplyInPlace: false,
     }
@@ -277,19 +325,16 @@ export class UpdateStatusService {
     const combined = [...warnings, ...this.runtimeWarnings]
     return {
       currentVersion: this.installation.currentVersion,
-      latestVersion: null,
+      releases: [],
       hasUpdate: false,
-      compatibility: 'unverified',
       cached: false,
       checkedAt: null,
       warning: warningFallback(combined),
       warningKind: warningKindOf(combined),
       warnings: combined,
       installKind: this.installation.installKind,
-      upgradeCommand: upgradeCommandFor(this.installation.installKind, this.installation.packageName || PACKAGE_NAME, null),
       releaseUrl: this.releaseUrl,
       changelogUrl: this.releaseUrl,
-      publishedAt: null,
       packageName: this.installation.packageName || PACKAGE_NAME,
       canApplyInPlace: false,
     }

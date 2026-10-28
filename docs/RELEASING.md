@@ -39,27 +39,27 @@ Write it in the layout the DeepSeek Harness release pages use, for example [dsh-
 ```markdown
 [中文](#cn-v0.1.3) | [English](#en-v0.1.3)
 
-<h3 id="cn-v0.1.3">插件 0.1.3 — 已验证 DeepSeek Harness 0.1.6-alpha.1</h3>
+<h3 id="cn-v0.1.3">插件 0.1.3 — 一句话说明这个版本改了什么</h3>
 
-### 版本对应        <!-- plugin version ↔ verified DSH version ↔ npm status -->
+### 版本对应        <!-- plugin version ↔ what it is ↔ npm status -->
 ### 问题修复        <!-- what was broken, for whom, and what changed -->
 ### 改进            <!-- behaviour and test improvements -->
-### 兼容性与升级    <!-- verified DSH releases, exact upgrade command, limits -->
+### 可加载性与升级  <!-- declared DSH range, exact upgrade command, limits -->
 
-<h3 id="en-v0.1.3">Plugin 0.1.3 — verified against DeepSeek Harness 0.1.6-alpha.1</h3>
+<h3 id="en-v0.1.3">Plugin 0.1.3 — one line on what changed</h3>
 
 ### Version matrix
 ### Bug Fixes
 ### Improvements
-### Compatibility and upgrade
+### Loadability and upgrade
 ```
 
 Rules:
 
 - The two `<h3 id="cn-…">` / `<h3 id="en-…">` anchors are mandatory and must match the tag: the gate greps for `<h3 id="cn-vX.Y.Z">` and `<h3 id="en-vX.Y.Z">`.
 - Chinese section first, English section second; both must carry the same facts — not a summary of the other language.
-- Lead with the version matrix: which plugin version was verified against which DeepSeek Harness release, and which of them are actually on npm.
-- Write every entry as *what changed → who is affected → what the user must do*. State the verified DSH release, the exact upgrade command, and any remaining limitation explicitly.
+- Lead with the version matrix: plugin version, what that version is, and whether it is on npm. Do not add a "verified DSH release" column — the project no longer publishes a per-release verified list.
+- Write every entry as *what changed → who is affected → what the user must do*. State the DSH range the plugin declares, the exact upgrade command, and any remaining limitation explicitly.
 - A never-published version has no release page of its own. When a published version carries an unpublished one's fix, document both in the shipped release's notes (see `v0.1.3`, which covers the unpublished `0.1.2`).
 - Keep the same facts in `CHANGELOG.md`; the release notes may be longer and user-facing, but they must not contradict it.
 
@@ -68,8 +68,8 @@ Rules:
 Never release an uncommitted worktree or reuse a published npm version.
 
 1. Write `docs/releases/vX.Y.Z.md` (bilingual, hand-written — see above) **and** the matching `CHANGELOG.md` entry in the same commit.
-2. Update the version matrix in `README.md` and `README.zh.md`: the verified DeepSeek Harness release(s), the npm status of every version, and which version a user on which DSH release should install.
-3. Bump `package.json` and `dsh.compatibility.dshReleases` together with `VERIFIED_DSH_VERSIONS` in `src/shared/types.ts`.
+2. Update the version matrix in `README.md` and `README.zh.md`: the npm status of every version and what each version changed. Do not reintroduce a verified-release list, a verified/unverified label, or a count of tested DSH releases — that mechanism was removed in `0.5.0`.
+3. Bump the version in `package.json`. There is no compatibility list to sync: `dsh.engines.dsh` and the peer ranges change only when the plugin genuinely needs a different DSH range, and they are not updated per DSH release.
 4. Verify:
 
 ```sh
@@ -133,7 +133,7 @@ The final command must print:
 dsh-update-status X.Y.Z web
 ```
 
-Then install the package in a disposable DSH profile and manually verify the sidebar badge, its three dot states (green when up to date, grey pulse while checking, amber halo when a newer release exists — the chip fill itself must not change), the panel, the cache-duration setting, and mobile drawer behavior:
+Then install the package in a disposable DSH profile and manually verify the sidebar badge, its three dot states (green when up to date, grey pulse while checking, amber halo when a newer release exists — the chip fill itself must not change), the panel (one card per version newer than the running one, newest first, the amber border and **Newest** pill on the top card only, and no cards at all when nothing is newer), the cache-duration setting, and mobile drawer behavior:
 
 ```sh
 TEST_HOME="$(mktemp -d)"

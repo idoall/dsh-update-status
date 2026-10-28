@@ -3,10 +3,14 @@ import { PanelStore, PreferencesStore, RestartStore, StatusStore } from '../../s
 import type { SettingsScopeSnapshotLike } from '../../src/client/settings/scopeFaces.ts'
 
 const status = {
-  currentVersion: '0.2.0-rc.2', latestVersion: '0.2.1-alpha.1', hasUpdate: true,
-  compatibility: 'unverified' as const, cached: false, checkedAt: '2026-01-01T00:00:00.000Z', warning: null, warnings: [],
-  installKind: 'npm-global' as const, upgradeCommand: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
-  releaseUrl: 'https://example.test/releases', changelogUrl: 'https://example.test/releases', publishedAt: null,
+  currentVersion: '0.2.0-rc.2',
+  releases: [{
+    version: '0.2.1-alpha.1', tag: 'next', publishedAt: null,
+    line: '0.2.1', command: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
+  }],
+  hasUpdate: true, cached: false, checkedAt: '2026-01-01T00:00:00.000Z', warning: null, warnings: [],
+  installKind: 'npm-global',
+  releaseUrl: 'https://example.test/releases', changelogUrl: 'https://example.test/releases',
   packageName: '@deepseek-ai/dsh', canApplyInPlace: false as const,
 }
 
@@ -28,6 +32,13 @@ describe('StatusStore access boundary', () => {
     expect(payloads).toEqual([{ cacheTtlMinutes: 30 }, { force: true, cacheTtlMinutes: 90 }])
     const unavailable = new StatusStore({}); await unavailable.load()
     expect(unavailable.getSnapshot().error).toBe('DSH connection RPC is unavailable')
+  })
+
+  it('publishes the release list the panel renders, not a single latest version', async () => {
+    const store = new StatusStore({ rpc: { call: async () => ({ ok: true, value: status }) } })
+    await store.load()
+    expect(store.getSnapshot().status?.releases.map(release => release.version)).toEqual(['0.2.1-alpha.1'])
+    expect(store.getSnapshot().status?.hasUpdate).toBe(true)
   })
 })
 

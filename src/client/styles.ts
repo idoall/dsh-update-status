@@ -76,6 +76,20 @@ export const UPDATE_STATUS_CSS = `
 .dus-meta-label{color:var(--dsw-alias-label-secondary);font-size:12px}
 .dus-meta-value{font-family:var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:12px;max-width:210px;overflow-wrap:anywhere;text-align:right}
 .dus-meta-sub{color:var(--dsw-alias-label-secondary);font-size:11px;grid-column:1 / -1}
+/* One card per upgradable version. Every value here is a theme token, so the
+   cards follow light, dark and OS-following appearances with no plugin-side
+   detection; only the highest version's border changes, because "newest" is the
+   single fact that must survive a glance at a multi-card list. */
+.dus-releases{display:grid;gap:9px;margin:0 0 12px}
+.dus-release{background:var(--dsw-alias-bg-layer-3);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:9px}
+.dus-release[data-highlight=true]{border-color:var(--dsw-alias-state-warn-primary)}
+.dus-release-head{align-items:center;display:flex;flex-wrap:wrap;gap:6px}
+.dus-release-version{font-family:var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:12px;font-weight:650;overflow-wrap:anywhere}
+.dus-release-meta{align-items:baseline;color:var(--dsw-alias-label-secondary);display:flex;flex-wrap:wrap;font-size:11px;gap:2px 8px;line-height:1.45;margin:5px 0 0}
+.dus-release-line{font-family:var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-variant-numeric:tabular-nums}
+.dus-pill{border:1px solid var(--dsw-alias-border-l2);border-radius:999px;color:var(--dsw-alias-label-secondary);font-size:10px;line-height:16px;padding:0 6px;white-space:nowrap}
+.dus-pill-latest{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-primary);font-weight:600}
+.dus-guidance{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.45;margin:0 0 12px}
 .dus-warning{border-left:2px solid var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.45;margin:0 0 12px;padding-left:8px}
 .dus-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
 .dus-action{background:var(--dsw-alias-button-floating-fill);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;color:inherit;cursor:pointer;font-size:12px;line-height:30px;min-height:32px;padding:0 10px;touch-action:manipulation}
@@ -94,9 +108,6 @@ export const UPDATE_STATUS_CSS = `
 .dus-command:focus{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
 .dus-note{color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1.45;margin:8px 0 0}
 .dus-copy-message{color:var(--dsw-alias-state-business-primary);font-size:11px;margin:7px 0 0}
-.dus-compat{color:var(--dsw-alias-label-secondary)}
-.dus-compat[data-compatibility=verified]{color:var(--dsw-alias-state-success-primary)}
-.dus-compat[data-compatibility=incompatible]{color:var(--dsw-alias-state-error-primary)}
 .dus-command-actions{align-items:center;margin:8px 0 0}
 @media (max-width:640px),(hover:none) and (pointer:coarse){.dus-panel{border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;bottom:0;left:0;right:0;max-height:min(78dvh,calc(100dvh - env(safe-area-inset-top)));padding:16px max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));position:fixed;top:auto;width:100vw}.dus-action{min-height:40px;line-height:38px}.dus-close{height:40px;min-height:40px;min-width:40px;width:40px}}
 `

@@ -17,13 +17,6 @@ export const PACKAGE_NAME = '@deepseek-ai/dsh'
 /** Shared Connection RPC channel. Custom prefixes 405 on the SPA fallback. */
 export const UPDATE_STATUS_CHANNEL = '/api'
 export const RELEASES_URL = 'https://github.com/deepseek-ai/deepseek-harness/releases'
-/**
- * DSH releases this bundle has actually been verified against. The same list is
- * declared in package.json's `dsh.compatibility.dshReleases`, and every other
- * release the registry reports stays `unverified` — the plugin never claims a
- * compatibility nobody checked.
- */
-export const VERIFIED_DSH_VERSIONS: readonly string[] = ['0.1.7-alpha.2', '0.1.7-rc.1', '0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5', '0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.4']
 export const DEFAULT_CACHE_TTL_MINUTES = 360
 export const MIN_CACHE_TTL_MINUTES = 30
 export const MAX_CACHE_TTL_MINUTES = 1_440
@@ -47,17 +40,16 @@ export const RESTART_ENDPOINTS = {
 
 export type UpdateEndpoint = (typeof UPDATE_ENDPOINTS)[keyof typeof UPDATE_ENDPOINTS]
 export type RestartEndpoint = (typeof RESTART_ENDPOINTS)[keyof typeof RESTART_ENDPOINTS]
-export type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible'
 /**
  * Severity of `warning`, so a surface can tell "the plugin could not determine
  * the update state" from "here is something worth knowing".
  *
  * - `failure`: no usable answer — a failed registry read, or a version SemVer
  *   cannot compare. This is what justifies repainting the sidebar chip.
- * - `notice`: the answer is complete and usable; the text is advisory, e.g. a
- *   newer release this bundle has not been verified against. The chip must NOT
- *   repaint for this — an operator upgrading DSH ahead of the plugin would
- *   otherwise see the chip turn red for a plugin-side bookkeeping fact.
+ * - `notice`: the answer is complete and usable; the text is advisory, e.g. the
+ *   Host resolved a stale copy of a shared library. The chip must NOT repaint for
+ *   this — an operator upgrading DSH ahead of the plugin would otherwise see the
+ *   chip turn red for a plugin-side bookkeeping fact.
  *
  * Optional on purpose: a Host older than this field leaves it `undefined`, and
  * the client then falls back to treating any warning as a failure.
@@ -69,8 +61,6 @@ export type InstallKind = 'npm-global' | 'pnpm-global' | 'source-checkout' | 'un
 export type UpdateWarning =
   | { code: 'registry-unavailable'; detail: string }
   | { code: 'version-incomparable'; currentVersion: string; latestVersion: string }
-  /** A newer release exists, but this bundle has not been tested against it. */
-  | { code: 'version-unverified'; version: string }
   /**
    * The Host resolved a `@deepseek-ai/schemastery` that DSH does not ship, so the
    * Loader's volatile projection is unavailable and the preference fields cannot
@@ -78,6 +68,25 @@ export type UpdateWarning =
    * text carries the exact directory to remove. See `host/schemastery.ts`.
    */
   | { code: 'stale-schemastery'; version: string | null; path: string; nodeModulesDir: string | null }
+
+/**
+ * One published version that is newer than the running one.
+ *
+ * The plugin's only job is to say "a newer version exists, here is how to get
+ * it", so a candidate carries the version, the npm dist-tag that publishes it,
+ * when it was published, its release line, and a copy-only command when the
+ * detected installation kind actually accepts one.
+ */
+export interface ReleaseCandidate {
+  version: string
+  /** The npm dist-tag carrying this version; null when the Host could not tell. */
+  tag: string | null
+  publishedAt: string | null
+  /** Numeric release line, e.g. `0.2.1` for `0.2.1-rc.4`. */
+  line: string
+  /** Copy-only upgrade command, or null when this installation cannot be upgraded that way. */
+  command: string | null
+}
 
 /** Arguments accepted by either read/check endpoint. */
 export interface CheckUpdateRequest {
@@ -93,11 +102,12 @@ export interface CheckUpdateRequest {
  */
 export interface UpdateStatus {
   currentVersion: string
-  /** Newest version the registry publishes under any dist-tag; null when unknown. */
-  latestVersion: string | null
+  /**
+   * Every published version strictly newer than `currentVersion`, highest first.
+   * Empty means "you are on the newest published version" — never a placeholder.
+   */
+  releases: ReleaseCandidate[]
   hasUpdate: boolean
-  /** Whether this bundle was verified against `latestVersion`. */
-  compatibility: ReleaseCompatibility
   cached: boolean
   checkedAt: string | null
   /** English fallback for older clients; current clients localize `warnings`. */
@@ -107,10 +117,8 @@ export interface UpdateStatus {
   /** Structured warning facts; absent from a Host older than this field. */
   warnings?: UpdateWarning[]
   installKind: InstallKind
-  upgradeCommand: string
   releaseUrl: string
   changelogUrl: string
-  publishedAt: string | null
   packageName: string
   /** Phase 1 is informational only; the GUI must never apply an update. */
   canApplyInPlace: false

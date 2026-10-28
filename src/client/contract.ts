@@ -1,6 +1,6 @@
 /** Minimal structural client faces — runtime services stay owned by DSH. */
 
-import type { UpdateStatus, UpdateWarning } from '../shared/types.ts'
+import type { InstallKind, ReleaseCandidate, UpdateStatus, UpdateWarning } from '../shared/types.ts'
 
 export type RestartPhase = 'unknown' | 'idle' | 'armed' | 'checking' | 'waiting' | 'timeout' | 'error'
 
@@ -177,9 +177,6 @@ function warningOf(value: unknown): UpdateWarning | undefined {
       latestVersion: record.latestVersion,
     }
   }
-  if (record.code === 'version-unverified' && typeof record.version === 'string') {
-    return { code: record.code, version: record.version }
-  }
   if (record.code === 'stale-schemastery') {
     const version = record.version === null ? null : stringOrNull(record.version)
     const nodeModulesDir = record.nodeModulesDir === null ? null : stringOrNull(record.nodeModulesDir)
@@ -192,28 +189,116 @@ function warningOf(value: unknown): UpdateWarning | undefined {
   return undefined
 }
 
+function installKindOf(value: unknown): InstallKind | undefined {
+  return value === 'npm-global' || value === 'pnpm-global' || value === 'source-checkout' || value === 'unknown'
+    ? value
+    : undefined
+}
+
+/**
+ * A field the contract types as `string | null`.
+ *
+ * `null` is a value the Host chose to send; `undefined` means it was missing or
+ * malformed, which a caller turns into a rejection.
+ */
+function nullableString(value: unknown): string | null | undefined {
+  if (value === null) return null
+  return typeof value === 'string' && value !== '' ? value : undefined
+}
+
+/**
+ * One upgradable version, exactly as the Host described it.
+ *
+ * Every field is required by the contract, so a missing `line` or a numeric
+ * `tag` rejects the whole payload instead of rendering a half-filled card: the
+ * card list is the panel's whole answer, and a wrong one is worse than a read
+ * error the operator can retry.
+ */
+function releaseCandidateOf(value: unknown): ReleaseCandidate | undefined {
+  const record = objectOf(value)
+  if (record === undefined) return undefined
+  if (typeof record.version !== 'string' || record.version === '') return undefined
+  if (typeof record.line !== 'string' || record.line === '') return undefined
+  const tag = nullableString(record.tag)
+  const publishedAt = nullableString(record.publishedAt)
+  // An empty command is not a command: fold it into "this installation cannot
+  // express one" so the panel shows guidance instead of a copy button that would
+  // put an empty string on the clipboard.
+  const command = record.command === '' ? null : nullableString(record.command)
+  if (tag === undefined || publishedAt === undefined || command === undefined) return undefined
+  return { version: record.version, tag, publishedAt, line: record.line, command }
+}
+
+/** The release line of a version: no SemVer maths needed, the Host's own rule. */
+function releaseLineOf(version: string): string {
+  return version.split('-', 1)[0] ?? version
+}
+
+/**
+ * A 0.4.x Host answered with a single `latestVersion` plus its `upgradeCommand`.
+ *
+ * A client bundle that hot-reloads over that Host must keep the page alive, so
+ * the one candidate those fields describe is synthesized instead of rejecting a
+ * payload the Host is still entitled to send. `tag` is null because the legacy
+ * shape never carried it.
+ */
+function legacyReleaseOf(record: Record<string, unknown>, installKind: InstallKind): ReleaseCandidate | undefined {
+  if (typeof record.latestVersion !== 'string' || record.latestVersion === '') return undefined
+  // The legacy shape allowed a missing publish time; `0.4.x` always sent the key.
+  const publishedAt = record.publishedAt === undefined ? null : nullableString(record.publishedAt)
+  if (publishedAt === undefined) return undefined
+  // The legacy Host put guidance prose into `upgradeCommand` for a source
+  // checkout or an unknown install. Reusing that string would render an English
+  // sentence inside a copyable <code>, so those kinds take the guidance path.
+  const command = installKind === 'npm-global' || installKind === 'pnpm-global'
+    ? (typeof record.upgradeCommand === 'string' && record.upgradeCommand !== '' ? record.upgradeCommand : null)
+    : null
+  return {
+    version: record.latestVersion,
+    tag: null,
+    publishedAt,
+    line: releaseLineOf(record.latestVersion),
+    command,
+  }
+}
+
 /** Reject malformed RPC output before it reaches a slot component. */
 export function updateStatusOf(value: unknown): UpdateStatus | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
   const record = value as Record<string, unknown>
   if (typeof record.currentVersion !== 'string' || typeof record.hasUpdate !== 'boolean'
-    || typeof record.cached !== 'boolean' || typeof record.installKind !== 'string'
-    || typeof record.upgradeCommand !== 'string' || typeof record.releaseUrl !== 'string'
+    || typeof record.cached !== 'boolean' || typeof record.releaseUrl !== 'string'
     || typeof record.changelogUrl !== 'string' || typeof record.packageName !== 'string'
     || record.canApplyInPlace !== false) return undefined
-  const validKind = record.installKind === 'npm-global' || record.installKind === 'pnpm-global'
-    || record.installKind === 'source-checkout' || record.installKind === 'unknown'
-  if (!validKind) return undefined
-  if (record.compatibility !== 'verified' && record.compatibility !== 'unverified' && record.compatibility !== 'incompatible') return undefined
-  const latestVersion = record.latestVersion === null ? null : stringOrNull(record.latestVersion)
+  const installKind = installKindOf(record.installKind)
+  if (installKind === undefined) return undefined
   const checkedAt = record.checkedAt === null ? null : stringOrNull(record.checkedAt)
   const warning = record.warning === null ? null : stringOrNull(record.warning)
   // Absent or unrecognised means a Host older than the field: leave it undefined and
   // let the visual state fall back to "any warning is a failure", never to "no warning".
   const warningKind = record.warningKind === 'failure' || record.warningKind === 'notice' ? record.warningKind : undefined
-  const publishedAt = record.publishedAt === null ? null : stringOrNull(record.publishedAt)
-  if ((record.latestVersion !== null && latestVersion === null) || (record.checkedAt !== null && checkedAt === null)
-    || (record.warning !== null && warning === null) || (record.publishedAt !== null && publishedAt === null)) return undefined
+  if ((record.checkedAt !== null && checkedAt === null) || (record.warning !== null && warning === null)) return undefined
+
+  const releases: ReleaseCandidate[] = []
+  if (record.releases !== undefined) {
+    if (!Array.isArray(record.releases)) return undefined
+    for (const raw of record.releases) {
+      const parsed = releaseCandidateOf(raw)
+      if (parsed === undefined) return undefined
+      releases.push(parsed)
+    }
+  }
+  // Hot reload over a 0.4.x Host: the legacy pair still names the one version it
+  // found. Only when the new array is absent or empty — a Host that sends both is
+  // new, and its array is authoritative.
+  if (releases.length === 0 && record.hasUpdate === true) {
+    const legacy = legacyReleaseOf(record, installKind)
+    if (legacy !== undefined) releases.push(legacy)
+  }
+  // The chip reads `hasUpdate`, the panel reads `releases`; letting them disagree
+  // would paint "an update exists" over an empty card list.
+  if (record.hasUpdate !== (releases.length > 0)) return undefined
+
   const warnings: UpdateWarning[] = []
   if (record.warnings !== undefined) {
     if (!Array.isArray(record.warnings)) return undefined
@@ -225,19 +310,16 @@ export function updateStatusOf(value: unknown): UpdateStatus | undefined {
   }
   return {
     currentVersion: record.currentVersion,
-    latestVersion,
+    releases,
     hasUpdate: record.hasUpdate,
-    compatibility: record.compatibility,
     cached: record.cached,
     checkedAt,
     warning,
     warningKind,
     warnings,
-    installKind: record.installKind as UpdateStatus['installKind'],
-    upgradeCommand: record.upgradeCommand,
+    installKind,
     releaseUrl: record.releaseUrl,
     changelogUrl: record.changelogUrl,
-    publishedAt,
     packageName: record.packageName,
     canApplyInPlace: false,
   }

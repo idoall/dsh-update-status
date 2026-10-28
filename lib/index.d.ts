@@ -26,17 +26,16 @@ interface UpdateStatusConfig {
 export declare const Config: z<UpdateStatusConfig, Record<string, unknown>>;
 //#endregion
 //#region src/shared/types.d.ts
-type ReleaseCompatibility = 'verified' | 'unverified' | 'incompatible';
 /**
  * Severity of `warning`, so a surface can tell "the plugin could not determine
  * the update state" from "here is something worth knowing".
  *
  * - `failure`: no usable answer — a failed registry read, or a version SemVer
  *   cannot compare. This is what justifies repainting the sidebar chip.
- * - `notice`: the answer is complete and usable; the text is advisory, e.g. a
- *   newer release this bundle has not been verified against. The chip must NOT
- *   repaint for this — an operator upgrading DSH ahead of the plugin would
- *   otherwise see the chip turn red for a plugin-side bookkeeping fact.
+ * - `notice`: the answer is complete and usable; the text is advisory, e.g. the
+ *   Host resolved a stale copy of a shared library. The chip must NOT repaint for
+ *   this — an operator upgrading DSH ahead of the plugin would otherwise see the
+ *   chip turn red for a plugin-side bookkeeping fact.
  *
  * Optional on purpose: a Host older than this field leaves it `undefined`, and
  * the client then falls back to treating any warning as a failure.
@@ -52,11 +51,6 @@ type UpdateWarning = {
   currentVersion: string;
   latestVersion: string;
 } |
-/** A newer release exists, but this bundle has not been tested against it. */
-{
-  code: 'version-unverified';
-  version: string;
-} |
 /**
  * The Host resolved a `@deepseek-ai/schemastery` that DSH does not ship, so the
  * Loader's volatile projection is unavailable and the preference fields cannot
@@ -70,17 +64,36 @@ type UpdateWarning = {
   nodeModulesDir: string | null;
 };
 /**
+ * One published version that is newer than the running one.
+ *
+ * The plugin's only job is to say "a newer version exists, here is how to get
+ * it", so a candidate carries the version, the npm dist-tag that publishes it,
+ * when it was published, its release line, and a copy-only command when the
+ * detected installation kind actually accepts one.
+ */
+interface ReleaseCandidate {
+  version: string;
+  /** The npm dist-tag carrying this version; null when the Host could not tell. */
+  tag: string | null;
+  publishedAt: string | null;
+  /** Numeric release line, e.g. `0.2.1` for `0.2.1-rc.4`. */
+  line: string;
+  /** Copy-only upgrade command, or null when this installation cannot be upgraded that way. */
+  command: string | null;
+}
+/**
  * A lossless, JSON-serializable snapshot used by both browser surfaces.
  * Nulls are intentional: a failed first check must still render a truthful
  * current-version card instead of an empty or malformed UI.
  */
 interface UpdateStatus {
   currentVersion: string;
-  /** Newest version the registry publishes under any dist-tag; null when unknown. */
-  latestVersion: string | null;
+  /**
+   * Every published version strictly newer than `currentVersion`, highest first.
+   * Empty means "you are on the newest published version" — never a placeholder.
+   */
+  releases: ReleaseCandidate[];
   hasUpdate: boolean;
-  /** Whether this bundle was verified against `latestVersion`. */
-  compatibility: ReleaseCompatibility;
   cached: boolean;
   checkedAt: string | null;
   /** English fallback for older clients; current clients localize `warnings`. */
@@ -90,10 +103,8 @@ interface UpdateStatus {
   /** Structured warning facts; absent from a Host older than this field. */
   warnings?: UpdateWarning[];
   installKind: InstallKind;
-  upgradeCommand: string;
   releaseUrl: string;
   changelogUrl: string;
-  publishedAt: string | null;
   packageName: string;
   /** Phase 1 is informational only; the GUI must never apply an update. */
   canApplyInPlace: false;
@@ -108,16 +119,17 @@ interface InstallationInfo {
 }
 //#endregion
 //#region src/host/update-status.d.ts
-/** The newest release the registry publishes, with everything the UI shows. */
-interface RegistryLatest {
+/** One tagged version from the registry, before it is compared with the running version. */
+interface RegistryCandidate {
   version: string;
+  tag: string | null;
   publishedAt: string | null;
-  compatibility: ReleaseCompatibility;
 }
-interface RegistryRelease {
-  latest: RegistryLatest | null;
+/** Every version the registry publishes under a dist-tag, newest first. */
+interface RegistrySnapshot {
+  releases: RegistryCandidate[];
 }
-type RegistryFetcher = () => Promise<RegistryRelease>;
+type RegistryFetcher = () => Promise<RegistrySnapshot>;
 interface UpdateStatusServiceOptions {
   installation: InstallationInfo;
   fetchLatest?: RegistryFetcher;
@@ -143,7 +155,7 @@ export declare class UpdateStatusService {
   getStatus(cacheTtlMinutes?: number): Promise<UpdateStatus>;
   /** `force` bypasses TTL but still joins any registry check already in flight. */
   check(force?: boolean, cacheTtlMinutes?: number): Promise<UpdateStatus>;
-  private refreshRelease;
+  private refreshReleases;
   private statusAfterFailure;
   private statusFromCache;
   private statusWithoutRemoteRelease;

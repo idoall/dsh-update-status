@@ -136,8 +136,38 @@ describe('update indicator styling', () => {
     // absence is asserted rather than assumed.
     expect(CSS).not.toContain('.dus-channel')
     expect(CSS).not.toContain('.dus-settings-field')
-    // The single compatibility line keeps its own hook.
-    expect(line('.dus-compat[data-compatibility=verified]')).toContain('state-success-primary')
+  })
+
+  it('renders one card per version, with only the highest one highlighted', () => {
+    expect(line('.dus-releases')).toContain('display:grid')
+    // Every card is a neutral surface; the amber border belongs to the newest
+    // version alone, which is also what the 最新 pill says.
+    expect(line('.dus-release')).toContain('border:1px solid var(--dsw-alias-border-l2)')
+    expect(line('.dus-release[data-highlight=true]')).toContain('border-color:var(--dsw-alias-state-warn-primary)')
+    expect(line('.dus-pill-latest')).toContain('color:var(--dsw-alias-state-warn-primary)')
+  })
+
+  it('builds the cards out of theme tokens only', () => {
+    // A card must follow light, dark and OS-following appearances like the rest of
+    // the panel, so no literal colour is allowed to leak in here.
+    for (const selector of [
+      '.dus-releases', '.dus-release', '.dus-release[data-highlight=true]', '.dus-release-head',
+      '.dus-release-version', '.dus-release-meta', '.dus-release-line', '.dus-pill',
+      '.dus-pill-latest', '.dus-guidance',
+    ]) {
+      expect(line(selector), selector).not.toMatch(/#[0-9a-fA-F]{3,8}|rgba?\(/)
+    }
+    expect(line('.dus-release')).toContain('background:var(--dsw-alias-bg-layer-3)')
+  })
+
+  it('renders each card command on the shared input surface', () => {
+    expect(line('.dus-command')).toContain('background:var(--dsw-specific-input-major)')
+  })
+
+  it('carries no compatibility styling', () => {
+    // 0.5.0 removed the labels themselves, not just their colour.
+    expect(CSS).not.toContain('.dus-compat')
+    expect(CSS).not.toContain('data-compatibility')
   })
 
   it('binds the narrow-view bottom sheet to the panel itself', () => {

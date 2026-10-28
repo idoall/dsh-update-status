@@ -1,17 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { localizedUpgradeGuidance, localizedWarning, warningText } from '../../src/client/i18n.ts'
+import { localizedUpgradeGuidance, localizedWarning, t, warningText } from '../../src/client/i18n.ts'
 import type { UpdateWarning } from '../../src/shared/types.ts'
-
-const unverifiedWarning: UpdateWarning = {
-  code: 'version-unverified',
-  version: '0.2.1-alpha.1',
-}
 
 describe('runtime message localization', () => {
   it('renders structured Host warnings in English', () => {
-    expect(warningText(unverifiedWarning, 'en')).toBe(
-      'Version 0.2.1-alpha.1 has not been verified as compatible with this plugin.',
-    )
     expect(warningText({ code: 'registry-unavailable', detail: 'offline' }, 'en')).toBe(
       'Unable to check the npm registry: offline',
     )
@@ -21,9 +13,6 @@ describe('runtime message localization', () => {
   })
 
   it('renders the same Host warnings in Chinese', () => {
-    expect(warningText(unverifiedWarning, 'zh')).toBe(
-      '线上版本 0.2.1-alpha.1 尚未验证与本插件兼容。',
-    )
     expect(warningText({ code: 'registry-unavailable', detail: 'offline' }, 'zh')).toBe(
       '无法检查 npm registry：offline',
     )
@@ -33,7 +22,8 @@ describe('runtime message localization', () => {
   })
 
   it('prefers structured warnings and falls back for an older Host', () => {
-    expect(localizedWarning({ warning: 'legacy fallback', warnings: [unverifiedWarning] }, 'zh')).toContain('尚未验证')
+    const offline: UpdateWarning = { code: 'registry-unavailable', detail: 'offline' }
+    expect(localizedWarning({ warning: 'legacy fallback', warnings: [offline] }, 'zh')).toBe('无法检查 npm registry：offline')
     expect(localizedWarning({ warning: 'legacy fallback' }, 'zh')).toBe('legacy fallback')
   })
 
@@ -56,14 +46,35 @@ describe('runtime message localization', () => {
     expect(warningText(unknown, 'zh')).toContain('—')
     expect(warningText(unknown, 'zh')).not.toContain('rm -rf')
   })
+})
 
-  it('localizes non-command installation guidance without changing real commands', () => {
-    expect(localizedUpgradeGuidance({ installKind: 'source-checkout', upgradeCommand: 'fallback' }, 'zh')).toContain('DSH 源码 checkout')
-    expect(localizedUpgradeGuidance({ installKind: 'unknown', upgradeCommand: 'fallback' }, 'en')).toBe(
+describe('0.5.0 panel copy', () => {
+  it('counts the versions in the same sentence in both languages', () => {
+    expect(t('panel.updatesFound', { count: '2' }, 'en')).toBe('2 newer version(s) available')
+    expect(t('panel.updatesFound', { count: '2' }, 'zh')).toBe('发现 2 个可升级版本')
+    // The placeholder is the only difference a caller supplies: neither language
+    // may drop it, or the state line would stop naming the number of cards.
+    expect(t('panel.updatesFound', {}, 'en')).toContain('{count}')
+    expect(t('panel.updatesFound', {}, 'zh')).toContain('{count}')
+  })
+
+  it('labels the highest card in the operator’s language', () => {
+    expect(t('panel.latest', {}, 'zh')).toBe('最新')
+    expect(t('panel.latest', {}, 'en')).toBe('Newest')
+    // The copy keys survive the compatibility removal unchanged.
+    expect(t('panel.copy', {}, 'zh')).toBe('复制命令')
+    expect(t('panel.copied', {}, 'en')).toBe('Copied')
+    expect(t('panel.command', {}, 'en')).toBe('Upgrade command')
+  })
+
+  it('localizes non-command installation guidance and declines a command installation', () => {
+    expect(localizedUpgradeGuidance('source-checkout', 'zh')).toContain('DSH 源码 checkout')
+    expect(localizedUpgradeGuidance('unknown', 'en')).toBe(
       'Confirm how DSH was installed before upgrading; this plugin cannot perform the upgrade for you.',
     )
-    expect(localizedUpgradeGuidance({ installKind: 'npm-global', upgradeCommand: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1' }, 'zh')).toBe(
-      'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
-    )
+    // A package-manager installation carries a real command per candidate, so
+    // guidance prose would only be noise under its card.
+    expect(localizedUpgradeGuidance('npm-global', 'zh')).toBeNull()
+    expect(localizedUpgradeGuidance('pnpm-global', 'en')).toBeNull()
   })
 })

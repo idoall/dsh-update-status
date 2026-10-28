@@ -4,12 +4,16 @@ import { RestartController } from '../../src/host/restart.ts'
 import type { UpdateStatusService } from '../../src/host/update-status.ts'
 
 const status = {
-  currentVersion: '0.2.0-rc.2', latestVersion: '0.2.1-alpha.1', hasUpdate: true,
-  compatibility: 'unverified' as const,
+  currentVersion: '0.2.0-rc.2',
+  releases: [{
+    version: '0.2.1-alpha.1', tag: 'alpha', publishedAt: '2026-09-29T09:56:00.000Z',
+    line: '0.2.1', command: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
+  }],
+  hasUpdate: true,
   cached: false, checkedAt: '2026-01-01T00:00:00.000Z', warning: null, warnings: [],
-  installKind: 'npm-global' as const, upgradeCommand: 'npm install -g @deepseek-ai/dsh@0.2.1-alpha.1',
+  installKind: 'npm-global' as const,
   releaseUrl: 'https://example.test/releases', changelogUrl: 'https://example.test/releases',
-  publishedAt: null, packageName: '@deepseek-ai/dsh',
+  packageName: '@deepseek-ai/dsh',
   canApplyInPlace: false as const,
 }
 

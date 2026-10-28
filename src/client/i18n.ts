@@ -19,12 +19,9 @@ const DICTIONARY: Record<string, Entry> = {
   'panel.cacheHint': { zh: '到期后在下次打开或读取状态时检查；不会后台轮询。点击“检查更新”会立即检查。', en: 'After expiry, DSH checks only on the next status read; there is no background polling. “Check for updates” checks immediately.' },
   'panel.cacheReadonly': { zh: '此连接的缓存设置为只读。', en: 'This connection’s cache setting is read-only.' },
   'panel.current': { zh: '当前运行版本', en: 'Current running version' },
-  'panel.newer': { zh: '可更新至', en: 'Newer version available' },
-  'panel.compatVerified': { zh: '已验证兼容', en: 'Verified compatible' },
-  'panel.compatUnverified': { zh: '尚未验证兼容', en: 'Compatibility unverified' },
-  'panel.compatIncompatible': { zh: '已知不兼容', en: 'Known incompatible' },
+  'panel.updatesFound': { zh: '发现 {count} 个可升级版本', en: '{count} newer version(s) available' },
+  'panel.latest': { zh: '最新', en: 'Newest' },
   'panel.notChecked': { zh: '尚未取得', en: 'Not available yet' },
-  'panel.available': { zh: '发现新版本', en: 'Update available' },
   'panel.currentState': { zh: '已是最新', en: 'Up to date' },
   'panel.cached': { zh: '来自 Host 缓存', en: 'From Host cache' },
   'panel.live': { zh: '刚从 npm registry 检查', en: 'Checked npm registry now' },
@@ -66,7 +63,6 @@ const DICTIONARY: Record<string, Entry> = {
   'panel.error': { zh: '检查提示', en: 'Check notice' },
   'warning.registryUnavailable': { zh: '无法检查 npm registry：{detail}', en: 'Unable to check the npm registry: {detail}' },
   'warning.versionIncomparable': { zh: '无法按 SemVer 比较当前版本 {currentVersion} 与线上版本 {latestVersion}。', en: 'Unable to compare the current version {currentVersion} with the published version {latestVersion} using SemVer.' },
-  'warning.versionUnverified': { zh: '线上版本 {version} 尚未验证与本插件兼容。', en: 'Version {version} has not been verified as compatible with this plugin.' },
   'warning.staleSchemastery': { zh: '本插件解析到的 @deepseek-ai/schemastery（版本 {version}）来自 {path}，不是 DSH 自带的那份，偏好字段无法标记为 volatile。请删除该残留目录并重启 DSH：rm -rf {nodeModulesDir}', en: 'This plugin resolved @deepseek-ai/schemastery {version} from {path} instead of the copy DSH provides, so preference fields cannot be marked volatile. Remove the stale directory and restart DSH: rm -rf {nodeModulesDir}' },
   'warning.staleSchemasteryNoPath': { zh: '本插件解析到的 @deepseek-ai/schemastery（版本 {version}）来自 {path}，不是 DSH 自带的那份，偏好字段无法标记为 volatile。请删除该处残留的 @deepseek-ai/schemastery 目录并重启 DSH。', en: 'This plugin resolved @deepseek-ai/schemastery {version} from {path} instead of the copy DSH provides, so preference fields cannot be marked volatile. Remove the stale @deepseek-ai/schemastery directory there and restart DSH.' },
   'guidance.sourceCheckout': { zh: '请更新 DSH 源码 checkout、安装依赖并重新构建；本插件无法从 GUI 原地替换。', en: 'Update the DSH source checkout, install its dependencies, and rebuild it; this plugin cannot replace it in place from the GUI.' },
@@ -95,7 +91,6 @@ export function warningText(warning: UpdateWarning, language: Language = languag
       currentVersion: warning.currentVersion,
       latestVersion: warning.latestVersion,
     }, language)
-    case 'version-unverified': return t('warning.versionUnverified', { version: warning.version }, language)
     case 'stale-schemastery': {
       const params = { version: warning.version ?? '—', path: warning.path }
       // Only print a removal command when the Host could name the directory to
@@ -113,11 +108,17 @@ export function localizedWarning(status: Pick<UpdateStatus, 'warning' | 'warning
   return warnings.length === 0 ? status.warning : warnings.map(item => warningText(item, language)).join(' ')
 }
 
+/**
+ * Advice for an installation this plugin cannot hand a copyable command.
+ *
+ * `null` is the honest answer for an npm/pnpm global install: its candidate
+ * already carries a real command, so guidance prose there would only be noise.
+ */
 export function localizedUpgradeGuidance(
-  status: Pick<UpdateStatus, 'installKind' | 'upgradeCommand'>,
+  installKind: UpdateStatus['installKind'],
   language: Language = languageOf(),
-): string {
-  if (status.installKind === 'source-checkout') return t('guidance.sourceCheckout', {}, language)
-  if (status.installKind === 'unknown') return t('guidance.unknownInstall', {}, language)
-  return status.upgradeCommand
+): string | null {
+  if (installKind === 'source-checkout') return t('guidance.sourceCheckout', {}, language)
+  if (installKind === 'unknown') return t('guidance.unknownInstall', {}, language)
+  return null
 }

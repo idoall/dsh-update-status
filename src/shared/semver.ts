@@ -61,25 +61,3 @@ export function compareSemver(leftValue: string, rightValue: string): number | u
   }
   return 0
 }
-
-/** False rather than a guess when either version is not valid SemVer. */
-export function hasSemverUpdate(currentVersion: string, latestVersion: string): boolean {
-  const comparison = compareSemver(currentVersion, latestVersion)
-  return comparison !== undefined && comparison < 0
-}
-
-/**
- * Highest version in a list, preserving the spelling of the winner.
- *
- * Unparsable entries are skipped rather than failing the whole list: a registry
- * that adds one odd tag must not hide the release line behind it. Returns
- * undefined when nothing in the list is valid SemVer.
- */
-export function newestSemver(versions: readonly string[]): string | undefined {
-  let winner: string | undefined
-  for (const candidate of versions) {
-    if (parseSemver(candidate) === undefined) continue
-    if (winner === undefined || compareSemver(candidate, winner)! > 0) winner = candidate
-  }
-  return winner
-}

@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## 0.5.0 — 2026-10-28
+
+Loadability is decided by DSH alone: `dsh.engines.dsh` and the `@deepseek-ai/dsh-settings` peer both declare `>=0.1.7-alpha.2 <0.3.0`, and this release changes neither. It publishes no per-release verification. Release notes: [`docs/releases/v0.5.0.md`](docs/releases/v0.5.0.md).
+
+- **One card per upgradable version.** The panel lists every published version strictly newer than the running one, newest first, and gives each card its own copy-only command for that exact version. Nothing newer means no cards at all: the panel says the running release is the newest and there is no command block left over.
+- **The newest version is the one that stands out.** The highest version gets an amber border and a **Newest** pill; every other card stays neutral. There is no sort control — the order is version order — and there is still no auto-install and no auto-restart.
+- **The compatibility mechanism is removed.** `VERIFIED_DSH_VERSIONS` and `package.json`'s `dsh.compatibility.dshReleases` are gone, together with the verified/unverified labels, the `version-unverified` notice and the per-DSH-release patch releases that only moved a label. The panel no longer says that a DeepSeek Harness release was tested with this build.
+- **Why:** the plugin's only job is to tell an operator that a newer release exists and how to upgrade. Keeping a compatibility ledger was out of scope, and it had produced six releases in 13 days whose headline was a declaration (`0.4.2`, `0.4.3`, `0.4.4`, `0.4.5`, `0.4.6`, `0.4.8`).
+- **Breaking change in the panel's information model, not in configuration.** A card no longer carries a compatibility verdict, so a reader who used that label to decide loses the signal. Nothing else moves: no setting, stored profile value, service receipt or command changes, and upgrading needs no migration.
+- **Engine and peer ranges are unchanged.** `>=0.1.7-alpha.2 <0.3.0` on both declarations is what decides whether DSH loads the plugin, so a newer DSH release inside that range needs no plugin release to be usable.
+- **Both READMEs were rewritten rather than patched.** The feature list, install requirements, usage steps, dot table, update-check section, the renamed loadability section, the version matrix (the verified-DSH column is dropped), the install-command list and the release-note links all describe the card layout; every verified-release count and "current release" claim is gone.
+- **Verification:** the automated test suite and a local visual check of the card layout. No full manual acceptance pass was run for this build.
+
 ## 0.4.8 — 2026-10-27
 
 Verified DeepSeek Harness: `0.2.1-rc.4`; retains all eleven previously verified releases. Engine and peer ranges remain unchanged. Release notes: [`docs/releases/v0.4.8.md`](docs/releases/v0.4.8.md).
