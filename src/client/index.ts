@@ -13,17 +13,16 @@
  * brand row is the entry, so a collapsed sidebar carries none.
  *
  * The status read and the detail panel are NOT restricted to a loopback page.
- * DSH disables Host settings *persistence* on a non-loopback page, but the
- * Connection RPC stays authenticated and reachable there — see
- * settings/settingsChannel.ts for the one place the loopback distinction still
- * matters.
+ * Connection RPC stays authenticated and reachable there. Settings select the
+ * official form whenever available, including current LAN pages; see
+ * settings/settingsChannel.ts for the legacy fallback.
  *
  * Preferences live in the Host-side `dsh-update-status` settings entry — the
  * plugin's own Loader entry, whose volatile `Config` fields DSH 0.1.7 projects
  * as that entry's form. Two client channels can serve it: the official
  * `ctx.configForms.get(entryId)` form (the successor of the removed
- * `settingsScope` service) and, on the non-loopback pages where that form is
- * deliberately inert, a direct Host channel over `remote.settings`. See
+ * `settingsScope` service) and, when that form is absent or unavailable,
+ * a direct Host channel over `remote.settings`. See
  * settingsChannel.ts.
  */
 
@@ -94,11 +93,9 @@ function apply(ctx: ClientContext): void {
 
   // The plugin's ONE storage contract is the Host settings entry
   // `dsh-update-status` (the plugin's own Loader entry id), but two client
-  // channels can serve it: the official `configForms` form (loopback pages) and
-  // — only when that form reports the documented non-loopback degradation — a
-  // direct Host channel over the same public Remote. A LAN page is exactly that
-  // non-loopback case; without the direct channel every preference silently
-  // falls back to its default there. See settingsChannel.ts.
+  // channels can serve it: the official `configForms` form on any origin, and
+  // a direct Host fallback when that form is absent or unavailable. Both use
+  // the same Host authorization policy. See settingsChannel.ts.
   let remoteSettings: SettingsRemoteLike | undefined
   /** Resolve the direct channel's Remote face; `ctx.get` covers a payload we could not read. */
   const directRemote = (): SettingsRemoteLike | undefined => {
@@ -161,7 +158,7 @@ function apply(ctx: ClientContext): void {
   }, 'dsh-update-status: styles, settings channel and first status read')
 
   // Official seam first: it stays authoritative whenever it is not `unavailable`,
-  // so a loopback page keeps the official semantics (one shared describe mirror,
+  // so any page keeps the official semantics (one shared describe mirror,
   // the official write queue) and pays no extra wire read. DSH 0.1.7 replaced
   // the per-namespace `settingsScope` service with these entry-addressed forms,
   // keyed by the Loader entry id the Host Config half owns (SETTINGS_NAMESPACE).
@@ -200,7 +197,7 @@ function apply(ctx: ClientContext): void {
       }
     })
   } catch {
-    // No Remote seam: non-loopback pages keep the honest unavailable state.
+    // No Remote seam: an unavailable official form has no usable fallback.
   }
   if (typeof ctx.on === 'function') {
     try {

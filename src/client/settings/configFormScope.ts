@@ -7,9 +7,9 @@
  * mirror per browser plus a per-entry write queue, reached as
  * `ctx.configForms.get(entryId)` for the entry the plugin's Host half owns.
  * That form already answers the exact facts this plugin's own scope contract
- * needs — status, value, base, user, revision, writable, mode — so this module
- * only projects it onto {@link SettingsScopeLike} and leaves the existing
- * channel selection (`settingsChannel.ts`) in charge of the LAN fallback.
+ * needs — status, value, base, user, revision, writable — so this module
+ * projects it onto {@link SettingsScopeLike}. Channel selection depends on
+ * availability, never on the page origin or the optional legacy `mode`.
  *
  * Two deliberate translations:
  *
@@ -17,10 +17,10 @@
  *   page must surface a conflict instead of pretending the edit landed, which
  *   is the same contract the direct Host channel already obeys
  *   (`hostDirectScope.ts`). A transport fault rejects too.
- * - `mode` is what separates the two pages: DSH pins it to `memory` on a
- *   non-loopback page, where the form is terminally `unavailable` and never
- *   writes — exactly the state that hands the preferences to the direct Host
- *   Remote so a phone still edits the one shared entry.
+ * - Legacy forms may supply `mode`; current forms omit it. Preserve the value
+ *   if supplied, without inventing one or inferring write permission from it.
+ *   `status` selects the channel, `writable` describes editability, and the Host
+ *   decides whether an actual write is accepted.
  *
  * The service is deliberately read structurally: the client bundle purity gate
  * forbids cross-plugin value imports, and the runtime object belongs to the
@@ -37,7 +37,8 @@ export interface ConfigFormSnapshotLike<T> {
   user: unknown
   revision: number | undefined
   writable: boolean
-  mode: 'host' | 'memory'
+  /** Legacy DSH metadata; current forms omit it. Never an authorization signal. */
+  mode?: 'host' | 'memory' | undefined
 }
 
 /** The subset of `ConfigForm<T>` this adapter reads. */

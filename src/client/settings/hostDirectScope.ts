@@ -1,39 +1,17 @@
 /**
- * dsh-update-status — direct Host settings channel (non-loopback pages).
+ * dsh-update-status — fallback direct Host settings channel.
  *
- * WHY THIS EXISTS
+ * Older DSH clients made the official form unavailable on non-loopback pages.
+ * This channel kept the sidebar toggle and cache policy connected to the ONE
+ * Host settings entry `dsh-update-status` on those clients. Current DSH forms
+ * use the shared Host mirror on LAN pages too and no longer expose `mode`.
  *
- * DSH's settings Client keeps Host persistence disabled on any page whose
- * location is not a loopback authority. `ctx.configForms.get(entryId)` — the
- * DSH 0.1.7 successor of `settingsScope.bind()` — then answers
- * `status: 'unavailable'` immediately and NEVER sends `settings.describe`
- * (`@deepseek-ai/dsh-client-ui-settings`: the persistence mode resolves from
- * `remote.$host.isLoopback` and pins a remote page to `memory`; every row it
- * backs is inert even though Connection authentication covers the API).
- *
- * The decision itself is one line in the official client:
- *
- *   const persistence = ctx.remote.$host.isLoopback ? "host" : "memory"
- *
- * and `isLoopback` is true only for `localhost` / `[::1]` / `127.0.0.0/8` pages
- * (or a transport that declares `ownsHost`). A LAN page reached through a
- * forwarding plugin is therefore non-loopback even though the API answers and
- * the page is authenticated.
- *
- * This plugin's preferences — the sidebar toggle, the followed release channel
- * and the cache policy — live in the Host settings entry `dsh-update-status`, so
- * without a channel they all silently fall back to defaults on a LAN page (the
- * host's configured `channel` would be ignored, silently switching the followed
- * release line). This module speaks the SAME public Remote the official form
- * speaks (`settings.describe` / `settings.mutate`, the generated Typert face
- * mounted by `@deepseek-ai/dsh-api-remotes`) and derives the same per-namespace
- * snapshot shape, so the ONE shared Host document keeps serving every device.
- *
- * This channel is opened ONLY when the official form reports `unavailable`
- * (see `settingsChannel.ts`), so loopback pages keep the official path and pay
- * no extra wire read. Everything here is guarded: an absent Remote, a refused
- * read, or a malformed answer leaves the preferences exactly as unavailable as
- * they were before this channel existed.
+ * The fallback remains for an absent or unavailable official form, selected by
+ * `settingsChannel.ts`, never by page origin. It speaks the SAME authenticated
+ * Remote as the official form (`settings.describe` / `settings.mutate`) and
+ * preserves Host authorization and revision fences; it does not grant access.
+ * A ready official form, including a read-only one, never opens this channel.
+ * An absent Remote, refused read or malformed answer remains unavailable.
  */
 import type { SettingsPathOpLike, SettingsScopeLike, SettingsScopeSnapshotLike } from './scopeFaces.ts'
 

@@ -1,14 +1,11 @@
 /**
  * dsh-update-status — settings channel specs.
  *
- * Locks the LAN fix: on a non-loopback page DSH's official settings form
- * (`ctx.configForms`, the DSH 0.1.7 successor of the removed `settingsScope`
- * service) is deliberately `unavailable` (documented "Non-loopback pages get no
- * durable settings"), and the plugin's preferences must still reach their ONE
- * source of truth — the Host `dsh-update-status` entry — through the direct
- * channel. The `configFormScope` specs below additionally lock the projection
- * of that official form onto the plugin's own scope contract, including the
- * refused-write → rejection translation.
+ * Covers current official forms without `mode`, plus the legacy LAN fallback
+ * when the official form reports `unavailable`. Both channels reach the ONE
+ * Host `dsh-update-status` entry. Availability selects the channel; neither
+ * origin nor missing metadata grants write permission. Adapter specs also
+ * preserve the refused-write → rejection translation.
  */
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -422,6 +419,65 @@ describe('configFormScope (official form → plugin scope contract)', () => {
   })
 })
 
+describe('current official form snapshots without mode', () => {
+  it.each([true, false])('preserves writable=%s without inferring permissions from a missing mode', async writable => {
+    // Intentionally no mode property and no type assertion: this also guards
+    // structural compatibility with the current DSH ConfigFormSnapshot type.
+    const snapshot = {
+      status: 'ready' as const,
+      value: prefs({ cacheTtlMinutes: 120 }),
+      base: prefs(),
+      user: { cacheTtlMinutes: 120 },
+      revision: 21,
+      writable,
+    }
+    const set = vi.fn(async () => writable)
+    const form: ConfigFormLike = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => {},
+      set,
+    }
+    const openDirect = vi.fn(() => undefined)
+    const channel = createSettingsChannel({ openDirect })
+    const preferences = new PreferencesStore()
+    channel.setOfficial(configFormScope(form))
+    const detach = preferences.attach(channel)
+    try {
+      expect(Object.hasOwn(snapshot, 'mode')).toBe(false)
+      expect(channel.getSnapshot()).toMatchObject({ status: 'ready', revision: 21, writable })
+      expect(channel.getSnapshot().mode).toBeUndefined()
+      expect(preferences.getSnapshot()).toMatchObject({ status: 'ready', cacheTtlMinutes: 120, writable })
+      if (writable) {
+        await channel.set('cacheTtlMinutes', 60)
+      } else {
+        await expect(channel.set('cacheTtlMinutes', 60)).rejects.toMatchObject({ code: 'settings/conflict' })
+      }
+      expect(set).toHaveBeenCalledWith('cacheTtlMinutes', 60)
+      expect(openDirect).not.toHaveBeenCalled()
+    } finally {
+      detach()
+      channel.dispose()
+    }
+  })
+
+  it.each(['loading', 'unavailable'] as const)('uses status=%s, not mode, to select the fallback', status => {
+    const form: ConfigFormLike = {
+      getSnapshot: () => ({ status, value: undefined, base: undefined, user: undefined, revision: undefined, writable: false }),
+      subscribe: () => () => {},
+      set: async () => false,
+    }
+    const openDirect = vi.fn(() => undefined)
+    const channel = createSettingsChannel({ openDirect })
+    try {
+      channel.setOfficial(configFormScope(form))
+      expect(channel.getSnapshot().status).toBe(status)
+      expect(openDirect).toHaveBeenCalledTimes(status === 'unavailable' ? 1 : 0)
+    } finally {
+      channel.dispose()
+    }
+  })
+})
+
 describe('settingsChannel (official form vs direct Host channel)', () => {
   it('stays loading while no channel has answered', () => {
     const channel = createSettingsChannel({ openDirect: () => undefined })
@@ -557,7 +613,7 @@ describe('LAN regression: preferences are usable on a non-loopback page', () => 
     const remote = makeRemote({
       rows: [{ ns: NS, value: prefs({ cacheTtlMinutes: 120 }), revision: 21 }],
     })
-    // Exactly what DSH answers on a LAN page: an inert, process-local scope.
+    // Older DSH LAN clients answered with an inert, process-local scope.
     const official = makeOfficial({ status: 'unavailable', writable: false, mode: 'memory' })
     const channel = createSettingsChannel({ openDirect: () => createHostDirectScope(remote.remote, NS) })
     const preferences = new PreferencesStore()

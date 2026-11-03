@@ -4,20 +4,18 @@
  * The plugin's ONE storage contract is the Host settings entry
  * `dsh-update-status`. Two client channels can serve it:
  *
- * 1. the official `ctx.configForms` form (loopback pages) — the DSH 0.1.7
- *    successor of the removed `settingsScope` service, and
- * 2. the direct Host channel (`hostDirectScope.ts`), which exists exactly
- *    because the official form is deliberately inert on a non-loopback page —
- *    the LAN page a phone uses.
+ * 1. the official `ctx.configForms` form — the DSH 0.1.7 successor of the
+ *    removed `settingsScope` service, available on current LAN pages too, and
+ * 2. the direct Host channel (`hostDirectScope.ts`), retained for hosts where
+ *    the official form is absent or unavailable (including older LAN clients).
  *
  * This module picks between them without ever guessing:
  *
- * - The official form wins whenever it is not `unavailable`, so a loopback page
- *   keeps the official semantics (the one shared describe mirror, the official
- *   write queue and revision fences) and pays NO extra wire read.
- * - Only when the official form reports `unavailable` (the documented
- *   non-loopback degradation: it is pinned to `memory` mode there and never
- *   crosses the wire) is the direct channel opened, lazily and once.
+ * - The official form wins whenever it is not `unavailable`, on any origin,
+ *   keeping its shared describe mirror, write queue and revision fences without
+ *   an extra wire read. A read-only ready form still wins.
+ * - When the official form is absent or reports `unavailable`, the direct
+ *   channel is opened lazily. It uses the same Host authorization policy.
  * - With neither source the channel stays `loading`, i.e. exactly the state this
  *   plugin had before the direct channel existed.
  */
@@ -100,8 +98,7 @@ export function createSettingsChannel(options: SettingsChannelOptions): Settings
   }
 
   const select = (): SettingsScopeLike | undefined => {
-    // The official scope is authoritative unless it reports the documented
-    // non-loopback degradation.
+    // Availability decides authority, not page origin or legacy mode metadata.
     if (official !== undefined && official.getSnapshot().status !== 'unavailable') return official
     if (direct === undefined) {
       try {

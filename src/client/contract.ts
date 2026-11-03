@@ -56,12 +56,10 @@ export interface ConnectionRpc {
 
 /**
  * The authenticated transport face. There is deliberately NO `isLoopback` gate
- * here: DSH's settings Client treats a non-loopback page as process-local, but
- * that is a settings *persistence* policy — the Connection RPC itself stays
- * authenticated and reachable over a LAN bridge, so gating this plugin's own
- * read-only status on it only made the panel inert on exactly the page it is
- * used from. See settings/settingsChannel.ts for the one place a loopback
- * distinction still matters (choosing the Host settings channel).
+ * here: the Connection RPC is authenticated on LAN pages too. Older DSH clients
+ * restricted settings persistence there, but that never justified disabling
+ * this plugin's read-only status. Current settings authorization belongs to
+ * the Host; settings/settingsChannel.ts selects by form availability, not origin.
  */
 export interface ConnectionClient {
   rpc?: ConnectionRpc
