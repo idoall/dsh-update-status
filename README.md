@@ -43,11 +43,12 @@ It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact v
 - **One card per upgradable version** — every published version strictly newer than the running one gets its own card, newest first, and each card carries that version's own copy-only command. When nothing is newer there are no cards at all and the panel says the running release is the newest.
 - **The newest card is the one that stands out** — the highest version gets an amber border and a **Newest** pill; every other card stays neutral. There is no sort control: the order is the version order, and only the top card is emphasized.
 - **One release line, zero configuration** — reads npm's dist-tags in one registry request and keeps every version that is newer than the running one, stable, release candidate or alpha alike. There is no channel to follow and no choice to make.
-- **An honest prerelease comparison** — the running version and each candidate are ordered with SemVer, so `0.2.1-rc.4` outranks `0.2.0-rc.2` and a release candidate still sorts below its own stable release.
+- **An honest prerelease comparison** — the running version and each candidate are ordered with SemVer, so `0.2.2-rc.3` outranks `0.2.2-alpha.3`, and a release candidate still sorts below its own stable release.
 - **Copy-only guidance, per version** — each card's command names that card's exact version, never a dist-tag that can move, and is never executed by the plugin.
 - **No compatibility bookkeeping** — the panel no longer claims that a DeepSeek Harness release was tested with this build. What decides whether the plugin loads is DSH's own gate: the declared engine range and the `@deepseek-ai/dsh-settings` peer range.
 - **Cache without polling** — one Host check on mount, a configurable 30–1,440 minute cache, single-flight registry access, and no frontend polling. Only the Check for updates button bypasses the cache.
 - **Mobile-safe panel** — uses a modal browser top layer so the scrollable, safe-area-aware bottom sheet stays above the DSH drawer.
+- **Clickable on macOS Desktop** — the panel opens at `top: 12px`, over the chrome row that drags the window. Since DSH `0.2.2-rc.2` macOS excludes only controls inside a `data-window-drag` row, so the panel declares its own window region (`data-window-drag-exclude`) and its buttons keep responding instead of starting a window drag.
 - **Supervised safe restart** — after a one-time service setup, the panel can restart DSH for you: it warns about the work it would interrupt, and refuses outright when DSH was started by hand or by the desktop app.
 
 ## Install
@@ -55,7 +56,7 @@ It shadows only the expanded sidebar brand name with `DeepSeek` plus a compact v
 Requirements:
 
 - DeepSeek Harness with the Web profile
-- DeepSeek Harness `>=0.1.7-alpha.2 <0.3.0` — the range this plugin declares in `dsh.engines.dsh`, with the same bounds on the `@deepseek-ai/dsh-settings` peer. DSH refuses a bundle outside that range at profile load. There is no per-release tested list to consult: inside the range, the plugin is not waiting for a release to be "approved".
+- DeepSeek Harness `>=0.1.7-alpha.2 <0.3.0` — the range this plugin declares in `dsh.engines.dsh`, with the same bounds on the `@deepseek-ai/dsh-settings` peer. DSH refuses a bundle outside that range at profile load. The upper bound is the `0.3.0` line, so every published `0.2.x` release is inside the range — including the `0.2.2` prereleases, whose newest published build is `0.2.2-rc.3`. There is no per-release tested list to consult: inside the range, the plugin is not waiting for a release to be "approved".
 - Node.js 20 or newer
 
 With an installed `dsh` command:
@@ -94,7 +95,7 @@ dsh plugin --profile web add "link:$(pwd)"
 Example command on a card for a global install:
 
 ```sh
-npm install -g @deepseek-ai/dsh@0.2.1-rc.4
+npm install -g @deepseek-ai/dsh@0.2.2-rc.3
 ```
 
 Each card shows one command that matches the detected installation kind and names that card's exact release. The plugin does not run it. When the installation kind cannot take a package-manager command — a source checkout, for example — the panel shows that guidance once instead of a copy button on every card, rather than inventing a command.
@@ -122,7 +123,7 @@ The plugin asks the npm registry for `@deepseek-ai/dsh` once per cache window, c
 
 - Every tag npm returns counts, including one this plugin has never seen. A version can carry several tags; its card shows one, picked in the order `latest`, `next`, `alpha`, `beta`, `rc`, then others.
 - SemVer decides the order, prereleases included, so an `alpha` ahead of the stable line is offered rather than hidden.
-- The comparison is exact: `0.2.1-rc.4` is newer than `0.2.0-rc.2`, and both sort below `0.2.1`.
+- The comparison is exact: `0.2.2-rc.3` is newer than `0.2.2-alpha.3`, and both sort below `0.2.2`.
 - The running version decides the list. Upgrading DSH and re-checking the panel shrinks it; installing an older one grows it.
 - npm's web page shows only the `latest` tag on the package page; versions carried by other tags live on the Versions page. The panel does not copy that shortcut — it lists them.
 - Nothing here installs anything, and nothing is applied on its own. Choosing to follow a channel — and the `channel` preference that stored it — was removed in `0.2.0`.
@@ -171,6 +172,14 @@ From `0.1.2` this plugin is fully usable there anyway:
 
 A LAN bridge must preserve DSH's authenticated transport and Host authorization policy. This plugin does not change bridge configuration or grant settings access; a Host refusal must be resolved by the deployment operator.
 
+## macOS Desktop window regions
+
+DSH's macOS Desktop window is dragged by the chrome rows that mark themselves `data-window-drag` — the conversation header, the plugin manager and Settings → Account. Up to DSH `0.2.2-rc.1` the desktop shell excluded matching interactive controls anywhere in the page; from `0.2.2-rc.2` it excludes only controls inside a drag row or a `data-window-drag-controls` scope, and a custom overlay that covers a drag row must declare its own region.
+
+The panel opens at `top: 12px`, `left: 292px`, so it does cover the conversation header's drag row. It therefore carries `data-window-drag-exclude` on its own scrolling box — the documented migration for "an interactive viewport without nested drag rows". The exclusion covers exactly the panel: Check for updates, Release notes, Restart, the cache input and × keep responding. The full-viewport backdrop declares no region on purpose: it only closes the panel, and excluding it would make the whole frame undraggable for as long as the panel is open.
+
+Plain Web and Windows are unaffected: they never had that automatic exclusion, and the attribute is inert there. On a DSH older than `0.2.2-rc.2` the attribute is equally harmless. No setting, stored value or command changes.
+
 ## Loadability and update notices
 
 This plugin does not vouch for any DeepSeek Harness release. Loading is DSH's decision, and DSH makes it from two declarations only: `dsh.engines.dsh` says `>=0.1.7-alpha.2 <0.3.0`, and the `@deepseek-ai/dsh-settings` peer range says the same. Inside those bounds you can run any DSH release you like; no plugin update is needed to "allow" a newer one.
@@ -179,13 +188,14 @@ This plugin does not vouch for any DeepSeek Harness release. Loading is DSH's de
 
 What remains is the update notice: one card per version newer than the running one, each with its own command. What the plugin knows about a release is what npm publishes — version, tag and publish date — and it says nothing about whether the release is good for you.
 
-The rows below `0.5.0` in the table still mention that removed list; that is history, and no release now waits for a list entry.
+The `0.4.x` rows in the table still mention that removed list; that is history, and no release now waits for a list entry.
 
 ### Plugin versions on npm
 
 | Plugin | On npm | What that version is |
 | --- | --- | --- |
-| **`0.5.0`** | `latest` | One card per upgradable version, each with its own copy-only command; the verified-release mechanism is removed and DSH's engine and peer ranges alone decide loading |
+| **`0.5.1`** | `latest` | macOS Desktop keeps responding: the panel now declares its own window region (`data-window-drag-exclude`) after DSH `0.2.2-rc.2` narrowed drag exclusion to marked rows; devDependencies move to DSH `0.2.2-rc.3` |
+| **`0.5.0`** | published | One card per upgradable version, each with its own copy-only command; the verified-release mechanism is removed and DSH's engine and peer ranges alone decide loading |
 | **`0.4.8`** | published | Added DSH `0.2.1-rc.4` to the then-current verified list, under the mechanism `0.5.0` removed; no functional code changed |
 | **`0.4.7`** | published | Removes the redundant settings menu; version status and update notices remain on by default, with details in the sidebar chip panel |
 | **`0.4.6`** | published | Added DSH `0.2.1-rc.3` to the then-current verified list; includes maintenance and starting terminals in restart confirmation, and restores restart-storm recovery guidance |
@@ -221,6 +231,7 @@ The rows below `0.5.0` in the table still mention that removed list; that is his
 - Pin a plugin version when you need to stay on one:
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.5.1
   dsh plugin --profile web add dsh-update-status@0.5.0
   dsh plugin --profile web add dsh-update-status@0.4.8
   dsh plugin --profile web add dsh-update-status@0.4.7
@@ -246,7 +257,7 @@ The rows below `0.5.0` in the table still mention that removed list; that is his
 - Two declarations decide whether the plugin loads at all, and DSH evaluates them at profile load:
   - `dsh.engines.dsh` and `peerDependencies['@deepseek-ai/dsh-settings']` both declare `>=0.1.7-alpha.2 <0.3.0`. The lower bound names the alpha on purpose — under node-semver's default prerelease rule a range like `>=0.1.6-0 <0.2.0` does **not** admit `0.1.7-alpha.2`. The upper bound moved from `<0.2.0` to `<0.3.0` in `0.1.11` for the mirror-image reason: DSH refuses an incompatible bundle at profile load, and a plain `<0.2.0` excludes the `0.2.0` stable, so the day DSH `0.2.0` shipped the plugin would have been silently dropped. DSH evaluates the range with `includePrerelease: true`, so `0.2.0-rc.2` was already inside it. These bounds decide loading only — they are not a claim that every release inside them was tested.
   - `@deepseek-ai/schemastery` is a **peer**, not a plain dependency: DSH 0.1.7 resolves only a linked plugin's peer dependencies from the running installation, so a `link:` install of this directory would otherwise fail to import the Host half.
-- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.5.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.5.0.md) · [`v0.4.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.8.md) · [`v0.4.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.7.md) · [`v0.4.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.6.md) · [`v0.4.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.5.md) · [`v0.4.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.4.md) · [`v0.4.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.3.md) · [`v0.4.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.2.md) · [`v0.4.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.1.md) · [`v0.4.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.0.md) · [`v0.3.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [`v0.3.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
+- Per-release notes — what changed, who is affected, what to do — are hand-written in Chinese and English and become the GitHub Release body: [`v0.5.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.5.1.md) · [`v0.5.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.5.0.md) · [`v0.4.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.8.md) · [`v0.4.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.7.md) · [`v0.4.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.6.md) · [`v0.4.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.5.md) · [`v0.4.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.4.md) · [`v0.4.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.3.md) · [`v0.4.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.2.md) · [`v0.4.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.1.md) · [`v0.4.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.0.md) · [`v0.3.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [`v0.3.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md) (covers the never-published `0.1.2`).
 
 ## Configuration
 

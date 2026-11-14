@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## 0.5.1 — 2026-11-14
+
+Checked against DeepSeek Harness `0.2.2-rc.3`, the newest DSH published (carried by npm's `next` tag; `latest` is `0.2.2-rc.1`). Engine and peer ranges are unchanged: `>=0.1.7-alpha.2 <0.3.0` already admits `0.2.2-rc.3`, so this release is not a permission slip — it fixes one macOS Desktop behaviour the `0.2.2` line changed. Release notes: [`docs/releases/v0.5.1.md`](docs/releases/v0.5.1.md).
+
+- **The panel keeps working on macOS Desktop.** DSH `0.2.2-rc.2` narrowed macOS drag exclusion to controls inside a `data-window-drag` row or a `data-window-drag-controls` scope (upgrade guide `v0.2.2-rc.1/window-drag-regions`). The panel opens at `top: 12px`, so it covers the conversation header's drag row — the conversation header, the plugin manager and Settings → Account all mark themselves as drag rows. Without a declared region its buttons (Check for updates, Release notes, Restart, the cache input, ×) would start a window drag instead of activating. The `<section class="dus-panel">` now carries `data-window-drag-exclude`, the documented migration for an interactive viewport without nested drag rows; the full-viewport backdrop deliberately keeps no region so the rest of the frame still drags.
+- **No change on plain Web or Windows.** Those had no automatic exclusion to lose, and the attribute is inert there; on a DSH older than `0.2.2-rc.2` it is equally harmless. No setting, profile value, service receipt or command changes.
+- **Checklist for the whole surface, not one item.** All 49 upgrade-guide items from `v0.2.1-rc.4` through `v0.2.2-rc.1` were read against the plugin's surfaces. Only `window-drag-regions` applies: no `pluginManager`/`BundleInfo.updatable`, context-menu, `Menu` positioning, Session projection, Schedule, Office, LLM-error or filesystem-policy code exists in this bundle.
+- **devDependencies now follow the running DSH.** `@deepseek-ai/dsh-settings` `0.1.7-alpha.2` → `0.2.2-rc.3`, `@deepseek-ai/cordis` `^4.0.4` → `^4.1.0`, `@deepseek-ai/schemastery` `^3.18.4` → `^3.19.0`. Both type checks and all 241 tests pass against the APIs the current Host actually ships, instead of against the `0.1.7` line; the declared peer ranges still admit older releases.
+- **Checked on the running Host, not assumed.** Under DSH `0.2.2-rc.3`: `POST /api/dsh-update-status.get-status` answers `200` with `currentVersion: "0.2.2-rc.3"` and no warning, the restart-status and restart-check RPCs answer with `supervisor: "launchd"` and the live session list, `dsh-update-status/client.js` is published in `__DSH_BOOT__`, and a headless Chromium render of the real GUI shows the chip reading `0.2.2-rc.3` with the green dot and the panel carrying `data-window-drag-exclude=""` with zero console errors. All six injected packages still exist at `0.2.2-rc.3`.
+- **Verification:** both type checks, 241 tests, the build, the shadowed-peer guard and `pnpm pack --dry-run`. No refreshed-page manual acceptance pass was run on macOS Desktop itself, where the window-region rule lives.
+
 ## 0.5.0 — 2026-10-28
 
 Loadability is decided by DSH alone: `dsh.engines.dsh` and the `@deepseek-ai/dsh-settings` peer both declare `>=0.1.7-alpha.2 <0.3.0`, and this release changes neither. It publishes no per-release verification. Release notes: [`docs/releases/v0.5.0.md`](docs/releases/v0.5.0.md).

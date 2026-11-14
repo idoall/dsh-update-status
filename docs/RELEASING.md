@@ -69,8 +69,22 @@ Never release an uncommitted worktree or reuse a published npm version.
 
 1. Write `docs/releases/vX.Y.Z.md` (bilingual, hand-written — see above) **and** the matching `CHANGELOG.md` entry in the same commit.
 2. Update the version matrix in `README.md` and `README.zh.md`: the npm status of every version and what each version changed. Do not reintroduce a verified-release list, a verified/unverified label, or a count of tested DSH releases — that mechanism was removed in `0.5.0`.
-3. Bump the version in `package.json`. There is no compatibility list to sync: `dsh.engines.dsh` and the peer ranges change only when the plugin genuinely needs a different DSH range, and they are not updated per DSH release.
-4. Verify:
+3. Bump the version in `package.json`. There is no compatibility list to sync: `dsh.engines.dsh` and the peer ranges change only when the plugin genuinely needs a different DSH range, and they are not updated per DSH release. Do still confirm that the declared range admits the newest published DSH build, and that this plugin does not need a code change for it — a range that merely contains the release is not the same as a plugin that still works:
+
+```sh
+# The newest build any dist-tag carries, not just `latest`.
+npm view @deepseek-ai/dsh dist-tags --json
+npm view @deepseek-ai/dsh versions --json | tail -5
+
+# Every upgrade-guide directory between the release this plugin was last
+# checked against and that newest build; read the items that touch a surface
+# the plugin actually uses (Client slots and overlays, settings forms, the
+# Connection `/api` route, the Host exports).
+ls "$(npm root -g)/@deepseek-ai/dsh/docs/upgrade-guide"
+```
+
+4. Keep the devDependencies on the DSH API line that is actually installed, so both type checks and the test suite exercise the current surfaces rather than an older one: `@deepseek-ai/dsh-settings`, `@deepseek-ai/cordis` and `@deepseek-ai/schemastery` should match the running installation's versions (within the declared peer ranges), and `pnpm-workspace.yaml`'s `minimumReleaseAgeExclude` should name the versions being installed.
+5. Verify:
 
 ```sh
 git switch main

@@ -3,8 +3,9 @@
 packages:
   - .
 
-# The harness 0.1.7-alpha.2 line ships as prereleases; keep pnpm's release-age
-# guard from refusing our pinned devDependencies.
+# The harness line ships prereleases alongside stable packages; keep pnpm's
+# release-age guard from refusing the devDependencies this plugin pins.
 minimumReleaseAgeExclude:
-  - '@deepseek-ai/dsh-settings@0.1.7-alpha.2'
-  - '@deepseek-ai/schemastery@3.18.4'
+  - '@deepseek-ai/dsh-settings@0.2.2-rc.3'
+  - '@deepseek-ai/cordis@4.1.0'
+  - '@deepseek-ai/schemastery@3.19.0'

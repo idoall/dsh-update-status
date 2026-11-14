@@ -43,11 +43,12 @@
 - **一个可升级版本一张卡片**：凡是严格新于当前运行版本的已发布版本，各占一张卡片，最新的排在最上面；每张卡片带的是**该版本自己的**只复制命令。没有任何更新版本时不显示卡片，面板直接说明当前版本最新。
 - **只有最新那张卡片被强调**：最高版本用琥珀色描边加**最新**标签突出，其余卡片保持中性。没有手动排序控件：顺序就是版本顺序，只有最上面那张被强调。
 - **只有一条发布线、零配置**：一次 registry 请求读取 npm 的全部 dist-tags，保留所有比当前运行版本更新的版本——稳定版、RC、Alpha 一视同仁。没有需要关注的通道，也没有需要做的选择。
-- **诚实的预发布比较**：运行版本与每个候选版本按 SemVer 排序，因此 `0.2.1-rc.4` 高于 `0.2.0-rc.2`，而 RC 仍然低于它自己的正式版。
+- **诚实的预发布比较**：运行版本与每个候选版本按 SemVer 排序，因此 `0.2.2-rc.3` 高于 `0.2.2-alpha.3`，而 RC 仍然低于它自己的正式版 `0.2.2`。
 - **按版本给命令，只复制不执行**：每张卡片上的命令都钉在该卡片的确切版本上，不用会移动的 dist-tag，插件也从不执行它。
 - **不再维护兼容台账**：面板不再声称某个 DeepSeek Harness 版本“与本构建一起测过”。能不能加载由 DSH 自己按声明的引擎范围与 `@deepseek-ai/dsh-settings` peer 范围判定。
 - **缓存但不轮询**：Host 挂载时检查一次，缓存可设为 30–1,440 分钟并合并并发请求；前端没有轮询，只有“检查更新”按钮绕过缓存。
 - **移动端可靠**：详情使用浏览器 modal top layer；底部 sheet 可滚动、适配 safe area，并保持在 DSH 抽屉上方。
+- **macOS 桌面版上按钮照常可用**：面板开在 `top: 12px`，正好压在负责拖动窗口的 chrome 行上。DSH `0.2.2-rc.2` 起，macOS 只排除 `data-window-drag` 行内的控件，所以面板自己声明窗口区域（`data-window-drag-exclude`），按钮点下去不会变成拖窗口。
 - **受监督的安全重启**：一次性装好后台服务后，面板就能替你重启 DSH——它会先提醒会中断哪些工作，而终端直启或桌面应用托管的 DSH 会被直接拒绝。
 
 ## 安装
@@ -55,7 +56,7 @@
 要求：
 
 - 带 Web profile 的 DeepSeek Harness
-- DeepSeek Harness `>=0.1.7-alpha.2 <0.3.0`——这是插件在 `dsh.engines.dsh` 中声明的范围，`@deepseek-ai/dsh-settings` peer 范围与之相同。超出范围的 bundle 会在 profile 加载时被 DSH 拒绝。没有“已验证发布清单”需要你对照：在范围内，插件不需要等某个版本被“批准”。
+- DeepSeek Harness `>=0.1.7-alpha.2 <0.3.0`——这是插件在 `dsh.engines.dsh` 中声明的范围，`@deepseek-ai/dsh-settings` peer 范围与之相同。超出范围的 bundle 会在 profile 加载时被 DSH 拒绝。上界是 `0.3.0` 这条线，所以所有已发布的 `0.2.x` 版本都在范围内——包括 `0.2.2` 的预发布版本，其中最新已发布的是 `0.2.2-rc.3`。没有“已验证发布清单”需要你对照：在范围内，插件不需要等某个版本被“批准”。
 - Node.js 20 或更新版本
 
 已经安装 `dsh` 命令：
@@ -94,7 +95,7 @@ dsh plugin --profile web add "link:$(pwd)"
 全局安装时，卡片上的命令可能长这样：
 
 ```sh
-npm install -g @deepseek-ai/dsh@0.2.1-rc.4
+npm install -g @deepseek-ai/dsh@0.2.2-rc.3
 ```
 
 每张卡片只显示一条与检测到的安装方式匹配、并写明该卡片确切版本号的命令，插件不会运行它。当这种安装方式给不出包管理器命令时（例如源码检出），面板只在整块面板上给一次说明，而不是给每张卡片配一个复制按钮去编造命令。
@@ -122,7 +123,7 @@ npm install -g @deepseek-ai/dsh@0.2.1-rc.4
 
 - npm 返回的每个 tag 都算，包括插件没听说过的 tag。同一个版本可能带多个 tag，卡片上只显示一个，按 `latest`、`next`、`alpha`、`beta`、`rc`、其他的顺序取。
 - 按 SemVer 从高到低排列（含预发布）：因此跑到稳定版前面的 `alpha` 会被列出，而不是被藏起来。
-- 比较是精确的：`0.2.1-rc.4` 比 `0.2.0-rc.2` 新，两者都低于 `0.2.1`。
+- 比较是精确的：`0.2.2-rc.3` 比 `0.2.2-alpha.3` 新，两者都低于 `0.2.2`。
 - 列表以当前运行版本为准：升级 DSH 后重新检查，卡片会变少；装回旧版本则会变多。
 - npm 网页只在包首页显示 `latest` 那个 tag，其他 tag 上的版本要到 Versions 页面才看得到。面板不照搬这个简化，它们都会被列出。
 - 这里不会安装任何东西，也不会自动应用任何更新。跟随某条通道——以及保存它的 `channel` 偏好——已在 `0.2.0` 移除。
@@ -171,6 +172,14 @@ dsh plugin --profile web exec dsh-update-status-service activate
 
 局域网转发必须保留 DSH 的已认证传输和 Host 授权策略。本插件不会修改转发配置或授予设置访问权；Host 拒绝访问时，应由部署维护者处理。
 
+## macOS 桌面版的窗口区域
+
+DSH macOS 桌面版靠自报 `data-window-drag` 的 chrome 行拖动窗口——会话头部、插件管理页、设置 → 账号。到 DSH `0.2.2-rc.1` 为止，桌面壳会排除页面上任何匹配的交互控件；从 `0.2.2-rc.2` 起，只排除 `data-window-drag` 行或 `data-window-drag-controls` 范围内的控件，压在拖动行上的自定义浮层必须自己声明区域。
+
+面板开在 `top: 12px`、`left: 292px`，确实压在会话头部的拖动行上，因此它在自己可滚动的盒子上带 `data-window-drag-exclude`——这正是官方对“没有嵌套拖动行的交互视口”给出的迁移方式。排除范围刚好等于面板：检查更新、发布说明、重启、缓存输入框和 × 都照常响应。全屏背景层刻意不声明区域：它只负责关闭面板，若把整屏排除，面板打开期间整个窗口就再也拖不动了。
+
+纯 Web 与 Windows 不受影响：它们从来没有那套自动排除，这个属性在那边是惰性的；在 `0.2.2-rc.2` 之前的 DSH 上同样无害。没有任何设置项、保存值或命令发生变化。
+
 ## 可加载性与更新提示
 
 本插件不为任何 DeepSeek Harness 版本背书。能不能加载由 DSH 决定，而 DSH 只看两处声明：`dsh.engines.dsh` 是 `>=0.1.7-alpha.2 <0.3.0`，`@deepseek-ai/dsh-settings` 的 peer 范围与之相同。在这个范围内，你想跑哪个 DSH 版本都行，不需要插件再发一版来“批准”它。
@@ -185,7 +194,8 @@ dsh plugin --profile web exec dsh-update-status-service activate
 
 | 插件版本 | npm 发布状态 | 该版本是什么 |
 | --- | --- | --- |
-| **`0.5.0`** | `latest` | 一个可升级版本一张卡片、各带自己的只复制命令；已验证发布机制被删除，能否加载只由 DSH 的引擎范围与 peer 范围决定 |
+| **`0.5.1`** | `latest` | macOS 桌面版按钮照常可用：DSH `0.2.2-rc.2` 起拖动排除只认标记行，面板改为自己声明窗口区域（`data-window-drag-exclude`）；devDependencies 跟进到 DSH `0.2.2-rc.3` |
+| **`0.5.0`** | 已发布 | 一个可升级版本一张卡片、各带自己的只复制命令；已验证发布机制被删除，能否加载只由 DSH 的引擎范围与 peer 范围决定 |
 | **`0.4.8`** | 已发布 | 在当时那份已验证清单中为 DSH `0.2.1-rc.4` 追加条目——那套机制已在本次发布删除；功能代码不变 |
 | **`0.4.7`** | 已发布 | 移除重复的设置菜单；安装后默认显示版本与更新提示，详情统一由侧栏版本芯片打开 |
 | **`0.4.6`** | 已发布 | 在当时那份已验证清单中为 DSH `0.2.1-rc.3` 追加条目；后台维护和启动中的终端也需重启确认，并恢复重启风暴的原因与恢复指引 |
@@ -221,6 +231,7 @@ dsh plugin --profile web exec dsh-update-status-service activate
 - 需要固定插件版本时显式指定：
 
   ```sh
+  dsh plugin --profile web add dsh-update-status@0.5.1
   dsh plugin --profile web add dsh-update-status@0.5.0
   dsh plugin --profile web add dsh-update-status@0.4.8
   dsh plugin --profile web add dsh-update-status@0.4.7
@@ -246,7 +257,7 @@ dsh plugin --profile web exec dsh-update-status-service activate
 - 有两处声明决定插件能不能加载，DSH 在 profile 加载时会检查：
   - `dsh.engines.dsh` 与 `peerDependencies['@deepseek-ai/dsh-settings']` 都声明 `>=0.1.7-alpha.2 <0.3.0`。下界特意写成这个 alpha：按 node-semver 默认的预发布规则，`>=0.1.6-0 <0.2.0` 这样的范围**并不接纳** `0.1.7-alpha.2`。上界在 `0.1.11` 从 `<0.2.0` 放宽到 `<0.3.0` 是同一件事的镜像：DSH 会在 profile 加载时拒绝不兼容的 bundle，而裸的 `<0.2.0` 恰好排除 `0.2.0` 正式版——DSH `0.2.0` 发布当天插件就会被静默丢弃。DSH 判定时使用 `includePrerelease: true`，所以 `0.2.0-rc.2` 本来就在这个范围内。这两个边界只决定能否加载，并不表示范围内的每个版本都被测过。
   - `@deepseek-ai/schemastery` 是 **peer**，不是普通依赖：DSH 0.1.7 只从运行安装解析 link 插件的 peer 依赖，否则 `link:` 安装会连 Host 半边都 import 失败。
-- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.5.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.5.0.md) · [`v0.4.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.8.md) · [`v0.4.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.7.md) · [`v0.4.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.6.md) · [`v0.4.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.5.md) · [`v0.4.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.4.md) · [`v0.4.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.3.md) · [`v0.4.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.2.md) · [`v0.4.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.1.md) · [`v0.4.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.0.md) · [`v0.3.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [`v0.3.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
+- 每个版本的中英文详细说明（改了什么、影响谁、需要做什么）手写后直接作为 GitHub Release 正文：[`v0.5.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.5.1.md) · [`v0.5.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.5.0.md) · [`v0.4.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.8.md) · [`v0.4.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.7.md) · [`v0.4.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.6.md) · [`v0.4.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.5.md) · [`v0.4.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.4.md) · [`v0.4.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.3.md) · [`v0.4.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.2.md) · [`v0.4.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.1.md) · [`v0.4.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.4.0.md) · [`v0.3.2`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.2.md) · [`v0.3.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.1.md) · [`v0.3.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.3.0.md) · [`v0.2.1`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.1.md) · [`v0.2.0`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.2.0.md) · [`v0.1.12`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.12.md) · [`v0.1.11`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.11.md) · [`v0.1.10`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.10.md) · [`v0.1.9`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.9.md) · [`v0.1.8`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.8.md) · [`v0.1.7`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.7.md) · [`v0.1.6`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.6.md) · [`v0.1.5`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.5.md) · [`v0.1.4`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.4.md) · [`v0.1.3`](https://github.com/idoall/dsh-update-status/blob/main/docs/releases/v0.1.3.md)（含从未发布的 `0.1.2`）。
 
 ## 配置
 

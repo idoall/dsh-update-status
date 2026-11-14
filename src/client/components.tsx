@@ -371,7 +371,30 @@ export function UpdatePanel({ ui }: { ui: SharedUi }): ReactNS.ReactElement | nu
       }}
     >
       <div className="dus-backdrop" onClick={() => { ui.panel.close() }} />
-      <section className="dus-panel" role="dialog" aria-modal="true" aria-label={t('panel.title')} onClick={(event) => { event.stopPropagation() }}>
+      {/*
+        `data-window-drag-exclude` is DSH's window-region declaration (upgrade
+        guide v0.2.2-rc.1 → v0.2.2-rc.2, "Explicit window regions for custom
+        Client overlays"). This panel is positioned at `top: 12px`, so on macOS
+        Desktop it sits over a `data-window-drag` chrome row: the conversation
+        header, the plugin manager and Settings → Account all mark one. Before
+        that release macOS excluded matching controls anywhere in the page, so
+        the panel's buttons kept working by accident. Now only controls inside a
+        drag row or a `data-window-drag-controls` scope are excluded, and a
+        custom overlay outside those scopes has to declare its own region —
+        without this attribute a click on Check for updates, Release notes,
+        Restart or × would drag the window instead of activating the control.
+        The exclusion belongs on the visible viewport (this scrolling section),
+        not on every focusable descendant; the full-viewport backdrop keeps no
+        region so header dragging still works everywhere the panel is not.
+      */}
+      <section
+        className="dus-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('panel.title')}
+        data-window-drag-exclude=""
+        onClick={(event) => { event.stopPropagation() }}
+      >
         <div className="dus-panel-head">
           <span className="dus-panel-title">{t('panel.title')}</span>
           <button className="dus-close" type="button" aria-label={t('panel.close')} onClick={() => { ui.panel.close() }}>×</button>

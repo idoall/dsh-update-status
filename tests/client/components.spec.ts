@@ -6,9 +6,12 @@
  * newer". That decision lives in `releaseViewOf` — a pure function — so it can be
  * driven here without a DOM, exactly like `visualState`.
  */
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { releaseViewOf } from '../../src/client/components.tsx'
 import type { ReleaseCandidate, UpdateStatus } from '../../src/shared/types.ts'
+
+const COMPONENTS_SOURCE = readFileSync(new URL('../../src/client/components.tsx', import.meta.url), 'utf8')
 
 function candidate(overrides: Partial<ReleaseCandidate> = {}): ReleaseCandidate {
   return {
@@ -90,5 +93,39 @@ describe('panel card area', () => {
     // npm-global with a null command is a Host defect, not a source checkout; the
     // panel stays silent rather than telling the operator to confirm their install.
     expect(releaseViewOf(status({ releases: [candidate({ command: null })] }), 'zh').guidance).toBeNull()
+  })
+})
+
+/**
+ * DSH 0.2.2-rc.2 — "Explicit window regions for custom Client overlays".
+ *
+ * macOS Desktop stopped excluding matching controls anywhere in the document:
+ * only controls inside a `data-window-drag` row or a `data-window-drag-controls`
+ * scope are excluded now. This panel opens at `top: 12px`, i.e. on top of the
+ * conversation header's drag row, so its own visible box has to declare the
+ * exclusion or its buttons would drag the window. The assertions are structural
+ * because the source is the only place the attribute can be read without a DOM:
+ * the panel section must carry it, and the full-viewport backdrop must not.
+ */
+describe('overlay window region', () => {
+  /** The `<section className="dus-panel" …>` opening tag, up to its closing `>`. */
+  function panelTag(): string {
+    const start = COMPONENTS_SOURCE.indexOf('className="dus-panel"')
+    expect(start, 'expected a .dus-panel section in components.tsx').toBeGreaterThan(-1)
+    const end = COMPONENTS_SOURCE.indexOf('>', start)
+    return COMPONENTS_SOURCE.slice(start, end)
+  }
+
+  it('declares the panel as a drag-excluded window region', () => {
+    expect(panelTag()).toContain('data-window-drag-exclude')
+  })
+
+  it('keeps the exclusion on the visible panel, never on the backdrop', () => {
+    // Excluding the backdrop would cover the whole frame and stop header dragging
+    // everywhere while the panel is open.
+    const start = COMPONENTS_SOURCE.indexOf('className="dus-backdrop"')
+    expect(start, 'expected a .dus-backdrop element in components.tsx').toBeGreaterThan(-1)
+    const backdropTag = COMPONENTS_SOURCE.slice(start, COMPONENTS_SOURCE.indexOf('/>', start))
+    expect(backdropTag).not.toContain('data-window-drag')
   })
 })
