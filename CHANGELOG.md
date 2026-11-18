@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## 0.5.2 — 2026-11-18
+
+Checked against DeepSeek Harness `0.2.2-rc.4` (npm's `next` tag; `latest` is still `0.2.2-rc.1`). **No plugin code changed** — this release brings the shipped documentation and the development dependency line up to that build. Engine and peer ranges are unchanged: `>=0.1.7-alpha.2 <0.3.0` already admits `0.2.2-rc.4`. Release notes: [`docs/releases/v0.5.2.md`](docs/releases/v0.5.2.md).
+
+- **Nothing to fix in the plugin.** `v0.2.2-rc.3` is the only new upgrade-guide directory between `0.2.2-rc.3` and `0.2.2-rc.4`, and its single item (`deepseek-refusal-code`: the DeepSeek refusal finish code becomes `CONTENT_REFUSED` instead of `MALFORMED_RESPONSE`) touches LLM error classification, which this bundle does not implement. The `0.2.2-rc.1` line's `window-drag-regions` item, fixed in `0.5.1`, is unchanged and still applied.
+- **The injected client surface did not move.** Diffing the `0.2.2-rc.3` and `0.2.2-rc.4` npm tarballs of `dsh-settings`, `dsh-api-remotes`, `dsh-client-connection`, `dsh-client-ui-layout` and `dsh-client-ui-sidebar` reports no declaration or export change; the only differing file is `dsh-client-ui-sidebar/lib/client.js`, and after normalising its embedded build string (`0.2.2-rc.3-6b729fe` → `0.2.2-rc.4-70005a5`) the two files are byte-identical.
+- **Checked on the running Host.** Under DSH `0.2.2-rc.4`: `POST /api/dsh-update-status.get-status` answers `200` with `currentVersion: "0.2.2-rc.4"` and `warning: null`; `restart-status` answers with `supervisor: "launchd"` and the live instance id; `dsh-update-status/client.js` is published in `__DSH_BOOT__`; and a headless Chromium render of the real GUI shows the chip reading `0.2.2-rc.4` with its green dot and the panel opening with `data-window-drag-exclude=""`, zero console errors. The Host log contains no compatibility refusal or error for this plugin.
+- **Why publish at all.** Both READMEs named `0.2.2-rc.3` as the newest published DSH build, and the shipped package's `devDependencies` still pinned `@deepseek-ai/dsh-settings@0.2.2-rc.3`, so the type checks and test suite were exercising the previous release's declarations. Both statements are now current in the tarball npm serves.
+- **devDependencies:** `@deepseek-ai/dsh-settings` `0.2.2-rc.3` → `0.2.2-rc.4`; `@deepseek-ai/cordis` `^4.1.0` and `@deepseek-ai/schemastery` `^3.19.0` unchanged (already the versions the running Host ships).
+- **Verification:** both type checks, all 241 tests, the build, the shadowed-peer guard and `pnpm pack --dry-run`, plus the live Host and rendered-page checks above. No manual macOS Desktop acceptance pass was run for this build, and none was needed: nothing in the client half changed.
+
 ## 0.5.1 — 2026-11-14
 
 Checked against DeepSeek Harness `0.2.2-rc.3`, the newest DSH published (carried by npm's `next` tag; `latest` is `0.2.2-rc.1`). Engine and peer ranges are unchanged: `>=0.1.7-alpha.2 <0.3.0` already admits `0.2.2-rc.3`, so this release is not a permission slip — it fixes one macOS Desktop behaviour the `0.2.2` line changed. Release notes: [`docs/releases/v0.5.1.md`](docs/releases/v0.5.1.md).
