@@ -67,12 +67,19 @@ describe('user-service plan rendering', () => {
     expect(plan.paths.definitionFile).toBe(join(HOME, '.config', 'systemd', 'user', 'dsh-update-status-web.service'))
     expect(plan.definition).toContain('Restart=on-failure')
     expect(plan.definition).toContain('RestartSec=3')
-    expect(plan.definition).toContain('WorkingDirectory="/Users/me/Work Space"')
+    // A path setting is unquoted: systemd keeps the quote marks and rejects the
+    // value as "path is not absolute". A workspace with a space stays one value.
+    expect(plan.definition).toContain('WorkingDirectory=/Users/me/Work Space')
+    expect(plan.definition).not.toContain('WorkingDirectory="')
     expect(plan.definition).toContain('DSH_WEB_SUPERVISOR=dsh-update-status')
     expect(plan.definition).toContain('Environment="PATH=/opt/node/bin:/custom/bin:/usr/bin:/bin"')
     // A literal percent is doubled so systemd cannot treat a PATH segment as a specifier.
     expect(planFor({ ...spec('linux'), servicePath: '/opt/%h/bin:/usr/bin' }).definition)
       .toContain('Environment="PATH=/opt/%%h/bin:/usr/bin"')
+    // A workspace path keeps that same `%%` doubling, since the key still goes
+    // through specifier expansion.
+    expect(planFor({ ...spec('linux'), workspace: '/Users/me/100% done' }).definition)
+      .toContain('WorkingDirectory=/Users/me/100%% done')
     expect(plan.startCommand).toEqual(['/usr/bin/systemctl', '--user', 'enable', '--now', 'dsh-update-status-web.service'])
     // A tripped StartLimit is what stopped the storm, so clearing it is part of
     // getting the unit back — and the panel shows exactly this line.
