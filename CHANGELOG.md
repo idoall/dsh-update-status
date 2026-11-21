@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## 0.5.3 — 2026-11-21
+
+Checked against DeepSeek Harness `0.2.2-rc.5`, which npm now carries on **both** `next` and `latest` — the `0.2.2` line reached the stable tag. **No plugin code changed.** Engine and peer ranges are unchanged: `>=0.1.7-alpha.2 <0.3.0` already admits it. Release notes: [`docs/releases/v0.5.3.md`](docs/releases/v0.5.3.md).
+
+- **The one new upgrade-guide item does not apply.** `v0.2.2-rc.4` is the only new directory between `0.2.2-rc.4` and `0.2.2-rc.5`, and its single item (`web-search-deepseek-model-default`) is about which search provider DSH picks for a DeepSeek model route. This bundle registers no search or fetch provider and reads no `web.*` config.
+- **The injected client surface did not move.** Diffing the `0.2.2-rc.4` and `0.2.2-rc.5` npm tarballs of all seven packages this bundle injects (`dsh-settings`, `dsh-api-remotes`, `dsh-client-connection`, `dsh-client-ui-layout`, `dsh-client-ui-sidebar`, `dsh-client-ui-settings`, `dsh-client-ui-settings-general`) reports no declaration change. Three `lib/client.js` files differ and every difference is build-embedded: the sidebar carries a new build string, `dsh-client-ui-settings-general` renders the new version number in its About row, and `dsh-api-remotes` embeds shifted `sourceLocation` line numbers from `packages/web/web/src/index.ts`.
+- **The install requirement stops naming a newest build.** Both READMEs said the `0.2.2` prereleases' "newest published build" was `0.2.2-rc.4`, which DSH `0.2.2-rc.5` made false within three days, and which would have needed editing on every future DSH release. The sentence now states the durable fact instead — the whole published `0.2.x` line, prereleases included, is inside the declared range, whichever tag carries it — and explains why the bound is written against the release line rather than a build.
+- **Checked on the running Host.** Under DSH `0.2.2-rc.5`: `POST /api/dsh-update-status.get-status` answers `200` with `currentVersion: "0.2.2-rc.5"` and `warning: null`; `restart-status` answers with `supervisor: "launchd"`; `dsh-update-status/client.js` is published in `__DSH_BOOT__`; a headless Chromium render of the real GUI shows the chip reading `0.2.2-rc.5` with its green dot and the panel opening with `data-window-drag-exclude=""`, zero console errors; and the Host log holds no compatibility refusal or error for this plugin.
+- **devDependencies:** `@deepseek-ai/dsh-settings` `0.2.2-rc.4` → `0.2.2-rc.5`; `@deepseek-ai/cordis` `^4.1.0` and `@deepseek-ai/schemastery` `^3.19.0` unchanged (already what the running Host ships).
+- **Verification:** both type checks, all 241 tests, the build, the shadowed-peer guard and `pnpm pack --dry-run`, plus the live Host and rendered-page checks above. No manual acceptance pass was run for this build, and none was needed: the client half did not change.
+
 ## 0.5.2 — 2026-11-18
 
 Checked against DeepSeek Harness `0.2.2-rc.4` (npm's `next` tag; `latest` is still `0.2.2-rc.1`). **No plugin code changed** — this release brings the shipped documentation and the development dependency line up to that build. Engine and peer ranges are unchanged: `>=0.1.7-alpha.2 <0.3.0` already admits `0.2.2-rc.4`. Release notes: [`docs/releases/v0.5.2.md`](docs/releases/v0.5.2.md).
