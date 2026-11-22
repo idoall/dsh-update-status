@@ -43,6 +43,17 @@ function systemd(value: string): string {
   return value.replace(/%/g, '%%').replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
+/**
+ * `WorkingDirectory=` is a path setting, not a quoted word: systemd reads the
+ * rest of the line verbatim, so a quoted value keeps its quote marks and is
+ * rejected as "path is not absolute" (observed on systemd 259). Spaces stay
+ * part of the one value for the same reason; only a literal `%` must still be
+ * doubled so it is not expanded as a specifier.
+ */
+function systemdPath(value: string): string {
+  return value.replace(/%/g, '%%')
+}
+
 function powerShell(value: string): string {
   return value.replace(/'/g, "''")
 }
@@ -324,7 +335,7 @@ StartLimitBurst=${String(SYSTEMD_START_LIMIT_BURST)}
 
 [Service]
 Type=simple
-WorkingDirectory="${systemd(spec.workspace)}"
+WorkingDirectory=${systemdPath(spec.workspace)}
 ${env}
 ExecStart=${command}
 Restart=on-failure
